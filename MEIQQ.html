@@ -1,0 +1,620 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="MEIQQ — an offline business simulation prototype. Explore services, capacity, cash and operational tradeoffs."><title>MEIQQ — Business Simulator</title><style>:root{color-scheme:light;--paper:#f3f5ef;--surface:#fff;--raised:#f1f5ed;--ink:#243d35;--muted:#64776b;--line:#d9e2d4;--nav:#182e27;--nav-text:#ccdbce;--accent:#296e55;--accent-ink:#fff;--selected:#e0ecdc;--warn:#9d5d21;--warn-bg:#fff3df;--warn-line:#dfb876;--negative:#b83f37;--positive:#26774b;--danger-bg:#fff0ed;--shadow:0 3px 16px #233d2f06;--green:var(--accent);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:var(--ink)}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}button,input,select{font:inherit}button,select,summary{cursor:pointer}button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink);font-weight:550;font-size:12px;line-height:1.4}button:hover{background:var(--raised);border-color:var(--accent)}button:disabled{opacity:.45;cursor:not-allowed}.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}button.primary:hover{background:var(--accent);filter:brightness(1.12)}.soft{background:var(--selected);color:var(--accent)}.ghost{background:transparent;border-color:transparent}.small{padding:6px 9px;font-size:11px}.full{width:100%;margin-top:9px}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.icon{width:17px;height:17px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.app{display:grid;grid-template-columns:180px minmax(0,1fr);min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:180px;padding:25px 14px;background:var(--nav);color:var(--nav-text);display:flex;flex-direction:column;z-index:5}.brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:650;letter-spacing:.4px;color:#f1f6e6}.brandmark{width:33px;height:33px;display:grid;place-items:center;border-radius:8px;background:#d7e9aa;color:#1d3526;font-size:21px}.subbrand{font-size:8px;letter-spacing:1.4px;margin:11px 0 34px 1px;color:var(--nav-text)}nav{display:flex;flex-direction:column;gap:5px}.navbutton{width:100%;justify-content:flex-start;background:transparent;border:0;color:var(--nav-text);padding:12px 10px;font-size:12px}.navbutton:hover,.navbutton.active{background:#ffffff12;color:#fff}.navbutton.active{box-shadow:inset 3px 0 #cfe79e}.navlabel{font-size:9px;letter-spacing:1.7px;margin:25px 10px 8px;color:#a6baa8}.sidebottom{margin-top:auto;padding-top:24px}.sideinfo{border:1px solid #ffffff25;border-radius:7px;padding:12px;font-size:11px;line-height:1.6}.sideinfo p{font-size:11px;color:var(--nav-text)}.sideinfo button{padding:5px;font-size:10px;background:transparent;color:var(--nav-text);border-color:#ffffff30}.shell{grid-column:2;min-width:0}.topbar{height:70px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:15px}.crumb{display:flex;align-items:center;gap:12px;min-width:0}.crumb b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}.tag{padding:5px 7px;background:var(--raised);color:var(--muted);border:1px solid var(--line);border-radius:4px;font-size:9px;font-weight:550;white-space:nowrap}.topactions{display:flex;align-items:center;gap:8px}.theme-picker{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px}.theme-picker select{padding:7px;border:1px solid var(--line);border-radius:5px;color:var(--ink);background:var(--surface)}.workspace{padding:26px 24px 110px;max-width:1700px;margin:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:23px}.heading p{margin-bottom:0;font-size:12px}h1{font-size:29px;line-height:1.2;font-weight:560;letter-spacing:-.8px;margin:0}h2{font-size:17px;font-weight:600;line-height:1.4;margin:0}h3{font-size:13px;font-weight:650;margin:0}p{line-height:1.65;margin:10px 0;font-size:13px}.muted,.helper{color:var(--muted)}.helper{font-size:11px;line-height:1.65}.eyebrow{font-size:9px;letter-spacing:1.4px;font-weight:650;color:var(--muted);margin-bottom:9px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);min-width:0;overflow:hidden}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}.panelhead p{margin:4px 0 0}.padded{padding:22px}.banner{padding:14px 16px;border:1px solid var(--line);border-radius:7px;background:var(--selected);font-size:12px;line-height:1.7;margin-bottom:18px}.banner button{margin-left:6px}.banner.compact{font-size:11px;padding:10px 12px}.banner.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--ink)}.banner.danger{background:var(--danger-bg);border-color:var(--negative)}.badge{display:inline-flex;padding:5px 8px;border-radius:5px;background:var(--selected);color:var(--accent);font-size:10px;font-weight:550}.badge.warn{background:var(--warn-bg);color:var(--warn)}.positive{color:var(--positive)}.negative,.error-text{color:var(--negative)}.divider{height:1px;background:var(--line);margin:19px 0}.minirow{display:flex;justify-content:space-between;align-items:baseline;gap:15px;font-size:12px;padding:10px 0;border-bottom:1px solid var(--line)}.minirow span{color:var(--muted)}.minirow b{white-space:nowrap;font-variant-numeric:tabular-nums}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:28px 15px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}.setup-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}.setup-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:16px}.setup-steps button{padding:11px 6px;font-size:11px;background:transparent;border:1px solid var(--line)}.setup-steps button span{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:var(--raised);font-size:10px;flex-shrink:0}.setup-steps button.active{background:var(--selected);border-color:var(--accent);color:var(--accent)}.setup-steps button.active span{background:var(--accent);color:var(--accent-ink)}.setup-body{padding:24px}.section-heading{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:18px}.section-heading p{color:var(--muted);font-size:12px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:15px 18px;margin-top:20px}.input-field{min-width:0;display:block}.input-field label,.input-field>label{display:block;font-size:12px;font-weight:550;margin-bottom:7px}.input-field input,.input-field select,.search-label input,.search-label select{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);padding:11px;font-size:13px;height:42px}.input-wrap{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}.input-wrap input{border:0;border-radius:0;flex:1;width:50px}.input-wrap:focus-within{outline:2px solid var(--accent);outline-offset:1px}.input-wrap input:focus-visible{outline:none}.input-wrap>span{font-size:10px;color:var(--muted);padding:0 9px;white-space:nowrap;flex-shrink:0}.input-field>small{display:block;font-size:10px;line-height:1.6;color:var(--muted);margin-top:5px;min-height:16px}.field-error{display:block;color:var(--negative);font-size:10px;margin-top:3px}.input-wrap:has(input:invalid){border-color:var(--negative)}.mix-status{font-size:11px;font-weight:550;margin:10px 0}.service-editor{border:1px solid var(--line);border-radius:7px;margin-top:12px;overflow:hidden;background:var(--surface)}.service-editor summary{padding:16px 14px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;list-style:none}.service-editor summary::-webkit-details-marker{display:none}.service-editor summary small{margin-left:auto;font-size:10px;color:var(--muted);font-weight:500}.service-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.service-editor[open] summary{background:var(--raised);border-bottom:1px solid var(--line)}.service-fields{padding:0 17px 17px}.service-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:15px}.step-footer{display:flex;justify-content:space-between;margin-top:25px;padding-top:17px;border-top:1px solid var(--line)}.setup-summary{position:sticky;top:20px}.summary-card{padding:20px}.summary-card h2{font-size:18px}.summary-numbers{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:17px 0}.summary-numbers strong{font-size:24px;letter-spacing:-.5px;font-weight:550;display:block}.summary-numbers small{font-size:10px;display:block;color:var(--muted);line-height:1.5;margin-top:5px}.capacity-row{padding:14px 0}.capacity-row>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:11px}.capacity-row span{font-size:10px;color:var(--muted)}.capacity-row small{font-size:10px;color:var(--muted);display:block;margin-top:6px}.track{height:5px;border-radius:5px;background:var(--raised);overflow:hidden;margin-top:8px}.fill{height:100%;background:var(--accent);border-radius:5px}.fill.warn{background:var(--warn)}.save-note{font-size:10px;color:var(--muted);text-align:center;margin-top:13px}.checkrow{display:flex;align-items:flex-start;gap:10px;margin:14px 0;font-size:12px;cursor:pointer}.checkrow input{accent-color:var(--accent);width:17px;height:17px;margin:0;flex-shrink:0}.checkrow small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.checkrow b{font-weight:500}.advanced{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}.advanced summary{font-size:12px;font-weight:600}.uncertainty-grid{display:grid;grid-template-columns:1fr 1fr}.welcome-run{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:18px 22px;background:var(--selected);border:1px solid var(--line);border-radius:8px;margin-bottom:18px}.welcome-run p{font-size:12px;margin-bottom:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.metric{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:17px}.metric.accent{background:var(--selected)}.metric label{font-size:11px;color:var(--muted)}.metric strong{display:block;font-size:27px;font-weight:550;letter-spacing:-.5px;margin:10px 0 7px;font-variant-numeric:tabular-nums}.metric small{font-size:10px;display:block;color:var(--muted);line-height:1.5}.workgrid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.flow-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:14px;background:var(--raised);border-bottom:1px solid var(--line)}.flow-step{font-size:10px;justify-content:flex-start;padding:7px 5px;background:var(--surface);border-radius:4px}.flow-step span{color:var(--accent);font-size:11px;font-weight:700}.flow-step.selected{border-color:var(--accent);background:var(--selected)}.work-lane{padding:17px;border-bottom:1px solid var(--line)}.work-lane:last-child{border-bottom:0}.lane-heading{display:flex;align-items:center;gap:9px;margin-bottom:12px}.lane-heading .icon{color:var(--muted)}.lane-heading div{display:flex;align-items:baseline;gap:12px}.lane-heading small{font-size:10px;color:var(--muted)}.stage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stage-grid.single{grid-template-columns:1fr}.stage-card{border:1px solid var(--line);border-radius:6px;background:var(--raised);padding:9px;min-width:0}.stage-card.bottleneck{border-color:var(--warn-line);background:var(--warn-bg)}.stage-card.selected{outline:2px solid var(--accent);outline-offset:1px}.stage-title{border:0;padding:0;background:transparent;justify-content:space-between;font-size:10px;width:100%;margin-bottom:8px}.stage-title>span{display:flex;align-items:center;gap:5px}.stage-title i{font-style:normal;color:var(--muted);font-size:10px}.stage-title>b{background:var(--surface);border-radius:4px;min-width:18px;padding:3px}.projectchip{display:flex;width:100%;justify-content:space-between;text-align:left;gap:6px;padding:9px 7px;font-size:11px;border:1px solid var(--line);border-left:3px solid var(--svc);border-radius:5px;background:var(--surface);margin-top:7px;min-width:0}.projectchip>span:first-child{min-width:0;flex:1}.projectchip b{font-size:11px;font-weight:550;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.projectchip small{display:block;font-size:9px;color:var(--muted);margin-top:4px;line-height:1.4}.project-status{font-size:9px;color:var(--muted);white-space:nowrap;align-self:flex-start}.projectchip.selected{background:var(--selected);outline:1px solid var(--accent)}.stage-grid.single .stage-card{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.stage-grid.single .stage-title{grid-column:1/-1}.stage-grid.single .emptyqueue{grid-column:1/-1}.emptyqueue{font-size:10px;color:var(--muted);padding:13px 0;margin:0}.mapfooter{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted);padding:12px 16px;border-top:1px solid var(--line)}.inspector{position:sticky;top:18px}.inspector .panelhead h2{font-size:16px}.inspectbody{padding:19px}.inspectbody>p{font-size:12px}.hint-number{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--selected);color:var(--accent);font-size:12px;margin-bottom:9px}.hint-number:not(:first-child){margin-top:20px}.inspectbody p{font-size:12px}.next-step{background:var(--selected);padding:14px;border-radius:6px;margin:15px 0}.next-step>b{font-size:11px}.next-step p{font-size:11px;margin:7px 0 0}.kvs{display:grid;grid-template-columns:1fr 1fr;gap:18px 10px;margin:20px 0}.kvs label{display:block;font-size:10px;color:var(--muted);margin-bottom:6px}.kvs strong{font-size:16px;font-weight:550}.timeline{border-left:1px solid var(--line);margin:17px 0 0 4px;padding-left:14px;max-height:360px;overflow:auto}.event{position:relative;padding-bottom:17px;font-size:11px;line-height:1.5}.event small{display:block;font-size:9px;color:var(--muted);margin-bottom:3px}.event:before{content:'';position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent);left:-17px;top:4px}.insight-card{padding:20px;margin-top:18px}.insight-card p{font-size:12px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}.chart{width:100%;height:190px;display:block;margin-top:15px}.axislabel{font-size:10px;fill:var(--muted)}.section-title{margin:25px 0 15px}.monthgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}.monthgrid p{font-size:12px}.project-tools{display:flex;gap:16px;margin-bottom:18px}.search-label{display:block;min-width:0;font-size:11px;color:var(--muted)}.search-label:first-child{flex:1}.search-label input,.search-label select{display:block;margin-top:7px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:10px;font-weight:550;color:var(--muted);background:var(--raised)}td small{display:block;font-size:9px;color:var(--muted);margin-top:5px}tr:last-child td{border-bottom:0}.table-link{border:0;background:transparent;color:var(--accent);padding:0;font-size:12px}.table-link:hover{background:transparent;text-decoration:underline}.clock{position:fixed;left:180px;right:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:12px;height:78px;padding:12px 24px;background:var(--surface);border-top:1px solid var(--line)}.clockgroup{display:flex;align-items:center;gap:8px}.clockday{min-width:85px;margin-right:7px}.clockday b{display:block;font-size:13px}.clockday span{color:var(--muted);font-weight:400}.clockday small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.clock-select{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:7px}.clock-select select{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:8px;font-size:11px}.modalback{position:fixed;inset:0;background:#001b1b88;z-index:20;display:grid;place-items:center;padding:20px;backdrop-filter:blur(3px)}.modal{width:570px;max-width:100%;max-height:88vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px;box-shadow:0 18px 90px #0004}.modal h2{font-size:23px;margin-bottom:12px}.modal>p{font-size:12px;color:var(--muted)}.modal .actions{justify-content:flex-end;margin-top:23px}.modal .input-field{font-size:12px;margin-top:18px}.modal .input-field input{margin-top:8px}.choice-explain{border-top:1px solid var(--line);padding:15px 0 0;margin-top:15px;font-size:12px}.choice-explain p{font-size:11px;color:var(--muted)}.change-list{font-size:12px;line-height:1.8;padding-left:18px;max-height:160px;overflow:auto}.modal-error{color:var(--negative);font-size:12px;line-height:1.6;margin-top:15px}.modal-error:empty{display:none}.toast{position:fixed;bottom:94px;left:50%;transform:translateX(-50%);max-width:min(640px,85vw);padding:15px 20px;border:1px solid var(--accent);border-radius:8px;background:var(--surface);color:var(--ink);box-shadow:0 5px 25px #0002;z-index:30;font-size:12px;line-height:1.6}.two-col ol{padding-left:19px;font-size:13px;line-height:1.9}.two-col h2:not(:first-child){margin-top:25px}
+@media(min-width:1600px){.setup-layout{grid-template-columns:minmax(0,1fr) 350px}.workgrid{grid-template-columns:minmax(0,1fr) 350px}.flow-strip{grid-template-columns:repeat(8,1fr)}}
+@media(max-width:1200px){.workspace{padding:22px 18px 110px}.setup-layout,.workgrid{grid-template-columns:minmax(0,1fr) 270px;gap:14px}.setup-body{padding:18px}.formgrid{gap:13px}.input-wrap>span{font-size:9px;padding:0 6px}.stage-grid{grid-template-columns:1fr}.stage-card:not(:only-child){display:grid;grid-template-columns:1fr 1fr;gap:0 8px}.stage-title,.emptyqueue{grid-column:1/-1}.theme-picker>span{display:none}.metric strong{font-size:23px}.topbar .tag{display:none}.clock{padding:12px 18px}.clock-select>span{display:none}}
+@media(max-width:980px){.sidebar{width:62px;padding:20px 8px}.brand>span,.subbrand,.navbutton span,.navlabel,.sideinfo{display:none}.brandmark{width:40px}.sidebar nav{margin-top:25px}.navbutton{justify-content:center;padding:13px 0}.app{grid-template-columns:62px minmax(0,1fr)}.clock{left:62px}.setup-steps{gap:4px}.setup-steps button{font-size:10px;gap:4px}.setup-steps button span{width:17px;height:17px;font-size:9px}.topbar{padding:0 18px}.heading>button{white-space:nowrap}.workgrid,.setup-layout{grid-template-columns:minmax(0,1fr) 250px}.summary-card{padding:16px}.input-wrap>span{max-width:70px;white-space:normal;line-height:1.2}.service-editor summary small{display:none}}
+@media(max-width:780px){.setup-layout,.workgrid,.two-col{grid-template-columns:1fr}.setup-summary,.inspector{position:static}.setup-summary{order:-1}.summary-card{padding:16px}.summary-card>.capacity-row,.summary-card>.minirow,.summary-card>.helper,.summary-card>.divider,.summary-card>.save-note{display:none}.summary-numbers{padding:10px 0}.summary-numbers strong{font-size:20px}.summary-card .full{margin-top:7px}.setup-summary .banner{margin-top:10px;margin-bottom:5px}.metrics{grid-template-columns:1fr 1fr}.heading{align-items:flex-start;flex-wrap:wrap;gap:12px}.heading h1{font-size:25px}.topactions{gap:5px}.topactions>button{font-size:10px;padding:7px}.crumb b{max-width:140px}.flow-strip{grid-template-columns:repeat(4,1fr)}.stage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.stage-card:not(:only-child){display:block}.clock{height:113px;flex-wrap:wrap;gap:9px;padding:12px}.workspace{padding-bottom:145px}.clockgroup{gap:6px}.clockgroup button{font-size:11px;padding:8px}.toast{bottom:128px}.welcome-run{flex-wrap:wrap}.topbar{gap:7px}.crumb b{font-size:11px}.theme-picker select{max-width:80px;font-size:10px;padding:6px}}
+@media(max-width:540px){.workspace{padding-left:12px;padding-right:12px}.topbar{padding:10px 12px;height:auto;min-height:76px;flex-wrap:wrap}.topactions{width:100%;justify-content:space-between}.formgrid{grid-template-columns:1fr}.setup-body{padding:15px}.setup-steps button{flex-direction:column;font-size:10px}.stage-grid{grid-template-columns:1fr}.stage-card:not(:only-child){display:grid}.flow-strip{grid-template-columns:1fr 1fr}.lane-heading div{display:block}.lane-heading small{display:block;margin-top:3px}.metric{padding:13px}.metric strong{font-size:21px}.clockday{min-width:62px;margin:0}.clockgroup{gap:5px}.clock button .icon{display:none}.clock-select select{padding:6px;font-size:10px}.project-tools{flex-direction:column;gap:10px}.project-status{font-size:8px}.modal{padding:20px}.modal .actions{flex-direction:column}.modal .actions button{width:100%}.uncertainty-grid{grid-template-columns:1fr}.mapfooter{gap:10px;align-items:flex-start}.mapfooter button{white-space:nowrap}.section-heading{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important}}
+@media(max-width:540px){.clock{height:158px}.clockgroup:first-child{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:1 1 100%;gap:6px}.clockgroup:first-child>.clock-select{justify-content:center}.clockgroup:first-child>[data-action="finish"]{grid-column:span 2}.workspace{padding-bottom:190px}.toast{bottom:174px}}
+
+.save-status{padding:8px 24px;font-size:11px;color:var(--muted);background:var(--surface);border-bottom:1px solid var(--line)}.save-status.negative{color:var(--negative)}.archive-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.archive-row p{margin-bottom:0}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark;--paper:#0d151d;--surface:#192530;--raised:#233440;--ink:#e3edf2;--muted:#a4b9c5;--line:#3b4d5b;--nav:#0b131a;--nav-text:#b9cbd6;--accent:#83dbc3;--accent-ink:#09271f;--selected:#203e36;--warn:#f2bb75;--warn-bg:#352b20;--warn-line:#9d7343;--negative:#ff9c92;--positive:#83e3ad;--danger-bg:#3e2225;--shadow:none}
+:root[data-theme="terminal"]{color-scheme:dark;--paper:#000;--surface:#0b0b0b;--raised:#191919;--ink:#ffd07a;--muted:#bdbdbd;--line:#484848;--nav:#060606;--nav-text:#d2bd98;--accent:#ffb000;--accent-ink:#000;--selected:#2e230b;--warn:#ffd065;--warn-bg:#2f1f00;--warn-line:#a7761e;--negative:#ff8686;--positive:#6cea98;--danger-bg:#341d1d;--shadow:none;font-family:"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;font-variant-numeric:tabular-nums}
+:root[data-theme="terminal"] :is(button,input,select,.panel,.metric,.banner,.stage-card,.service-editor,.input-wrap,.brandmark,.badge,.tag,.modal,.toast){border-radius:0}
+:root[data-theme="terminal"] :is(h1,.eyebrow,.navlabel,.panelhead h2){text-transform:uppercase;letter-spacing:.5px}
+:root[data-theme="terminal"] h1{font-size:25px}
+:root[data-theme="terminal"] :is(.metric strong,.summary-numbers strong,.kvs strong){color:#f3f3f3;letter-spacing:0}
+:root[data-theme="terminal"] .metric.negative strong{color:var(--negative)}
+:root[data-theme="terminal"] .projectchip b{color:#79d5ff}
+:root[data-theme="terminal"] .panelhead{border-top:2px solid var(--accent)}
+:root[data-theme="terminal"] .brandmark{background:var(--accent);color:#000}
+:root[data-theme="terminal"] .navbutton.active{color:var(--accent);box-shadow:inset 3px 0 var(--accent);background:var(--selected)}
+:root[data-theme="terminal"] .chart polyline{stroke:#6bcaff}
+
+</style></head><body><div id="root"></div><div id="modal"></div><div id="toast" role="status" aria-live="polite"></div><script>/* Saved-run validation. No imported data reaches the UI before this boundary. */
+(function(root) {
+  'use strict';
+  function restore(input, q) {
+    if (!input || ![1, 2, 3].includes(input.version)) throw Error('Unsupported saved-run version.');
+    const s = q.clone(input), legacy = s.version < 3;
+    s.config = q.normalize(s.config);
+    q.validateConfig(s.config);
+    const finite = (v, lo = 0, hi = 1e12) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+    const day = (v, max = s.day) => Number.isInteger(v) && v >= 0 && v <= max;
+    const cents = v => Math.round(v * 100);
+    const cash = v => finite(v, -1e12) && Math.abs(v - q.round(v)) < 1e-7;
+    const same = (a, b, label) => { if (cents(a) !== cents(b)) throw Error(label + ' does not reconcile.'); };
+    if (!day(s.day, s.config.months * 30)) throw Error('Saved run has an invalid day.');
+    for (const key of ['cash','revenue','expenses','ownerHours','designHours','funding','nextId','lost']) {
+      if (!finite(s[key])) throw Error('Saved run has an invalid ' + key + '.');
+    }
+    for (const key of ['cash','revenue','expenses','funding']) if (!cash(s[key])) throw Error('Saved money must use cents.');
+    if (!Number.isInteger(s.nextId) || s.nextId < 1) throw Error('Saved project counter is invalid.');
+    for (const key of ['projects','history','ledger','events','repeatQueue']) {
+      if (!Array.isArray(s[key]) || s[key].length > 300000) throw Error('Saved run has an invalid ' + key + '.');
+    }
+    const projects = new Map();
+    for (const p of s.projects) {
+      if (!p || typeof p.id !== 'string' || !/^[a-zA-Z0-9_-]{1,60}$/.test(p.id) || projects.has(p.id) ||
+          typeof p.client !== 'string' || p.client.length > 200 || ![...q.STAGES,'lost'].includes(p.stage)) throw Error('Saved project is invalid.');
+      projects.set(p.id, p);
+      if (/^P[0-9]+$/.test(p.id) && Number(p.id.slice(1)) >= s.nextId) throw Error('Saved project counter would reuse an existing ID.');
+      for (const key of ['delivered','priority','renewal','revised']) if (typeof p[key] !== 'boolean') throw Error('Saved project status is invalid.');
+      if (p.approvalConfirmed !== undefined && typeof p.approvalConfirmed !== 'boolean') throw Error('Saved approval is invalid.');
+      q.validateConfig({...s.config,services:[{...p.service,weight:1}]});
+      if (p.serviceId !== p.service.id) throw Error('Saved project service is inconsistent.');
+      for (const key of ['created','entered','due','price','paid','cost','ownerHours','designHours']) if (!finite(p[key])) throw Error('Invalid project ' + key + '.');
+      if (!day(p.created) || !day(p.entered) || p.entered < p.created || !Number.isInteger(p.due) || p.due < p.created) throw Error('Project dates are invalid.');
+      for (const key of ['paid','cost']) if (!cash(p[key])) throw Error('Project money must use cents.');
+      if (!p.work || !['quote','design','review','delivery'].every(k => finite(p.work[k])) || !Array.isArray(p.log)) throw Error('Project remaining work or history is invalid.');
+      let previous = p.created;
+      for (const e of p.log) {
+        if (!e || !day(e.day) || e.day < previous || typeof e.text !== 'string' || e.text.length > 5000) throw Error('Project history dates are invalid.');
+        previous = e.day;
+      }
+      const accepted = !['inquiry','quote','lost'].includes(p.stage);
+      if (s.version === 1 && accepted) {
+        // Older snapshots did not consistently retain terms. Keep recorded values;
+        // reconstruct only missing fields from their own history/settings.
+        p.accepted ??= p.log.find(e => /Quote accepted/.test(e.text))?.day ?? p.created;
+        p.terms ??= {paymentDays:s.config.paymentDays,approvalDays:s.config.approvalDays,printDays:s.config.printDays};
+        if (p.delivered) {
+          p.deliveredDay ??= p.log.find(e => /Delivered|Moved to Final payment/.test(e.text))?.day;
+          if (!day(p.deliveredDay)) throw Error('Legacy delivery date cannot be recovered.');
+          p.paymentDue ??= p.deliveredDay + p.terms.paymentDays;
+          p.receiveDay ??= p.paymentDue;
+        }
+      }
+      if (accepted !== (p.accepted !== undefined)) throw Error('Project stage and acceptance are inconsistent.');
+      if (p.delivered !== ['payment','complete'].includes(p.stage)) throw Error('Project stage and delivered status are inconsistent.');
+      if (!accepted && (p.price !== 0 || p.paid !== 0 || p.cost !== 0 || p.designHours !== 0)) throw Error('Unaccepted project has financial commitments.');
+      if (accepted) {
+        if (!day(p.accepted) || p.accepted < p.created || p.accepted > p.entered || p.due < p.accepted || !p.terms ||
+            !['paymentDays','approvalDays','printDays'].every(k => day(p.terms[k],90))) throw Error('Project commitments or dates are invalid.');
+        if (!finite(p.printCost)) throw Error('Project print cost is invalid.');
+        same(p.price, p.service.price, 'Agreed price');
+        if(legacy)p.price=q.round(p.price);
+        if(!cash(p.price))throw Error('Agreed price must use cents.');
+        same(p.printCost, p.service.print, 'Agreed print cost');
+        if (cents(p.paid) > cents(p.price)) throw Error('Project paid balance exceeds its agreed price.');
+        if (p.work.quote > 0.00001) throw Error('Accepted project has unfinished quoting work.');
+      }
+      if (p.stage === 'production' && (!day(p.printDuration,180) || p.printCost <= 0)) throw Error('Print commitment is invalid.');
+      if (p.delivered) {
+        if (!day(p.deliveredDay) || p.deliveredDay < p.accepted || p.deliveredDay > p.entered ||
+            !day(p.paymentDue, s.day + 90) || p.paymentDue !== p.deliveredDay + p.terms.paymentDays ||
+            !day(p.receiveDay, s.day + 180) || p.receiveDay < p.paymentDue) throw Error('Payment or delivery dates are invalid.');
+        if (['design','review','delivery'].some(k => p.work[k] > 0.00001)) throw Error('Delivered project has unfinished work.');
+        if (p.stage === 'complete') same(p.paid, p.price, 'Completed project balance');
+        if (!legacy && p.stage === 'payment' && cents(p.price) === cents(p.paid)) throw Error('Fully paid project has an invalid payment stage.');
+      } else if (p.deliveredDay !== undefined || p.paymentDue !== undefined || p.receiveDay !== undefined) throw Error('Undelivered project has payment dates.');
+    }
+    const reference = value => value === null || projects.has(value);
+    const receipts = new Map(), costs = new Map(), flows = Array.from({length:s.day+1},()=>({amount:0,expense:0,funding:0,revenue:0}));
+    let lastDay = 0, total = 0, expenses = 0, funding = 0;
+    for (const e of s.ledger) {
+      if (!e || !day(e.day) || e.day < lastDay || !cash(e.amount) || typeof e.note !== 'string' || e.note.length > 5000 ||
+          !['expense','receipt','funding'].includes(e.type)) throw Error('Cash ledger dates or amounts are invalid.');
+      if (!reference(e.project)) throw Error('Ledger project reference is invalid.');
+      if ((e.type === 'expense' && e.amount > 0) || (e.type === 'receipt' && (e.amount < 0 || !e.project)) ||
+          (e.type === 'funding' && (e.amount <= 0 || e.project !== null))) throw Error('Cash ledger transaction sign or project is invalid.');
+      const p = projects.get(e.project);
+      if (p && (e.day < p.accepted || p.accepted === undefined)) throw Error('Ledger transaction predates project acceptance.');
+      const amount = cents(e.amount); lastDay = e.day; total += amount; flows[e.day].amount += amount;
+      if (e.type === 'expense') { expenses -= amount; flows[e.day].expense -= amount; if(p) costs.set(p.id,(costs.get(p.id)||0)-amount); }
+      if (e.type === 'receipt') receipts.set(p.id,(receipts.get(p.id)||0)+amount);
+      if (e.type === 'funding') { funding += amount; flows[e.day].funding += amount; }
+    }
+    s.initialCash ??= q.round(s.cash - total / 100);
+    if (!finite(s.initialCash) || !cash(s.initialCash)) throw Error('Initial cash is invalid.');
+    same(s.cash, s.initialCash + total/100, 'Saved cash');
+    same(s.expenses, expenses/100, 'Expenses'); same(s.funding, funding/100, 'Owner funding');
+    let revenue = 0, owner = 0, design = 0;
+    for (const p of s.projects) {
+      same(p.paid, (receipts.get(p.id)||0)/100, 'Project paid receipts');
+      same(p.cost, (costs.get(p.id)||0)/100, 'Project costs');
+      owner += p.ownerHours; design += p.designHours;
+      if (p.delivered) { revenue += cents(p.price); flows[p.deliveredDay].revenue += cents(p.price); }
+    }
+    same(s.revenue, revenue/100, 'Delivered revenue');
+    if (Math.abs(s.designHours-design)>1e-6 || owner > s.ownerHours+1e-6) throw Error('Recorded work hours do not reconcile.');
+    if (!Number.isInteger(s.lost) || s.lost !== s.projects.filter(p=>p.stage==='lost').length) throw Error('Declined count does not reconcile.');
+    for (const e of s.events) if (!e || !day(e.day) || typeof e.text !== 'string' || !reference(e.project)) throw Error('Event history reference or date is invalid.');
+    for (const r of s.repeatQueue) if (!r || !day(r.day,s.day+360) || r.day <= s.day || typeof r.client !== 'string' || r.client.length>200 || typeof r.serviceId !== 'string' ||
+      !s.projects.some(p=>p.serviceId===r.serviceId && p.client===r.client && p.stage==='complete')) throw Error('Returning-client schedule is invalid.');
+    if (s.blocked && (!finite(s.blocked.amount) || !finite(s.blocked.cash) || !finite(s.blocked.gap) || s.blocked.gap<=0 ||
+        cents(s.blocked.gap)!==cents(s.blocked.amount-s.blocked.cash) || typeof s.blocked.note!=='string' || !reference(s.blocked.project))) throw Error('Cash decision is invalid.');
+    if (s.history.length !== s.day) throw Error('Daily history is incomplete.');
+    let balance=cents(s.initialCash)+flows[0].amount, incurred=flows[0].expense, earned=flows[0].revenue, hours=0;
+    for (let i=1;i<=s.day;i++) {
+      const h=s.history[i-1], f=flows[i]; balance+=f.amount;incurred+=f.expense;earned+=f.revenue;
+      if (!h || h.day!==i) throw Error('Daily history dates are invalid.');
+      for (const key of ['cash','revenue','expenses','ownerHours','complete','active','late']) if(!finite(h[key])) throw Error('Daily results are invalid.');
+      if (!finite(h.profit,-1e12) || h.ownerHours<hours-1e-6 || h.ownerHours>s.ownerHours+1e-6 ||
+          !['complete','active','late'].every(k=>Number.isInteger(h[k])&&h[k]<=s.projects.length)) throw Error('Daily results are inconsistent.');
+      // Prototype 02 omitted funding added after the day's closing observation.
+      // Only that known, ledger-supported difference may be repaired on migration.
+      const missing=balance-cents(h.cash);
+      if (legacy && missing>0 && missing===f.funding) h.cash=balance/100;
+      same(h.cash,balance/100,'Daily cash history'); same(h.expenses,incurred/100,'Daily expenses');
+      same(h.revenue,earned/100,'Daily delivered revenue'); same(h.profit,(earned-incurred)/100,'Daily profit');
+      if(balance<0)throw Error('Daily cash history is negative.');
+      hours=h.ownerHours;
+    }
+    if (Math.abs(hours-s.ownerHours)>1e-6) throw Error('Daily owner hours do not reconcile.');
+    if (legacy) {
+      for (const p of s.projects) if(p.stage==='payment' && cents(p.paid)===cents(p.price)) q.completePaid(s,p);
+      if(s.history.length){const m=q.metrics(s);Object.assign(s.history.at(-1),{complete:m.complete,active:m.active,late:m.late});}
+    }
+    s.version=3;
+    return s;
+  }
+  root.MEIQQValidation={restore};
+  if(typeof module!=='undefined')module.exports={restore};
+})(globalThis);
+</script><script>/* MEIQQ simulation engine. No network or external dependencies. */
+(function(root){
+'use strict';
+const clone=x=>JSON.parse(JSON.stringify(x));
+const round=x=>Math.round(x*100)/100;
+const STAGES=['inquiry','quote','design','review','approval','production','delivery','payment','complete'];
+const LABELS={inquiry:'Inquiry',quote:'Quote & deposit',design:'Design',review:'Internal review',approval:'Client approval',production:'Print production',delivery:'Delivery',payment:'Final payment',complete:'Complete'};
+const DEFAULT={name:'Studio baseline',seed:2417,months:1,startingCash:6000,ownerHours:10,ownerTarget:30,designers:1,designerHours:24,designerRate:12,overhead:180,inquiries:45,conversion:0.7,deposit:0.5,paymentDays:5,approvalDays:2,printDays:3,quoteHours:0.6,deliveryHours:0.5,leadDays:14,priority:'deadline',acquisition:'preset',outreachHours:3,leadsPerHour:3.5,retention:0.8,repeat:0.15,realism:false,uncertainty:{complexity:true,revisions:true,approval:true,supplier:true,payment:true},services:[
+{id:'design',name:'Design only',deliverable:'Menu, poster or promotional graphic',price:290,hours:5,review:1,print:0,weight:45,recurring:false,color:'#287d77'},
+{id:'print',name:'Design + print',deliverable:'Design and a batch of printed menus',price:540,hours:6,review:1.5,print:140,weight:35,recurring:false,color:'#8871b1'},
+{id:'monthly',name:'Monthly promotion',deliverable:'Four promotional graphics per cycle',price:720,hours:10,review:2,print:0,weight:20,recurring:true,color:'#bd8753'}]};
+function random(seed,key){let h=seed|0;for(const c of String(key))h=Math.imul(h^c.charCodeAt(0),16777619);h^=h>>>16;h=Math.imul(h,0x7feb352d);h^=h>>>15;return(h>>>0)/4294967296;}
+function normalize(config){const c=clone(config);for(const key of ['quoteHours','deliveryHours','leadDays'])if(c[key]===undefined)c[key]=DEFAULT[key];c.uncertainty={...DEFAULT.uncertainty,...c.uncertainty};return c;}
+function variable(c,key){return c.realism&&c.uncertainty?.[key]!==false;}
+function workingDays(days=30){let n=0;for(let d=0;d<days;d++)if(d%7<5)n++;return n;}
+function fresh(config=DEFAULT){let c=normalize(config);validateConfig(c);return{version:3,config:c,day:0,projects:[],cash:round(c.startingCash),initialCash:round(c.startingCash),revenue:0,expenses:0,ownerHours:0,designHours:0,funding:0,ledger:[],history:[],events:[],blocked:null,nextId:1,repeatQueue:[],lost:0};}
+function event(s,p,text){const e={day:s.day,text};if(p)p.log.push(e);s.events.unshift({...e,project:p?.id||null});s.events=s.events.slice(0,120);}
+function entry(s,amount,type,p,note){amount=round(amount);if(!Number.isFinite(amount)||(type==='receipt'&&amount<0))throw Error('Invalid cash transaction.');s.cash=round(s.cash+amount);s.ledger.push({day:s.day,amount:round(amount),type,project:p?.id||null,note});if(type==='expense'){s.expenses=round(s.expenses-amount);if(p)p.cost=round(p.cost-amount);}if(type==='receipt'&&p)p.paid=round(p.paid+amount);}
+function pay(s,amount,p,note){amount=round(amount);if(s.cash+0.001<amount){s.blocked={amount,cash:s.cash,gap:round(amount-s.cash),project:p?.id||null,note};event(s,p,'Cash decision required: '+note);return false;}entry(s,-amount,'expense',p,note);return true;}
+function move(s,p,stage){p.stage=stage;p.entered=s.day;p.wait=0;event(s,p,'Moved to '+LABELS[stage]);}
+function create(s,service,id,client,renewal=false){let c=s.config;let p={id:id||'P'+String(s.nextId++).padStart(3,'0'),serviceId:service.id,service:clone(service),client:client||['Maple Bakery','Eastside Tea','Garden Noodle','Oak & Willow','Jade Market','Corner Café','Northline Salon','Little Lotus'][Math.floor(random(c.seed,'client'+s.day+s.nextId)*8)],stage:'inquiry',created:s.day,entered:s.day,due:s.day+c.leadDays,work:{quote:c.quoteHours,design:0,review:0,delivery:c.deliveryHours},price:0,paid:0,cost:0,ownerHours:0,designHours:0,priority:false,log:[],renewal,wait:0,revised:false,delivered:false};
+event(s,p,renewal?'Returning client begins a new cycle':'New inquiry received');s.projects.push(p);return p;}
+function accept(s,p){const c=s.config;const svc=c.services.find(x=>x.id===p.serviceId)||p.service;p.service=clone(svc);p.price=round(svc.price);p.accepted=s.day;p.due=s.day+c.leadDays;p.terms={paymentDays:c.paymentDays,approvalDays:c.approvalDays,printDays:c.printDays};const complexity=variable(c,'complexity')?0.75+random(c.seed,p.id+'complexity')*0.75:1;p.work.design=svc.hours*complexity;p.work.review=svc.review;p.printCost=svc.print;entry(s,p.price*c.deposit,'receipt',p,'Client deposit');event(s,p,'Quote accepted at $'+p.price+'; deposit received; delivery due day '+p.due);move(s,p,'design');}
+function estimate(input){const c=normalize(input),days=30,workdays=workingDays(days),weeks=workdays/5;const outreach=c.acquisition==='sales'?Math.min(c.outreachHours,c.ownerHours)*weeks:0;const leads=c.acquisition==='preset'?c.inquiries:outreach*c.leadsPerHour;const orders=leads*c.conversion,total=c.services.reduce((a,v)=>a+v.weight,0)||1;const weighted=f=>c.services.reduce((a,v)=>a+f(v)*v.weight/total,0);const hours=orders*weighted(v=>v.hours),owner=leads*c.quoteHours+orders*weighted(v=>v.review+c.deliveryHours)+outreach;const revenue=orders*weighted(v=>v.price),expense=hours*c.designerRate+orders*weighted(v=>v.print)+c.overhead;const ownerCapacity=c.ownerHours*weeks,designCapacity=c.designers*c.designerHours*weeks;const ratio=(used,cap)=>cap?used/cap:used?Infinity:0;return{days,workdays,leads,orders,revenue,expense,profit:revenue-expense,owner,hours,outreach,ownerCapacity,designCapacity,ownerLoad:ratio(owner,ownerCapacity),designLoad:ratio(hours,designCapacity),surplus:revenue-expense-owner*c.ownerTarget};}
+function metrics(s){const active=s.projects.filter(p=>!['complete','lost'].includes(p.stage));const profit=s.revenue-s.expenses;return{profit,surplus:profit-s.ownerHours*s.config.ownerTarget,effective:s.ownerHours?profit/s.ownerHours:0,active:active.length,late:active.filter(p=>p.accepted!==undefined&&!p.delivered&&s.day>p.due).length,overduePayments:active.filter(p=>p.delivered&&round(p.price-p.paid)>0&&s.day>p.paymentDue).length,complete:s.projects.filter(p=>p.stage==='complete').length,delivered:s.projects.filter(p=>p.delivered).length,receivable:s.projects.filter(p=>p.delivered).reduce((a,p)=>a+p.price-p.paid,0)};}
+function bottleneck(s){const c=s.config;const stages=['quote','design','review','delivery'];const ranked=stages.map(stage=>{const ps=s.projects.filter(p=>p.stage===stage);const work=ps.reduce((a,p)=>a+(p.work[stage]||0),0);const cap=stage==='design'?c.designers*c.designerHours/5:c.ownerHours/5;return{stage,count:ps.length,hours:work,days:work/(cap||0.001),oldest:ps.length?Math.max(...ps.map(p=>s.day-p.entered)):0};}).sort((a,b)=>b.days-a.days);return ranked[0]?.count?ranked[0]:null;}
+// Daily updates are atomic. If any payment fails, discard the proposed day's
+// work, preserve the diagnostic, then retry after an explicit funding decision.
+function step(s){if(s.blocked||s.day>=s.config.months*30)return false;let draft=clone(s);draft.day++;if(!advance(draft)){s.blocked=draft.blocked;return false;}Object.assign(s,draft);return true;}
+function advance(s){const c=s.config;const weekday=(s.day-1)%7<5;const dayInMonth=(s.day-1)%30;
+if(dayInMonth===0&&!pay(s,c.overhead,null,'Monthly software and overhead'))return false;
+let ownerCap=weekday?c.ownerHours/5:0,designCap=weekday?c.designers*c.designerHours/5:0;
+if(weekday&&c.acquisition==='sales'){const h=Math.min(ownerCap,c.outreachHours/5);ownerCap-=h;s.ownerHours+=h;}
+const mean=c.acquisition==='preset'?c.inquiries/30:(weekday?Math.min(c.outreachHours/5,c.ownerHours/5)*c.leadsPerHour:0);
+const arrivals=Math.floor(mean)+(random(c.seed,'arrival'+s.day)<mean%1?1:0);const total=c.services.reduce((a,v)=>a+v.weight,0);
+if(total>0)for(let i=0;i<arrivals;i++){let pick=random(c.seed,'service'+s.day+':'+i)*total,svc=c.services[c.services.length-1];for(const v of c.services){pick-=v.weight;if(pick<=0){svc=v;break;}}create(s,svc);}
+const returns=s.repeatQueue.filter(r=>r.day<=s.day);s.repeatQueue=s.repeatQueue.filter(r=>r.day>s.day);for(const r of returns){const svc=c.services.find(x=>x.id===r.serviceId);if(svc)create(s,svc,null,r.client,true);}
+const list=[...s.projects].sort((a,b)=>Number(b.priority)-Number(a.priority)||(c.priority==='deadline'?a.due-b.due:a.created-b.created)||a.id.localeCompare(b.id));
+for(const p of list){if(['complete','lost'].includes(p.stage))continue;p.wait=s.day-p.entered;
+if(p.stage==='inquiry'){move(s,p,'quote');continue;}
+if(['quote','design','review','delivery'].includes(p.stage)){
+const stage=p.stage;const cap=stage==='design'?designCap:ownerCap;const h=Math.min(cap,p.work[stage]);
+if(h>0){if(stage==='design'){if(!pay(s,h*c.designerRate,p,'Design labor for '+p.id))return false;designCap-=h;s.designHours+=h;p.designHours+=h;}else{ownerCap-=h;s.ownerHours+=h;p.ownerHours+=h;}p.work[stage]=Math.max(0,p.work[stage]-h);}
+if(p.work[stage]>0.00001)continue;
+if(stage==='quote'){if(p.renewal||random(c.seed,p.id+'conversion')<c.conversion)accept(s,p);else{p.stage='lost';s.lost++;event(s,p,'Client declined quote');}}
+else if(stage==='design')move(s,p,'review');
+else if(stage==='review')move(s,p,'approval');
+else {p.delivered=true;p.deliveredDay=s.day;p.paymentDue=s.day+(p.terms?.paymentDays??c.paymentDays);p.receiveDay=p.paymentDue+(variable(c,'payment')?Math.floor(random(c.seed,p.id+'payment')*6):0);s.revenue=round(s.revenue+p.price);event(s,p,'Delivered; revenue recognized');if(round(p.price-p.paid)===0)completePaid(s,p);else move(s,p,'payment');}
+continue;
+}
+if(p.stage==='approval'&&(p.approvalConfirmed||p.wait>=(p.terms?.approvalDays??c.approvalDays)+(variable(c,'approval')?Math.floor(random(c.seed,p.id+'approval')*3):0))){
+if(!p.approvalConfirmed&&variable(c,'revisions')&&!p.revised&&random(c.seed,p.id+'revision')<0.3){p.revised=true;p.work.design=p.service.hours*0.35;p.work.review=p.service.review*0.5;event(s,p,'Client requested one additional revision');move(s,p,'design');}
+else if(p.printCost>0){if(!pay(s,p.printCost,p,'Print order for '+p.id))return false;p.printDuration=(p.terms?.printDays??c.printDays)+(variable(c,'supplier')?Math.floor(random(c.seed,p.id+'print')*4):0);event(s,p,'Print order committed at $'+p.printCost);move(s,p,'production');}else move(s,p,'delivery');
+}else if(p.stage==='production'&&p.wait>=p.printDuration)move(s,p,'delivery');
+else if(p.stage==='payment'&&s.day>=p.receiveDay){
+const balance=round(p.price-p.paid);if(balance<0)throw Error('Project balance cannot be negative.');if(balance>0)entry(s,balance,'receipt',p,'Final payment');completePaid(s,p);
+}}
+const m=metrics(s);s.history.push({day:s.day,cash:s.cash,revenue:s.revenue,expenses:s.expenses,profit:m.profit,ownerHours:s.ownerHours,complete:m.complete,active:m.active,late:m.late});return true;}
+function completePaid(s,p){
+ if(p.stage==='complete')return;
+ if(!p.delivered||round(p.price-p.paid)!==0)throw Error('Project must be delivered and fully paid.');
+ move(s,p,'complete');
+ const recur=p.service.recurring,c=s.config,probability=recur?c.retention:c.repeat;
+ if(random(c.seed,p.id+'return')<probability)s.repeatQueue.push({day:recur?Math.max(p.created+30,s.day+1):s.day+30,serviceId:p.serviceId,client:p.client});
+}
+function cashSeries(s){
+ const changes=new Map();for(const e of s.ledger)changes.set(e.day,(changes.get(e.day)||0)+Math.round(e.amount*100));
+ let cash=Math.round(s.initialCash*100);const points=[];
+ for(let day=0;day<=s.day;day++){cash+=changes.get(day)||0;points.push({day,cash:cash/100});}return points;
+}
+function fund(s,amount){if(!Number.isFinite(amount)||round(amount)<0.01)throw Error('Enter a positive funding amount of at least one cent.');amount=round(amount);entry(s,amount,'funding',null,'Owner funding');s.funding=round(s.funding+amount);s.blocked=null;event(s,null,'Owner funding added: $'+amount);if(s.history.length)s.history.at(-1).cash=s.cash;}
+
+function intervene(s,id,action,value){const p=s.projects.find(v=>v.id===id);if(!p)throw Error('Project not found');if(action==='priority'){p.priority=!p.priority;event(s,p,p.priority?'Manually prioritized':'Priority removed');}else if(action==='deadline'){if(!Number.isFinite(value)||value<=p.due)throw Error('Choose a later deadline');p.due=value;event(s,p,'Agreed deadline changed to day '+value);}else if(action==='approve'){if(p.stage!=='approval')throw Error('Only client approval can be expedited');p.approvalConfirmed=true;event(s,p,'Client approval confirmed manually');}else throw Error('Unknown action');}
+function validateConfig(c){
+  if(!c||typeof c!=="object"||typeof c.name!=="string"||!c.name.trim()||c.name.length>100)throw Error("Give this scenario a name (up to 100 characters).");
+  if(!Array.isArray(c.services)||!c.services.length||c.services.length>20)throw Error("Include between 1 and 20 services.");
+  const fields={seed:[0,1e9,"Workload seed"],months:[1,12,"Simulation months"],startingCash:[0,1e8,"Starting cash"],ownerHours:[0,120,"Your weekly hours"],ownerTarget:[0,1000,"Your hourly target"],designers:[0,50,"Number of designers"],designerHours:[0,120,"Weekly hours per designer"],designerRate:[0,1000,"Designer hourly cost"],overhead:[0,1e7,"Monthly overhead"],inquiries:[0,500,"Monthly inquiries"],conversion:[0,1,"Conversion rate"],deposit:[0,1,"Client deposit"],paymentDays:[0,90,"Payment terms"],approvalDays:[0,30,"Approval time"],printDays:[0,90,"Print time"],outreachHours:[0,120,"Weekly outreach hours"],leadsPerHour:[0,100,"Inquiries per outreach hour"],retention:[0,1,"Renewal rate"],repeat:[0,1,"Repeat purchase rate"],quoteHours:[0,24,"Hours per quote"],deliveryHours:[0,24,"Hours per delivery"],leadDays:[1,180,"Promised delivery time"]};
+  for(const [k,[lo,hi,label]]of Object.entries(fields)){if(c[k]===undefined&&['quoteHours','deliveryHours','leadDays'].includes(k))continue;if(typeof c[k]!=="number"||!Number.isFinite(c[k])||c[k]<lo||c[k]>hi)throw Error(label+" must be between "+lo+" and "+hi+".");}
+  for(const key of ['seed','months','designers','paymentDays','approvalDays','printDays','leadDays'])if(c[key]!==undefined&&!Number.isInteger(c[key]))throw Error(fields[key][2]+" must be a whole number.");
+  if(![1,3,6,12].includes(c.months)||!['preset','sales'].includes(c.acquisition)||!['deadline','fifo'].includes(c.priority)||typeof c.realism!=='boolean')throw Error('Choose valid simulation settings.');
+  if(c.uncertainty)for(const key of Object.keys(DEFAULT.uncertainty))if(typeof c.uncertainty[key]!=='boolean')throw Error('Choose valid uncertainty switches.');
+  const ids=new Set();
+  for(const v of c.services){
+    if(typeof v.id!=='string'||!/^[a-zA-Z0-9_-]{1,60}$/.test(v.id)||ids.has(v.id))throw Error('Each service needs a unique valid identifier.');ids.add(v.id);
+    if(typeof v.name!=='string'||!v.name.trim()||v.name.length>100||typeof v.deliverable!=='string'||v.deliverable.length>500||typeof v.recurring!=='boolean'||!/^#[0-9a-f]{6}$/i.test(v.color))throw Error('Check each service name, deliverable and purchase pattern.');
+    for(const [key,max]of [['price',1e6],['hours',500],['review',100],['print',1e6],['weight',10000]])if(typeof v[key]!=='number'||!Number.isFinite(v[key])||v[key]<0||v[key]>max)throw Error(v.name+': '+key+' must be between 0 and '+max+'.');
+  }
+  if(c.services.reduce((n,v)=>n+v.weight,0)<=0)throw Error('Assign an inquiry share to at least one service.');
+  return c;
+}
+function applyConfig(s,next){
+  const c=normalize(next);validateConfig(c);
+  if(s.day>0&&(c.startingCash!==s.config.startingCash||c.seed!==s.config.seed))throw Error('Starting cash and workload seed require a new run.');
+  if(c.months*30<s.day)throw Error('The horizon must include the current simulation day.');
+  if(s.day===0){s.cash=round(s.cash+round(c.startingCash)-s.initialCash);s.initialCash=round(c.startingCash);}
+  s.config=clone(c);s.blocked=null;event(s,null,'Business settings updated. Existing quotes retain agreed prices and terms.');return s;
+}
+function restore(input){return (root.MEIQQValidation||(typeof require==='function'?require('./validation.js'):null)).restore(input,api);}
+const api={DEFAULT,STAGES,LABELS,clone,round,random,fresh,step,metrics,estimate,bottleneck,fund,intervene,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};root.QQ=api;if(typeof module!=='undefined')module.exports=api;
+})(globalThis);
+</script><script>/* Versioned workspace interchange and retention; independent of the DOM. */
+(function(root) {
+  'use strict';
+  const q = root.QQ || require('./engine.js');
+  const MAX_BYTES = 128 * 1024 * 1024, AUTO_LIMIT = 12, MAX_ITEMS = 10000;
+  const object = x => x && typeof x === 'object' && !Array.isArray(x);
+  const numeric = x => x === null || (typeof x === 'number' && Number.isFinite(x));
+  const bytes = text => new TextEncoder().encode(text).byteLength;
+  function editableDraft(value, config) {
+    if (value === undefined) return q.clone(config);
+    if (!object(value)) throw Error('Draft is not an object.');
+    const d = {...q.clone(config),...q.clone(value)};
+    for (const [key, fallback] of Object.entries(q.DEFAULT)) {
+      if (typeof fallback === 'number' && !numeric(d[key])) throw Error('Draft number is malformed.');
+      if (typeof fallback === 'string' && (typeof d[key] !== 'string' || d[key].length>1000)) throw Error('Draft text is malformed.');
+      if (typeof fallback === 'boolean' && typeof d[key] !== 'boolean') throw Error('Draft switch is malformed.');
+    }
+    if (!object(d.uncertainty) || Object.keys(q.DEFAULT.uncertainty).some(k=>typeof d.uncertainty[k]!=='boolean')) throw Error('Draft uncertainty is malformed.');
+    if (!Array.isArray(d.services) || !d.services.length || d.services.length>200) throw Error('Draft services are malformed.');
+    for (const s of d.services) {
+      if (!object(s) || !['id','name','deliverable'].every(k=>typeof s[k]==='string'&&s[k].length<=5000) ||
+          !/^[a-zA-Z0-9_-]{1,60}$/.test(s.id) || !/^#[0-9a-f]{6}$/i.test(s.color) || typeof s.recurring!=='boolean' ||
+          !['price','hours','review','print','weight'].every(k=>numeric(s[k]))) throw Error('Draft service fields are malformed.');
+    }
+    return d;
+  }
+  function workspace(raw, resolve = q.restore) {
+    if (!object(raw) || !Array.isArray(raw.saved) || raw.saved.length>MAX_ITEMS) throw Error('Workspace checkpoints are invalid.');
+    const state=resolve(raw.state), saved=raw.saved.map(resolve);
+    const recoveryFiles=q.clone(raw.recoveryFiles||[]);
+    if(!Array.isArray(recoveryFiles)||recoveryFiles.length>MAX_ITEMS||recoveryFiles.some(x=>!object(x)||typeof x.name!=='string'||x.name.length>200||typeof x.text!=='string')) throw Error('Recovery files are invalid.');
+    let draft;
+    try { draft=editableDraft(raw.draft,state.config); }
+    catch(e) { recoveryFiles.push({name:'Recovered unfinished draft',text:JSON.stringify(raw.draft)}); draft=q.clone(state.config); }
+    const infos=raw.checkpointInfo;
+    if(infos!==undefined&&(!Array.isArray(infos)||infos.length!==saved.length))throw Error('Checkpoint labels are invalid.');
+    const checkpointInfo=saved.map((s,i)=>{
+      const info=infos?.[i]||{label:s.config.name+' · day '+s.day,kind:'manual'};
+      if(!object(info)||typeof info.label!=='string'||info.label.length>200||!['manual','automatic'].includes(info.kind))throw Error('Checkpoint label is invalid.');
+      return {label:info.label,kind:info.kind};
+    });
+    return {state,saved,draft,checkpointInfo,recoveryFiles};
+  }
+  function parse(data) {
+    if (data?.format==='meiqq-workspace' && data.version===3) {
+      if(!Array.isArray(data.runs)||data.runs.length>MAX_ITEMS||!Array.isArray(data.archives)||data.archives.length>MAX_ITEMS)throw Error('Workspace archive is invalid.');
+      const runs=data.runs.map(q.restore);
+      const resolve=i=>{if(!Number.isInteger(i)||i<0||i>=runs.length)throw Error('Saved-run reference is invalid.');return runs[i];};
+      const current=workspace(data.current,resolve);
+      // Saved runs are immutable; only the active run needs a separate mutable copy.
+      current.state=q.clone(current.state);
+      const archives=data.archives.map(a=>{
+        if(!object(a)||typeof a.label!=='string'||a.label.length>200)throw Error('Workspace archive label is invalid.');
+        return {label:a.label,workspace:workspace(a.workspace,resolve)};
+      });
+      return {...current,archives,full:true};
+    }
+    if ((data?.format==='meiqq-workspace' && data.version===2) || (!data?.format && object(data?.state))) {
+      return {...workspace({...data,saved:data.saved||[]}),archives:[],full:true};
+    }
+    if (['qq-studio-setup','meiqq-setup'].includes(data?.format) && data.version===1) {
+      const state=q.fresh(data.config);
+      return {...workspace({state,saved:[],draft:state.config}),archives:[],full:false};
+    }
+    throw Error('Choose a MEIQQ workspace, original browser save, or legacy setup JSON.');
+  }
+  function pack(current, archives=[]) {
+    const runs=[], indexes=new Map();
+    const add=s=>{const text=JSON.stringify(s);if(indexes.has(text))return indexes.get(text);const i=runs.length;indexes.set(text,i);runs.push(JSON.parse(text));return i;};
+    const encode=w=>({state:add(w.state),saved:w.saved.map(add),draft:q.clone(w.draft),checkpointInfo:(w.checkpointInfo?q.clone(w.checkpointInfo):null)||w.saved.map(s=>({label:s.config.name+' · day '+s.day,kind:'manual'})),recoveryFiles:q.clone(w.recoveryFiles||[])});
+    const result={format:'meiqq-workspace',version:3,current:encode(current),archives:archives.map(a=>({label:a.label,workspace:encode(a.workspace)})),runs};
+    if(runs.length>MAX_ITEMS||archives.length>MAX_ITEMS||[current,...archives.map(a=>a.workspace)].some(w=>w.saved.length>MAX_ITEMS))throw Error('Too many saved items. Export workspaces separately or remove unneeded checkpoints.');
+    return result;
+  }
+  function serialize(current,archives=[]) {
+    const text=JSON.stringify(pack(current,archives));
+    checkSize(bytes(text));
+    return text;
+  }
+  function checkSize(size) { if(size>MAX_BYTES)throw Error('Workspace exceeds 128 MiB. Export a workspace separately or remove unneeded checkpoints.'); }
+  function parseText(text) { checkSize(bytes(text));return parse(JSON.parse(text)); }
+  function checkpoint(w,kind='automatic') {
+    const serialized=JSON.stringify(w.state),same=w.saved.findIndex(s=>JSON.stringify(s)===serialized);
+    if(same>=0){if(kind==='manual')w.checkpointInfo[same].kind='manual';return;}
+    w.saved.push(q.clone(w.state));w.checkpointInfo.push({label:w.state.config.name+' · day '+w.state.day,kind});
+    while(w.checkpointInfo.filter(x=>x.kind==='automatic').length>AUTO_LIMIT){const i=w.checkpointInfo.findIndex(x=>x.kind==='automatic');w.saved.splice(i,1);w.checkpointInfo.splice(i,1);}
+  }
+  function archive(archives,current,label) {
+    const serialized=JSON.stringify(current);
+    if(!archives.some(a=>JSON.stringify(a.workspace)===serialized))archives.push({label:label||current.state.config.name+' · day '+current.state.day,workspace:q.clone(current)});
+  }
+  const api={MAX_BYTES,AUTO_LIMIT,editableDraft,workspace,parse,parseText,pack,serialize,checkSize,checkpoint,archive};
+  root.MEIQQWorkspace=api;if(typeof module!=='undefined')module.exports=api;
+})(globalThis);
+</script><script>/* Atomic browser persistence. Failed writes never replace the previous save. */
+(function(root) {
+  'use strict';
+  function openDatabase(factory) {
+    return new Promise((resolve,reject)=>{
+      const request=factory.open('meiqq-workspaces',1);
+      request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('saves'))request.result.createObjectStore('saves');};
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||Error('Browser storage could not open.'));
+      request.onblocked=()=>reject(Error('Close other MEIQQ windows and reopen to enable saving.'));
+    });
+  }
+  function transaction(db,mode,key,value) {
+    return new Promise((resolve,reject)=>{
+      let result;const tx=db.transaction('saves',mode),store=tx.objectStore('saves');
+      const request=mode==='readonly'?store.get(key):store.put(value,key);
+      request.onsuccess=()=>{result=request.result;};
+      tx.oncomplete=()=>resolve(result);
+      tx.onabort=tx.onerror=()=>reject(tx.error||request.error||Error('Browser save failed.'));
+    });
+  }
+  async function connect(factory,key) {
+    const db=await openDatabase(factory);
+    let stored;
+    try{stored=await transaction(db,'readonly',key);}catch(e){db.close();throw e;}
+    const version=value=>Number.isSafeInteger(value?.revision)&&value.revision>=0?value.revision:0;
+    let revision=version(stored);
+    const raw=typeof stored==='string'?stored:stored===undefined?undefined:
+      typeof stored?.text==='string'&&Number.isSafeInteger(stored.revision)?stored.text:JSON.stringify(stored);
+    db.onversionchange=()=>db.close();
+    function write(text){
+      return new Promise((resolve,reject)=>{
+        let conflict=null;
+        const tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),request=store.get(key);
+        request.onsuccess=()=>{
+          const latest=request.result,current=version(latest);
+          if(current!==revision){conflict=Error('Another window changed this workspace.');conflict.code='STALE_WORKSPACE';tx.abort();return;}
+          store.put({revision:revision+1,text},key);
+        };
+        tx.oncomplete=()=>{revision++;resolve();};
+        tx.onabort=tx.onerror=()=>reject(conflict||tx.error||request.error||Error('Browser save failed.'));
+      });
+    }
+    return {raw,write,close:()=>db.close()};
+  }
+  // At most one transaction in flight; intermediate writes can be superseded
+  // because each payload contains the complete workspace and recovery archive.
+  function writer(write,onStatus) {
+    let latest=null,busy=false,last=null,waiters=[],failed=false;
+    async function drain(){
+      if(busy)return;busy=true;
+      failed=false;
+      while(latest!==null){
+        const text=latest;latest=null;
+        if(text===last)continue;
+        onStatus('saving');
+        try{await write(text);last=text;failed=false;}catch(e){failed=true;onStatus('error',e);}
+      }
+      busy=false;if(!failed)onStatus('saved');
+      const pending=waiters;waiters=[];pending.forEach(resolve=>resolve(!failed));
+    }
+    return {push(text){latest=text;void drain();},flush(){return busy||latest!==null?new Promise(resolve=>waiters.push(resolve)):Promise.resolve(!failed);}};
+  }
+  const api={connect,writer};root.MEIQQStorage=api;if(typeof module!=='undefined')module.exports=api;
+})(globalThis);
+</script><script>'use strict';
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(x||0),num=x=>Number(x||0).toFixed(1),pct=x=>Math.round(x*100)+'%';
+const icons={map:'M3 3h6v6H3z M15 15h6v6h-6z M15 3h6v6h-6z M6 9v9h9 M9 6h6',box:'M3 7l9-4 9 4v11l-9 4-9-4z M3 7l9 4 9-4 M12 11v11',chart:'M4 20V4 M4 20h17 M8 16v-4 M13 16V6 M18 16v-7',compare:'M5 3v18 M19 3v18 M5 7h9l-3-3 M14 7l-3 3 M19 17h-9l3-3 M10 17l3 3',settings:'M4 7h16 M4 17h16 M8 4v6 M16 14v6',play:'M8 5l11 7-11 7z',pause:'M8 5v14 M16 5v14',step:'M5 5l10 7-10 7z M19 5v14',reset:'M4 10a8 8 0 1 1 1 8 M4 4v6h6',branch:'M7 3v14a3 3 0 1 0 3 3 M7 7h7a3 3 0 0 0 3-3 M17 2v4',arrow:'M5 12h14 M14 7l5 5-5 5',plus:'M12 5v14 M5 12h14',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',upload:'M12 16V4 M7 9l5-5 5 5 M4 17v4h16v-4',info:'M12 10v7 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',people:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a7 7 0 0 1 14 0v2 M17 5a4 4 0 0 1 0 8 M19 16a5 5 0 0 1 3 5',user:'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',close:'M6 6l12 12 M18 6L6 18',clock:'M12 7v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',check:'M5 12l4 4L20 5',wallet:'M3 6h17v15H3z M3 6V3h14 M15 11h6v5h-6z',file:'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6'};
+const icon=k=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[k]||icons.map}"/></svg>`;
+const btn=(text,action,cls='',extra='')=>`<button class="${cls}" data-action="${action}" ${extra}>${text}</button>`;
+
+// UI edits live in a separate draft. Only explicit apply actions affect the engine.
+const KEY='qq-studio-lab-v1', THEME_KEY='qq-studio-appearance';
+let state=QQ.fresh(),saved=[],draft=QQ.clone(state.config),view='setup',stepIndex=0;
+let archives=[],checkpointInfo=[],recoveryFiles=[],saveTimer=null,backend=null,saveWriter=null;
+let loading=typeof indexedDB!=='undefined',saveStatus='saved',storeReason='',localRevision=null;
+let selection=null,running=false,timer=null,speed=1,theme='light',storeError=false,recoveryRaw=null;
+let filter='active',search='',toastTimer,modalFocus=null,expandedService=0;
+try{
+  const raw=localStorage.getItem(KEY);localRevision=raw??null;
+  if(raw){try{installWorkspace(MEIQQWorkspace.parseText(raw));}catch(e){recoveryRaw=raw;storeError=true;saveStatus='error';}}
+  const chosen=localStorage.getItem(THEME_KEY);if(['light','dark','terminal'].includes(chosen))theme=chosen;
+}catch(e){storeError=true;}
+document.documentElement.dataset.theme=theme;
+const steps=['Services','Customers','Team & time','Cash & timing'];
+const stageOwner={inquiry:'Client',quote:'You',design:'China team',review:'You',approval:'Client',production:'Supplier',delivery:'You',payment:'Client',complete:'Complete',lost:'Declined'};
+const stageNumber={inquiry:1,quote:2,design:3,review:4,approval:5,production:6,delivery:7,payment:8};
+const shortLabels={inquiry:'New inquiry',quote:'Prepare quote',design:'Create design',review:'Review design',approval:'Client approves',production:'Print order',delivery:'Deliver work',payment:'Collect balance',complete:'Complete',lost:'Declined'};
+function dirty(){return JSON.stringify(draft)!==JSON.stringify(state.config);}
+function currentWorkspace(){
+ const files=QQ.clone(recoveryFiles);
+ if(recoveryRaw&&!files.some(f=>f.text===recoveryRaw))files.push({name:'Unreadable original save',text:recoveryRaw});
+ return {state,saved,draft,checkpointInfo,recoveryFiles:files};
+}
+function installWorkspace(data){
+ state=data.state;saved=data.saved;draft=data.draft;checkpointInfo=data.checkpointInfo;
+ recoveryFiles=data.recoveryFiles;archives=data.archives||[];view=state.day?'map':'setup';
+}
+function saveLabel(){return loading?'Opening saved workspace…':recoveryRaw?'Original save preserved. Download a backup of any new work before closing.':storeError?(storeReason||'Changes are not saved. Download a backup before closing.'):saveStatus==='pending'?'Unsaved draft changes…':saveStatus==='saving'?'Saving workspace…':'Workspace saved in this browser.';}
+function updateSaveStatus(){const el=$('#save-status');if(el){el.textContent=saveLabel();el.className='save-status '+(storeError?'negative':'');}const note=$('#draft-summary .save-note');if(note)note.textContent=saveLabel();}
+function persistenceStatus(status,error){storeReason=error?.code==='STALE_WORKSPACE'?'Another MEIQQ window saved changes. Back up this window before reopening.':'';saveStatus=status==='saved'&&saveTimer!==null?'pending':status;storeError=status==='error';updateSaveStatus();}
+function save(){
+ clearTimeout(saveTimer);saveTimer=null;
+ if(loading||recoveryRaw){updateSaveStatus();return;}
+ try{
+  const text=MEIQQWorkspace.serialize(currentWorkspace(),archives);
+  if(saveWriter)saveWriter.push(text);
+  else {if((localStorage.getItem(KEY)??null)!==localRevision){const e=Error('Another window changed this workspace.');e.code='STALE_WORKSPACE';throw e;}localStorage.setItem(KEY,text);localRevision=text;persistenceStatus('saved');}
+ }catch(e){persistenceStatus('error',e);}
+}
+function scheduleSave(){clearTimeout(saveTimer);saveStatus='pending';updateSaveStatus();saveTimer=setTimeout(save,300);}
+async function initializeStorage(){
+ if(!loading){updateSaveStatus();return;}
+ try{
+  backend=await MEIQQStorage.connect(indexedDB,KEY);
+  if(backend.raw){try{installWorkspace(MEIQQWorkspace.parseText(backend.raw));recoveryRaw=null;storeError=false;}catch(e){recoveryRaw=backend.raw;storeError=true;}}
+  saveWriter=MEIQQStorage.writer(backend.write,persistenceStatus);
+ }catch(e){backend=null;}
+ loading=false;render();save();
+}
+function archiveCurrent(label){MEIQQWorkspace.archive(archives,currentWorkspace(),label);}
+function openImportedWorkspace(data){
+ const nextArchives=QQ.clone(archives);
+ for(const a of data.archives||[])MEIQQWorkspace.archive(nextArchives,a.workspace,a.label);
+ MEIQQWorkspace.archive(nextArchives,currentWorkspace());
+ MEIQQWorkspace.serialize(data,nextArchives);
+ installWorkspace({...data,archives:nextArchives});recoveryRaw=null;selection=null;
+}
+
+function stop(){clearInterval(timer);timer=null;running=false;}
+function toast(message){clearTimeout(toastTimer);$('#toast').className='toast';$('#toast').textContent=message;toastTimer=setTimeout(()=>{$('#toast').className='';$('#toast').textContent='';},4500);}
+function badge(text,kind=''){return `<span class="badge ${kind}">${esc(text)}</span>`;}
+function metric(label,value,note,kind=''){return `<div class="metric ${kind}"><label>${label}</label><strong>${value}</strong><small>${note}</small></div>`;}
+function title(){return {setup:'Set up your business',map:'Watch the work move',projects:'Find a project',finances:'Understand the results',scenarios:'Compare your experiments',about:'How this model works'}[view];}
+function render(){
+  const m=QQ.metrics(state);
+  $('#root').innerHTML=`<div class="app ${running?'running':''}"><aside class="sidebar"><div class="brand"><div class="brandmark" aria-hidden="true">M</div><span>MEIQQ</span></div><div class="subbrand">BUSINESS SIMULATOR</div><nav>${[['setup','settings','1. Set up'],['map','map','2. Run business'],['finances','chart','3. Review results']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`,'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}"`)).join('')}<div class="navlabel">EXPLORE</div>${[['projects','file','Projects'],['scenarios','compare','Scenarios'],['about','info','Model guide']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`,'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}"`)).join('')}</nav><div class="sidebottom"><div class="sideinfo"><b>Hypothetical business</b><p>Test your ideas with editable assumptions.</p>${btn('Open worked example','example','small')}</div></div></aside><div class="shell"><header class="topbar"><div class="crumb"><b>${esc(state.config.name)}</b><span class="tag">PROTOTYPE 03 · A</span></div><div class="topactions"><label class="theme-picker"><span>Appearance</span><select id="appearance" aria-label="Appearance">${[['light','Light'],['dark','Dark'],['terminal','Terminal']].map(([v,n])=>`<option value="${v}" ${theme===v?'selected':''}>${n}</option>`).join('')}</select></label>${btn(icon('download')+'Backup','backup','small')}${btn(icon('upload')+'Open backup','import','small')}</div></header><div id="save-status" class="save-status" role="status" aria-live="polite">${esc(saveLabel())}</div><main class="workspace"><div class="heading"><div><div class="eyebrow">${view==='setup'?'DESIGN YOUR EXPERIMENT':'DAY '+state.day+' OF '+state.config.months*30}</div><h1>${title()}</h1><p class="muted">${view==='setup'?'Change your draft, review the impact, then apply it.':view==='map'?'Each card is real simulated work. Click a stage or project to understand it.':view==='finances'?'Money in the bank, profit and your time are different measures.':view==='projects'?'Search clients, filter work, and inspect each project.':view==='scenarios'?'Save checkpoints and compare runs at the same simulated day.':'Transparent assumptions, rules and limitations.'}</p></div>${view!=='setup'?btn(icon('branch')+'Branch scenario','branch'):badge('All values are editable assumptions')}</div>${recoveryRaw?`<div class="banner danger"><b>Your previous save could not be read.</b> It has not been overwritten. ${btn('Download original save','recover','small')} Open a valid backup to recover.</div>`:''}${recoveryFiles.length?`<div class="banner warn">${recoveryFiles.length} original draft or save file(s) preserved for recovery. ${btn('View recovery files','view','small','data-view="scenarios"')}</div>`:''}${state.blocked?`<div class="banner warn"><b>Cash shortfall paused the run.</b> ${esc(state.blocked.note)} · ${money(state.blocked.gap)} needed. ${btn('Resolve shortfall','cash','small')}</div>`:''}${dirty()&&view!=='setup'?`<div class="banner"><b>You have unapplied setup changes.</b> The clock still uses your last applied settings. ${btn('Review changes','view','small','data-view="setup"')}</div>`:''}${view==='setup'?setupView():view==='map'?mapView(m):view==='projects'?projectsView():view==='finances'?financeView(m):view==='scenarios'?scenariosView():aboutView()}</main>${clock()}</div></div>`;
+}
+function field(label,key,value,options={}){
+ const path=options.path||key,id='input-'+path.replace(/\./g,'-');const suffix=options.suffix||'';
+ const attrs=`data-input="${esc(path)}" ${options.percent?'data-percent="true"':''} id="${id}"`;
+ return `<div class="input-field"><label for="${id}">${label}</label>${options.options?`<select ${attrs}>${options.options.map(([v,n])=>`<option value="${esc(v)}" ${String(value)===String(v)?'selected':''}>${n}</option>`).join('')}</select>`:`<div class="input-wrap"><input ${attrs} type="${options.text?'text':'number'}" value="${esc(options.percent?QQ.round(value*100):value)}" ${options.text?'maxlength="100"':`min="${options.min??0}" max="${options.max??1000000}" step="${options.step??1}"`} ${options.disabled?'disabled':''}>${suffix?`<span>${suffix}</span>`:''}</div>`}<small>${options.help||' '}</small><span class="field-error" id="error-${id}" aria-live="polite"></span></div>`;
+}
+function checkbox(label,path,value,help=''){return `<label class="checkrow"><input type="checkbox" data-input="${path}" ${path.startsWith('uncertainty.')&&!draft.realism?'disabled':''} ${value?'checked':''}><span><b>${label}</b>${help?`<small>${help}</small>`:''}</span></label>`;}
+function setupView(){return `<div class="setup-layout"><div><div class="setup-steps" role="tablist" aria-label="Setup steps">${steps.map((n,i)=>`<button role="tab" aria-selected="${stepIndex===i}" data-action="setup-step" data-step="${i}" class="${stepIndex===i?'active':''}"><span>${i+1}</span>${n}</button>`).join('')}</div><section class="panel setup-body">${stepIndex===0?serviceInputs():stepIndex===1?customerInputs():stepIndex===2?teamInputs():cashInputs()}<div class="step-footer">${stepIndex?btn('← Back','setup-step','','data-step="'+(stepIndex-1)+'"'):'<span></span>'}${stepIndex<3?btn('Next: '+steps[stepIndex+1]+' →','setup-step','primary','data-step="'+(stepIndex+1)+'"'):btn('Review & apply','review','primary')}</div></section></div><aside class="setup-summary" id="draft-summary">${draftSummary()}</aside></div>`;}
+function serviceInputs(){const total=draft.services.reduce((a,s)=>a+s.weight,0);return `<div class="section-heading"><div><div class="eyebrow">STEP 1 / WHAT YOU SELL</div><h2>Define each offering</h2><p>A price, a deliverable and the work needed to produce it.</p></div>${btn(icon('plus')+'Add service','add-service','small')}</div><div class="banner compact"><b>Inquiry mix:</b> split 100% of incoming requests among your services. ${btn('Balance shares equally','balance','small')}</div><div class="mix-status" id="mix-status">Total share: ${QQ.round(total)}%</div>${draft.services.map((s,i)=>`<details class="service-editor" ${i===expandedService?'open':''}><summary><span class="service-dot" style="background:${s.color}"></span><span>${esc(s.name)}</span><small>${money(s.price)} · ${s.recurring?'Monthly':'One-off'}</small>${icon('settings')}</summary><div class="service-fields"><div class="formgrid">${field('Service name','name',s.name,{text:true,path:`services.${i}.name`})}${field('What the client receives','deliverable',s.deliverable,{text:true,path:`services.${i}.deliverable`})}${field('Client price','price',s.price,{path:`services.${i}.price`,suffix:'$ / project',help:'The full price, before any deposit.'})}${field('Inquiry share','weight',s.weight,{path:`services.${i}.weight`,max:100,suffix:'%',step:1,help:'How many new requests are for this service?'})}${field('Designer work per project','hours',s.hours,{path:`services.${i}.hours`,max:500,step:0.25,suffix:'hours'})}${field('Your review work per project','review',s.review,{path:`services.${i}.review`,max:100,step:0.25,suffix:'hours'})}${field('Printing + shipping cost','print',s.print,{path:`services.${i}.print`,suffix:'$ / project',help:'Enter 0 for digital delivery; printing is skipped.'})}${field('Purchase pattern','recurring',String(s.recurring),{path:`services.${i}.recurring`,options:[['false','One-off project'],['true','Monthly subscription']]})}</div><div class="service-actions">${btn('Duplicate','duplicate','small',`data-index="${i}"`)}${draft.services.length>1?btn('Remove from draft','remove-service','small ghost',`data-index="${i}"`):''}<span class="helper">Existing projects keep their agreed service.</span></div></div></details>`).join('')}`;}
+function customerInputs(){const c=draft;return `<div class="eyebrow">STEP 2 / WHERE WORK COMES FROM</div><h2>Choose a workload</h2><p class="helper">Demand is an assumption. Increasing prices does not automatically reduce inquiries.</p><div class="formgrid">${field('How do inquiries arrive?','acquisition',c.acquisition,{options:[['preset','I set the number of inquiries'],['sales','My outreach generates inquiries']]})}${c.acquisition==='preset'?field('New inquiries each month','inquiries',c.inquiries,{max:500,suffix:'requests',help:'Requests for quotes, before sales conversion.'}):field('Your weekly outreach time','outreachHours',c.outreachHours,{max:120,step:0.5,suffix:'hours',help:'Uses part of your total weekly availability.'})}${c.acquisition==='sales'?field('Inquiries per outreach hour','leadsPerHour',c.leadsPerHour,{max:100,step:0.5,suffix:'requests',help:'An editable response assumption.'}):''}${field('Quotes that become paid work','conversion',c.conversion,{max:100,percent:true,suffix:'%',help:'70% means about 7 accepted quotes out of 10.'})}${field('Subscription clients who renew','retention',c.retention,{max:100,percent:true,suffix:'%',help:'Renewal is considered after the previous cycle is paid.'})}${field('One-off clients who order again','repeat',c.repeat,{max:100,percent:true,suffix:'%',help:'Returning requests arrive 30 days after final payment.'})}</div><div class="banner compact">New orders ≈ inquiries × conversion. Recurring and repeat clients are added during the simulation.</div>`;}
+function teamInputs(){const c=draft;return `<div class="eyebrow">STEP 3 / WHO DOES THE WORK</div><h2>Set time and labor costs</h2><p class="helper">A five-day working week. Your time is shared across outreach, quoting, review and delivery.</p><div class="formgrid">${field('Your available time','ownerHours',c.ownerHours,{max:120,step:0.5,suffix:'hours / week'})}${field('Value of your time','ownerTarget',c.ownerTarget,{max:1000,suffix:'$ / hour',help:'An economic target; no cash is paid to you.'})}${field('Number of designers','designers',c.designers,{max:50,suffix:'people'})}${field('Availability of each designer','designerHours',c.designerHours,{max:120,step:0.5,suffix:'hours / week'})}${field('Designer labor cost','designerRate',c.designerRate,{max:1000,step:0.5,suffix:'$ / hour',help:'Paid for hours actually worked.'})}${field('Your work to prepare a quote','quoteHours',c.quoteHours,{max:24,step:0.1,suffix:'hours / inquiry'})}${field('Your work to deliver a project','deliveryHours',c.deliveryHours,{max:24,step:0.1,suffix:'hours / delivery'})}${field('When work is waiting, handle…','priority',c.priority,{options:[['deadline','Earliest deadline first'],['fifo','Oldest project first']]})}</div><div class="banner compact">You can prioritize an individual project from its detail panel. That overrides the normal queue order.</div>`;}
+function cashInputs(){const c=draft;return `<div class="eyebrow">STEP 4 / MONEY AND COMMITMENTS</div><h2>Set payments and deadlines</h2><div class="formgrid">${field('Starting cash','startingCash',c.startingCash,{max:1e8,suffix:'$',help:state.day?'Requires a new run. Use Add funding for current cash.':'Cash available on day 0.'})}${field('Software and other overhead','overhead',c.overhead,{max:1e7,suffix:'$ / month'})}${field('Client deposit','deposit',c.deposit,{percent:true,max:100,suffix:'%',help:'Received when a quote is accepted.'})}${field('Final balance due after delivery','paymentDays',c.paymentDays,{max:90,suffix:'calendar days'})}${field('Client approval time','approvalDays',c.approvalDays,{max:30,suffix:'calendar days'})}${field('Print supplier turnaround','printDays',c.printDays,{max:90,suffix:'calendar days'})}${field('Promise delivery within','leadDays',c.leadDays,{min:1,max:180,suffix:'calendar days',help:'Measured from acceptance of the quote.'})}${field('Scenario name','name',c.name,{text:true})}</div><details class="advanced"><summary>Optional uncertainty & repeatability</summary><p class="helper">Begin with predictable projects. Switch on specific uncertainties to stress-test your setup.</p>${checkbox('Enable uncertain project outcomes','realism',c.realism)}<div class="uncertainty-grid">${[['complexity','Different design complexity'],['revisions','Extra client revision'],['approval','Slower client approval'],['supplier','Print supplier delays'],['payment','Late final payments']].map(([k,l])=>checkbox(l,'uncertainty.'+k,c.uncertainty[k])).join('')}</div>${field('Workload seed','seed',c.seed,{max:1e9,help:'Same seed + same settings = same replay. Changing it requires a new run.'})}</details>`;}
+function mixValid(){return Math.abs(draft.services.reduce((n,s)=>n+s.weight,0)-100)<0.01;}
+function draftError(){try{QQ.validateConfig(draft);if(!mixValid())return 'Service inquiry shares must add up to 100%. Adjust them or use Balance shares equally.';return '';}catch(e){return e.message;}}
+function workloadRow(label,used,available){const ratio=available?used/available:used?Infinity:0;return `<div class="capacity-row"><div><b>${label}</b><span>${num(used)} / ${num(available)} h</span></div><div class="track"><div class="fill ${ratio>1?'warn':''}" style="width:${Math.min(100,ratio*100)}%"></div></div><small>${available===0&&used>0?'No capacity available':ratio>1?num(used-available)+' hours over capacity':num(Math.max(0,available-used))+' hours spare'}</small></div>`;}
+function draftSummary(){const error=draftError(),changed=dirty();let e;try{e=QQ.estimate(draft);}catch(err){}return `<section class="panel summary-card"><div class="eyebrow">DRAFT PREVIEW · FIRST 30 DAYS</div><h2>What your setup implies</h2><p class="helper">22 working days. New business only, before queue delays and returning clients.</p>${error?`<div class="banner danger" role="alert">${esc(error)}</div>`:''}${!error&&e&&Object.values(e).every(v=>typeof v!=='number'||!Number.isNaN(v))?`<div class="summary-numbers"><div><strong>${num(e.orders)}</strong><small>Expected new orders</small></div><div><strong>${money(e.profit)}</strong><small>Potential operating result</small></div></div>${workloadRow('Your time',e.owner,e.ownerCapacity)}${workloadRow('Design team',e.hours,e.designCapacity)}<div class="minirow"><span>Potential revenue</span><b>${money(e.revenue)}</b></div><div class="minirow"><span>After valuing your time</span><b>${money(e.surplus)}</b></div>${e.ownerLoad>1||e.designLoad>1?'<div class="banner warn compact">This workload exceeds available hours. Run the simulation to see what gets delayed.</div>':''}${draft.acquisition==='sales'&&draft.outreachHours>draft.ownerHours?'<p class="error-text">Outreach is capped by your available hours and leaves no time for quoting.</p>':''}`:''}<div class="divider"></div><div class="draft-state">${changed?badge('Unapplied changes','warn'):badge('Matches current settings')}</div><p class="helper">${state.day?'Apply changes to future work, or start a fresh comparison.':'Apply your setup, then start from day 0.'}</p>${btn(changed?'Review & apply changes':'Go to workflow','review','primary full',error?'disabled':'')}${changed?btn('Cancel all draft changes','discard','ghost full'):''}<div class="save-note">${esc(saveLabel())}</div></section>`;}
+function updatePreview(){const panel=$('#draft-summary');if(panel)panel.innerHTML=draftSummary();const mix=$('#mix-status');if(mix){mix.textContent='Total share: '+QQ.round(draft.services.reduce((n,s)=>n+s.weight,0))+'%'+(mixValid()?' · ready':' · must equal 100%');mix.className='mix-status '+(mixValid()?'positive':'negative');}scheduleSave();}
+function mapView(m){const b=QQ.bottleneck(state);return `${state.day===0?`<div class="welcome-run"><div><h2>Ready when you are.</h2><p>Press <b>1 day</b> to follow the first inquiry, or <b>Run</b> to watch the business progress.</p></div>${btn('Open worked example','example','soft')}</div>`:''}<div class="metrics">${metric('Cash available',money(state.cash),'Receipts minus payments','accent')}${metric('Operating result',money(m.profit),'Delivered revenue minus all incurred costs',m.profit<0?'negative':'')}${metric('Your time',num(state.ownerHours)+' h',money(m.effective)+' per owner hour')}${metric('Late open deliveries',m.late,m.overduePayments+' overdue final payments',m.late?'negative':'')}</div><div class="workgrid"><div><section class="panel"><div class="panelhead"><div><h2>From inquiry to payment</h2><p class="helper">Numbered steps show order; lanes show responsibility.</p></div><span class="tag">${m.active} ACTIVE</span></div><div class="flow-strip">${QQ.STAGES.filter(s=>s!=='complete').map(s=>btn(`<span>${stageNumber[s]}</span>${shortLabels[s]}`,'stage','flow-step '+(selection?.type==='stage'&&selection.id===s?'selected':''),`data-id="${s}"`)).join('')}</div><div class="lanes">${[['Clients','Your customers','people',['inquiry','approval','payment']],['You','Sales, quality & delivery','user',['quote','review','delivery']],['China team','Design & revisions','people',['design']],['Suppliers','Printed work only','box',['production']]].map(([n,h,i,stages])=>`<section class="work-lane"><div class="lane-heading">${icon(i)}<div><h3>${n}</h3><small>${h}</small></div></div><div class="stage-grid ${stages.length===1?'single':''}">${stages.map(s=>stageCard(s,b)).join('')}</div></section>`).join('')}</div><div class="mapfooter">Digital-only work skips step 6. ${btn(m.complete+' completed projects','filter-complete','small')}</div></section><div class="insight-card panel"><h2>${b?'Where work is collecting':'What to look for'}</h2>${b?`<p><b>${shortLabels[b.stage]}</b> has ${b.count} projects and ${num(b.hours)} hours remaining. The oldest has waited ${b.oldest} days.</p><p class="helper">${b.stage==='design'?'Designers share their available hours.':'Quotes, review and delivery all compete for your available time.'} Client and supplier waiting time is tracked separately.</p><div class="actions">${btn('Inspect this queue','stage','soft','data-id="'+b.stage+'"')}${btn('Adjust team capacity','team','small')}</div>`:'<p class="helper">Advance time and watch queues build. Select a project to see why it is waiting and who can move it forward.</p>'}</div></div><aside class="inspector panel" id="inspector">${inspector()}</aside></div>`;}
+function projectButton(p){return btn(`<span><b>${esc(p.client)}</b><small>${esc(p.service.name)} · ${p.id}</small></span><span class="project-status">${p.priority?'Priority':state.day>p.due&&p.accepted!==undefined&&!p.delivered?'Late':num(p.work[p.stage]||0)>0?num(p.work[p.stage])+' h':state.day-p.entered+' d'}</span>`,'project','projectchip '+(selection?.id===p.id?'selected':''),`data-id="${p.id}" style="--svc:${p.service.color}"`);}
+function stageCard(stage,b){const ps=state.projects.filter(p=>p.stage===stage);return `<div class="stage-card ${b?.stage===stage?'bottleneck':''} ${selection?.type==='stage'&&selection.id===stage?'selected':''}"><button class="stage-title" data-action="stage" data-id="${stage}"><span><i>${stageNumber[stage]}</i>${shortLabels[stage]}</span><b>${ps.length}</b></button>${ps.slice(0,2).map(projectButton).join('')||'<p class="emptyqueue">No projects waiting</p>'}${ps.length>2?btn('View all '+ps.length+' projects','stage','small ghost','data-id="'+stage+'"'):''}</div>`;}
+function inspector(){if(selection?.type==='project'){const p=state.projects.find(p=>p.id===selection.id);if(p)return projectPanel(p);}if(selection?.type==='stage'){const stage=selection.id,ps=state.projects.filter(p=>p.stage===stage);return `<div class="panelhead"><h2>${shortLabels[stage]}</h2>${btn(icon('close'),'unselect','ghost small','aria-label="Close details"')}</div><div class="inspectbody"><p class="helper">${stageOwner[stage]} · ${ps.length} projects</p>${ps.map(projectButton).join('')||'<div class="empty">This queue is empty.</div>'}${['design','review','quote','delivery'].includes(stage)?btn('Adjust available time','team','soft full'):''}</div>`;}
+return `<div class="panelhead"><h2>Inspect the business</h2></div><div class="inspectbody"><div class="hint-number">1</div><h3>Click a project</h3><p>See its price, costs, remaining work and event history.</p><div class="hint-number">2</div><h3>Understand the delay</h3><p>Each stage explains who is responsible and what must happen next.</p><div class="hint-number">3</div><h3>Test a change</h3><p>Branch the scenario before changing capacity or prices. Compare at the same day.</p>${btn(icon('branch')+'Branch this scenario','branch','soft full')}<div class="divider"></div><h3>Current applied setup</h3><div class="minirow"><span>Your time / week</span><b>${state.config.ownerHours} h</b></div><div class="minirow"><span>Designers</span><b>${state.config.designers}</b></div><div class="minirow"><span>Uncertainty</span><b>${state.config.realism?'On':'Off'}</b></div></div>`;}
+function nextExplanation(p){if(p.stage==='quote')return 'You need '+num(p.work.quote)+' more hours to prepare this quote.';if(p.stage==='design')return 'The design team needs '+num(p.work.design)+' more work hours.';if(p.stage==='review')return 'You need '+num(p.work.review)+' hours to review the design.';if(p.stage==='approval')return 'Waiting for client approval. You can record approval if the client has responded.';if(p.stage==='production')return 'The supplier needs approximately '+Math.max(0,p.printDuration-(state.day-p.entered))+' more calendar days.';if(p.stage==='delivery')return 'You need '+num(p.work.delivery)+' hours to hand off the finished work.';if(p.stage==='payment')return 'Work is delivered. The remaining balance is due on day '+p.paymentDue+'.';if(p.stage==='complete')return 'Work is delivered and fully paid.';if(p.stage==='lost')return 'The client declined this quote.';return 'The inquiry will move to your quote queue on the next day.';}
+function projectPanel(p){const done=['complete','lost'].includes(p.stage);return `<div class="panelhead"><div><div class="eyebrow">${p.id} · ${esc(stageOwner[p.stage])}</div><h2>${esc(p.client)}</h2></div>${btn(icon('close'),'unselect','ghost small','aria-label="Close details"')}</div><div class="inspectbody">${badge(shortLabels[p.stage])}<p>${esc(p.service.name)}</p><p class="helper">${esc(p.service.deliverable)}</p><div class="next-step"><b>What happens next</b><p>${nextExplanation(p)}</p></div><div class="kvs">${[['Agreed price',p.accepted!==undefined?money(p.price):'Not accepted'],['Direct costs',money(p.cost)],['Cash received',money(p.paid)],['Balance owed',money(p.price-p.paid)],['Your hours',num(p.ownerHours)],['Designer hours',num(p.designHours)],['Delivery due',p.accepted!==undefined?'Day '+p.due:'After acceptance'],['At this stage',(state.day-p.entered)+' days']].map(([l,v])=>`<div><label>${l}</label><strong>${v}</strong></div>`).join('')}</div><p class="helper">Direct costs exclude overhead and your time.</p><div class="actions">${!done?btn(p.priority?'Remove priority':'Prioritize work','priority','small','data-id="'+p.id+'"'):''}${!done&&!p.delivered?btn('Extend deadline +3d','deadline','small','data-id="'+p.id+'"'):''}${p.stage==='approval'?btn('Confirm client approval','approve','soft small','data-id="'+p.id+'"'):''}</div><div class="divider"></div><h3>Project timeline</h3><div class="timeline">${[...p.log].reverse().map(e=>`<div class="event"><small>DAY ${e.day}</small><span>${esc(e.text)}</span></div>`).join('')}</div></div>`;}
+function projectsView(){return `<div class="project-tools"><label class="search-label">Search client or project<input id="project-search" value="${esc(search)}" placeholder="e.g. Maple or P003"></label><label class="search-label">Show<select id="project-filter">${[['active','Active work'],['all','All projects'],['late','Late deliveries'],['payment','Awaiting payment'],['complete','Completed'],['lost','Declined']].map(([v,n])=>`<option value="${v}" ${filter===v?'selected':''}>${n}</option>`).join('')}</select></label></div><section class="panel" id="project-table">${projectTable()}</section>`;}
+function projectTable(){const needle=search.trim().toLowerCase();const ps=state.projects.filter(p=>(!needle||[p.client,p.id,p.service.name].some(x=>x.toLowerCase().includes(needle)))&&(filter==='all'||filter==='active'&&!['lost','complete'].includes(p.stage)||filter==='late'&&p.accepted!==undefined&&!p.delivered&&p.stage!=='lost'&&state.day>p.due||p.stage===filter));return `<div class="tablewrap"><table><thead><tr><th>Client / project</th><th>Service</th><th>Stage</th><th>Responsible</th><th>Agreed price</th><th>Delivery due</th></tr></thead><tbody>${ps.map(p=>`<tr><td>${btn(esc(p.client),'project','table-link','data-id="'+p.id+'"')}<small>${p.id}</small></td><td>${esc(p.service.name)}</td><td>${shortLabels[p.stage]}</td><td>${stageOwner[p.stage]}</td><td>${p.accepted!==undefined?money(p.price):'—'}</td><td>${p.accepted!==undefined?'Day '+p.due:'—'}</td></tr>`).join('')||'<tr><td colspan="6"><div class="empty">No matching projects. Advance the clock or change your filter.</div></td></tr>'}</tbody></table></div>`;}
+function financeView(m){return `<div class="metrics">${metric('Cash available',money(state.cash),'Includes funding and client deposits','accent')}${metric('Delivered revenue',money(state.revenue),m.delivered+' projects delivered')}${metric('Operating result',money(m.profit),'Revenue less costs incurred',m.profit<0?'negative':'')}${metric('After your time',money(m.surplus),num(state.ownerHours)+' hours × '+money(state.config.ownerTarget))}</div><div class="two-col"><section class="panel padded"><h2>Why cash and profit differ</h2>${[['Starting cash',state.initialCash],['Owner funding',state.funding],['Client payments received',state.ledger.filter(e=>e.type==='receipt').reduce((n,e)=>n+e.amount,0)],['Costs paid',-state.expenses],['Cash now',state.cash]].map(([l,v])=>`<div class="minirow"><span>${l}</span><b>${money(v)}</b></div>`).join('')}<p class="helper">Deposits enter cash before delivery. Funding increases cash but is never revenue.</p>${btn('Add owner funding','fund','soft')}</section><section class="panel padded"><h2>Time and delivery</h2>${[['Effective earnings / owner hour',money(m.effective)],['Delivery deadlines missed (still open)',m.late],['Overdue final payments',m.overduePayments],['Delivered balances outstanding',money(m.receivable)]].map(([l,v])=>`<div class="minirow"><span>${l}</span><b>${v}</b></div>`).join('')}<p class="helper">A delivered project waiting for payment is not a late delivery. Results expense all incurred costs, including unfinished work. This is a simplified operating model.</p></section></div><section class="panel padded" style="margin-top:18px"><h2>Cash over time</h2>${cashChart()}</section><h2 class="section-title">Monthly results</h2><div class="monthgrid">${Array.from({length:Math.max(1,Math.ceil(state.day/30))},(_,i)=>{const end=state.history.filter(h=>h.day<=(i+1)*30).at(-1),prior=state.history.find(h=>h.day===i*30)||{revenue:0,expenses:0,ownerHours:0};return `<div class="panel padded"><div class="eyebrow">MONTH ${i+1} ${state.day<(i+1)*30?'· PARTIAL':''}</div><h2>${money((end?.revenue||0)-prior.revenue)} revenue</h2><p>Result ${money((end?.revenue||0)-prior.revenue-(end?.expenses||0)+prior.expenses)}<br>Your time ${num((end?.ownerHours||0)-prior.ownerHours)} h</p></div>`;}).join('')}</div><section class="panel"><div class="panelhead"><h2>Cash ledger</h2><span class="tag">LATEST 100 TRANSACTIONS</span></div><div class="tablewrap"><table><thead><tr><th>Day</th><th>Transaction</th><th>Project</th><th>Cash movement</th></tr></thead><tbody>${state.ledger.slice(-100).reverse().map(e=>`<tr><td>${e.day}</td><td>${esc(e.note)}</td><td>${e.project?btn(esc(e.project),'project','table-link','data-id="'+esc(e.project)+'"'):'—'}</td><td class="${e.amount<0?'negative':'positive'}">${money(e.amount)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Run the simulation to see transactions.</td></tr>'}</tbody></table></div></section>`;}
+function cashChart(){const vs=QQ.cashSeries(state);const lo=Math.min(0,...vs.map(v=>v.cash)),hi=Math.max(1,...vs.map(v=>v.cash))*1.05;return `<svg class="chart" viewBox="0 0 650 170" role="img" aria-label="Cash balance from day zero to day ${state.day}"><path d="M65 20H630 M65 80H630 M65 140H630" stroke="var(--line)"/><polyline points="${vs.map(v=>`${65+v.day/Math.max(1,state.day)*565},${140-(v.cash-lo)/(hi-lo)*120}`).join(' ')}" fill="none" stroke="var(--green)" stroke-width="2.5"/><text x="0" y="24" class="axislabel">${money(hi)}</text><text x="0" y="144" class="axislabel">${money(lo)}</text><text x="65" y="165" class="axislabel">Day 0</text><text x="575" y="165" class="axislabel">Day ${state.day}</text></svg>`;}
+function scenariosTableView(){const row=(s,i)=>{const m=QQ.metrics(s);return `<tr><td><b>${esc(i<0?s.config.name:checkpointInfo[i]?.label||s.config.name)}</b><small>${i<0?'Current run':checkpointInfo[i]?.kind==='automatic'?'Automatic checkpoint':'Saved checkpoint'}</small></td><td>${s.day}</td><td>${money(s.cash)}</td><td>${money(m.profit)}</td><td>${num(s.ownerHours)}</td><td>${m.delivered}</td><td>${m.late}</td><td>${i<0?badge('Active'):btn('Load','load','small','data-index="'+i+'"')+btn('Name / keep','rename-checkpoint','small','data-index="'+i+'"')+btn('Delete','delete-checkpoint','small ghost','data-index="'+i+'"')}</td></tr>`;};const other=saved.at(-1),a=QQ.metrics(state),b=other?QQ.metrics(other):null;return `<div class="banner">Compare at the <b>same day</b> with the same seed. Checkpoints stay frozen until loaded. Your current run is preserved before loading another.</div><section class="panel"><div class="panelhead"><h2>Saved runs</h2>${btn('Save checkpoint','checkpoint','soft')}</div><div class="tablewrap"><table><thead><tr><th>Scenario</th><th>Day</th><th>Cash</th><th>Operating result</th><th>Owner hours</th><th>Delivered</th><th>Late</th><th></th></tr></thead><tbody>${row(state,-1)}${saved.map(row).join('')}</tbody></table></div></section><section class="panel padded" style="margin-top:18px"><h2>What changed?</h2>${other?`<p>Compared with <b>${esc(other.config.name)}</b>: ${money(a.profit-b.profit)} difference in operating result, ${num(state.ownerHours-other.ownerHours)} additional owner hours, and ${a.delivered-b.delivered} additional deliveries.</p>${state.day!==other.day?'<div class="banner warn">These runs are on different days. The difference is not yet a fair comparison.</div>':''}<p class="helper">Measured differences do not prove which decision caused them. Inspect the project histories and work queues.</p>`:'<p class="helper">Save a checkpoint or create a branch to begin a comparison.</p>'}</section>`;}
+function scenariosView(){return scenariosTableView()+preservationView();}
+function preservationView(){return `<section class="panel padded" style="margin-top:18px"><h2>Preserved workspaces</h2><p class="helper">Opening a backup or example preserves your complete previous workspace here. Identical checkpoints are stored once. The latest ${MEIQQWorkspace.AUTO_LIMIT} automatic checkpoints are retained; named or manually saved checkpoints stay until you delete them.</p>${archives.map((a,i)=>`<div class="archive-row"><div><b>${esc(a.label)}</b><p class="helper">Day ${a.workspace.state.day} · ${a.workspace.saved.length} checkpoints · ${a.workspace.state.projects.length} projects · unfinished draft included</p></div><div class="actions">${btn('Open','open-archive','small',`data-index="${i}"`)}${btn('Export','export-archive','small',`data-index="${i}"`)}${btn('Delete','delete-archive','small ghost',`data-index="${i}"`)}</div></div>`).join('')||'<p class="helper">No preserved workspaces yet.</p>'}${recoveryFiles.length?'<div class="divider"></div><h3>Recovered originals</h3><p class="helper">Malformed draft data is kept intact here. The editable form uses the last applied setup until you correct it.</p>'+recoveryFiles.map((f,i)=>`<div class="archive-row"><span>${esc(f.name)}</span>${btn('Download original','recovery-file','small',`data-index="${i}"`)}</div>`).join(''):''}</section>`;}
+function aboutView(){return `<div class="two-col"><section class="panel padded"><h2>Start with one experiment</h2><ol><li>Set service prices, hours, inquiry shares and available capacity.</li><li>Review the draft preview, then apply the setup.</li><li>Step through a day or run a month.</li><li>Inspect the queue that grows and the projects inside it.</li><li>Branch, change one input, restart and compare at the same day.</li></ol><h2>What the numbers mean</h2><p>Inquiries are requests for quotes. Conversion is the share that accept. A deposit is received on acceptance; revenue is recognized on delivery.</p><p>The instant preview uses the same first 30 calendar days and 22 working days as the simulation. It assumes full fulfillment of new demand, excluding renewals, delays and uncertainty.</p><p>Operating result is delivered revenue less all incurred costs, including unfinished work. Owner time is valued separately. No taxes, depreciation or full accrual accounting are modeled.</p></section><section class="panel padded"><h2>Rules you can inspect</h2><p>One tick is a day. Work occurs five days in seven. Projects advance at most one stage per day. Staff capacity is pooled by role.</p><p>Accepted quotes lock their prices, work scope and payment/approval/printing terms. Live changes affect new quotes; labor rates and available hours affect future work.</p><p>Cash shortfalls roll back the whole proposed day. Add explicit funding, then retry. No transactions are duplicated.</p><p>Subscription and repeat cycles begin after payment. Subscription renewals are at least 30 days apart. Late cycles do not overlap.</p><h2>Prototype limits</h2><p>All starting numbers are invented. Named staff, supplier comparisons, borrowing and native Windows/Mac installers remain future work.</p><p>Backups include live projects, cash, checkpoints, unfinished drafts and preserved workspaces. Browser storage depends on the browser and file location; use Backup before moving the app.</p></section></div>`;}
+function clock(){const end=state.day>=state.config.months*30;return `<footer class="clock"><div class="clockgroup"><div class="clockday"><b>Day ${state.day} <span>/ ${state.config.months*30}</span></b><small>${recoveryFiles.length?`<div class="banner warn">${recoveryFiles.length} original draft or save file(s) preserved for recovery. ${btn('View recovery files','view','small','data-view="scenarios"')}</div>`:''}${state.blocked?'Cash decision needed':running?'Running':end?'Run complete':'Paused'}</small></div>${btn(icon(running?'pause':'play')+(running?'Pause':'Run'),'play','primary',end?'disabled':'')}${btn(icon('step')+'1 day','step','',end?'disabled':'')}${btn('Finish month','finish','',end?'disabled':'')}<label class="clock-select"><span>Speed</span><select id="speed" aria-label="Simulation speed">${[1,2,4].map(n=>`<option value="${n}" ${speed===n?'selected':''}>${n}×</option>`).join('')}</select></label></div><div class="clockgroup"><label class="clock-select"><span>Horizon</span><select id="horizon" aria-label="Simulation horizon">${[1,3,6,12].map(n=>`<option value="${n}" ${state.config.months===n?'selected':''}>${n} month${n>1?'s':''}</option>`).join('')}</select></label>${btn(icon('reset'),'restart','','aria-label="Restart run" title="Restart with applied settings"')}</div></footer>`;}
+
+function checkpoint(kind='automatic'){MEIQQWorkspace.checkpoint({state,saved,checkpointInfo},kind);}
+function modal(html){stop();modalFocus=document.activeElement;$('#modal').innerHTML=`<div class="modalback"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title">${html}<div class="modal-error" id="modal-error" role="alert"></div></section></div>`;setTimeout(()=>$('#modal input, #modal button')?.focus(),0);}
+function closeModal(){$('#modal').innerHTML='';modalFocus?.focus();}
+function showError(message){const el=$('#modal-error');if($('#modal').firstChild&&el)el.textContent=message;else toast(message);}
+function review(){stop();const error=draftError();if(error){toast(error);return;}if(!dirty()){view='map';render();return;}const restartOnly=state.day>0&&(draft.startingCash!==state.config.startingCash||draft.seed!==state.config.seed||draft.months*30<state.day);const names={services:'Services and inquiry mix',ownerHours:'Your available time',ownerTarget:'Value of your time',designers:'Designer count',designerHours:'Designer availability',designerRate:'Labor rate',overhead:'Overhead',startingCash:'Starting cash',conversion:'Conversion',deposit:'Deposit',leadDays:'Delivery promise',inquiries:'New inquiries',acquisition:'Inquiry source',paymentDays:'Payment terms',approvalDays:'Approval timing',printDays:'Print timing',seed:'Workload seed',retention:'Renewals',repeat:'Repeat purchases',realism:'Uncertainty',uncertainty:'Uncertainty switches',name:'Scenario name',months:'Horizon',outreachHours:'Outreach time',leadsPerHour:'Outreach response',priority:'Queue order',quoteHours:'Quoting work',deliveryHours:'Delivery work'};const changes=Object.keys(draft).filter(k=>JSON.stringify(draft[k])!==JSON.stringify(state.config[k]));modal(`<div class="eyebrow">${changes.length} SETTING GROUPS CHANGED</div><h2 id="dialog-title">Apply your business setup</h2><p>A checkpoint of your current run will be saved first.</p><ul class="change-list">${changes.map(k=>`<li>${esc(names[k]||k)}${typeof draft[k]==='number'&&!['conversion','retention','deposit','repeat'].includes(k)?`: <b>${esc(state.config[k])} → ${esc(draft[k])}</b>`:''}</li>`).join('')}</ul><div class="choice-explain"><b>Apply to the current run</b><p>Capacity and labor rates affect upcoming work. New quotes use the updated services and terms. Existing agreements stay intact.</p></div><div class="choice-explain"><b>Apply and start a new run</b><p>Start at day 0 using the new setup. Use the same seed for a comparison.</p></div>${restartOnly?'<div class="banner warn">Starting cash, seed or a shorter horizon changed. Start a new run to apply these.</div>':''}<div class="actions">${btn('Keep editing','close')}${!restartOnly?btn(state.day?'Apply going forward':'Apply setup','apply','soft','data-mode="future"'):''}${btn('Apply & start new run','apply','primary','data-mode="restart"')}</div>`);render();}
+function applyDraft(mode){const error=draftError();if(error)throw Error(error);const next=QQ.clone(draft);if(mode==='restart'){checkpoint();state=QQ.fresh(next);}else{const updated=QQ.clone(state);QQ.applyConfig(updated,next);checkpoint();state=updated;}draft=QQ.clone(state.config);selection=null;view='map';closeModal();render();toast(mode==='restart'?'Setup applied. New run ready at day 0.':'Changes applied. Existing commitments preserved.');}
+function beginRun(action){stop();if(dirty()){review();return false;}if(state.blocked){cashModal();return false;}if(state.day>=state.config.months*30)return false;view='map';return true;}
+function tick(){const advanced=QQ.step(state);save();if(!advanced||state.day>=state.config.months*30)stop();render();if(state.blocked)cashModal();}
+function play(){if(running){stop();render();return;}if(!beginRun('play'))return;running=true;timer=setInterval(tick,1000/speed);render();}
+function finishMonth(){if(!beginRun('finish'))return;const target=Math.min(state.config.months*30,(Math.floor(state.day/30)+1)*30);while(state.day<target){if(!QQ.step(state))break;}save();render();if(state.blocked)cashModal();else toast('Reached day '+state.day+'. Inspect your queues and results.');}
+function cashModal(){const b=state.blocked;if(!b)return;modal(`<div class="eyebrow">RUN PAUSED</div><h2 id="dialog-title">A payment needs funding</h2><p>${esc(b.note)}</p><div class="kvs"><div><label>Payment needed</label><strong>${money(b.amount)}</strong></div><div><label>Cash at that point</label><strong>${money(b.cash)}</strong></div></div><div class="banner warn">Shortfall: <b>${money(b.gap)}</b>. The attempted day was rolled back. Retry after funding; nothing is duplicated.</div><label class="input-field">Owner funding ($)<input id="funding" type="number" min="0.01" max="100000000" step="0.01" value="${Math.max(500,Math.ceil(b.gap))}"></label><p class="helper">Funding increases cash, not profit. The simulation remains paused after funding.</p><div class="actions">${btn('Keep paused','close')}${btn('Add funding','confirm-fund','primary')}</div>`);}
+function download(name,data){const blob=new Blob([typeof data==='string'?data:JSON.stringify(data)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+function backupPayload(){return MEIQQWorkspace.pack(currentWorkspace(),archives);}
+function parseBackup(data){return MEIQQWorkspace.parse(data);}
+function importFile(){stop();const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{try{const f=input.files?.[0];if(!f)return;MEIQQWorkspace.checkSize(f.size);const parsed=MEIQQWorkspace.parseText(await f.text());modal(`<h2 id="dialog-title">Open this ${parsed.full?'saved workspace':'setup'}?</h2><p><b>${esc(parsed.state.config.name)}</b> · day ${parsed.state.day} · ${parsed.state.projects.length} projects.</p><p>Your complete current workspace, including checkpoints and unfinished draft, will remain available under Preserved workspaces.</p><div class="actions">${btn('Cancel','close')}${btn('Open backup','confirm-import','primary')}</div>`);pendingImport=parsed;}catch(e){toast(e.message||'The backup could not be read.');}};input.click();}
+let pendingImport=null;
+function handleInput(el){
+ const path=el.dataset?.input;if(!path||loading)return;stop();const parts=path.split('.');let target=draft;for(const p of parts.slice(0,-1))target=target[p];const key=parts.at(-1);
+ const value=el.type==='checkbox'?el.checked:key==='recurring'?el.value==='true':el.type==='number'?(el.value.trim()===''?null:Number(el.value)/(el.dataset.percent?100:1)):el.value;
+ target[key]=value;
+ const error=$('#error-'+el.id);if(error)error.textContent=typeof el.checkValidity==='function'&&!el.checkValidity()?'Enter a valid value in the range shown.':'';
+ updatePreview();
+}
+document.addEventListener('input',e=>{if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=projectTable();return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
+document.addEventListener('change',e=>{
+ const el=e.target;if(loading)return;
+ if(el.dataset?.input){handleInput(el);if(el.dataset.input==='acquisition'||el.type==='checkbox')render();return;}
+ if(el.id==='appearance'){if(!['light','dark','terminal'].includes(el.value))return;theme=el.value;document.documentElement.dataset.theme=theme;try{localStorage.setItem(THEME_KEY,theme);}catch(err){toast('Theme applied for this session. Browser storage is unavailable.');}return;}
+ if(el.id==='speed'){speed=Number(el.value);if(running){clearInterval(timer);timer=setInterval(tick,1000/speed);}return;}
+ if(el.id==='horizon'){stop();const months=Number(el.value);if(months*30<state.day){toast('The horizon must include the current day.');render();return;}state.config.months=months;draft.months=months;save();render();return;}
+ if(el.id==='project-filter'){filter=el.value;$('#project-table').innerHTML=projectTable();}
+});
+document.addEventListener('click',e=>{
+ const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;if(loading)return;
+ try{
+  if(a==='view'){stop();view=el.dataset.view;render();}
+  else if(a==='setup-step'){stop();stepIndex=Number(el.dataset.step);render();}
+  else if(a==='team'){stop();view='setup';stepIndex=2;render();}
+  else if(a==='review')review();
+  else if(a==='apply')applyDraft(el.dataset.mode);
+  else if(a==='discard'){draft=QQ.clone(state.config);render();toast('Draft changes cancelled.');}
+  else if(a==='add-service'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');draft.services.push({id:'service'+Date.now(),name:'New service',deliverable:'Describe the deliverable',price:350,hours:5,review:1,print:0,weight:0,recurring:false,color:'#647f9a'});expandedService=draft.services.length-1;render();toast('Service added with 0% inquiry share. Open it to edit, then adjust the mix.');}
+  else if(a==='duplicate'){const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id='service'+Date.now();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
+  else if(a==='remove-service'){if(draft.services.length<=1)throw Error('Keep at least one service.');draft.services.splice(Number(el.dataset.index),1);expandedService=Math.min(expandedService,draft.services.length-1);render();}
+  else if(a==='balance'){const n=draft.services.length,part=Math.floor(100/n);draft.services.forEach((s,i)=>s.weight=i===n-1?100-part*(n-1):part);render();}
+  else if(a==='play')play();
+  else if(a==='step'){if(beginRun('step'))tick();}
+  else if(a==='finish')finishMonth();
+  else if(a==='stage'){selection={type:'stage',id:el.dataset.id};view='map';render();}
+  else if(a==='project'){stop();selection={type:'project',id:el.dataset.id};view='map';render();}
+  else if(a==='unselect'){selection=null;render();}
+  else if(a==='filter-complete'){stop();view='projects';filter='complete';render();}
+  else if(['priority','deadline','approve'].includes(a)){stop();const p=state.projects.find(v=>v.id===el.dataset.id);QQ.intervene(state,p.id,a,a==='deadline'?p.due+3:undefined);render();toast('Project decision recorded.');}
+  else if(a==='checkpoint'){checkpoint('manual');render();toast('Checkpoint saved.');}
+  else if(a==='branch'){stop();modal(`<h2 id="dialog-title">Branch this scenario</h2><p>Save the current run, then continue in an independent copy. Any setup draft is kept with the new branch.</p><label class="input-field">Scenario name<input id="branch-name" maxlength="100" value="${esc(state.config.name+' · alternative')}"></label><div class="actions">${btn('Cancel','close')}${btn('Create branch','confirm-branch','primary')}</div>`);render();}
+  else if(a==='confirm-branch'){const name=$('#branch-name').value.trim();if(!name)throw Error('Enter a scenario name.');checkpoint();state=QQ.clone(state);state.config.name=name;draft.name=name;closeModal();view='setup';render();toast('Branch created; original run preserved.');}
+  else if(a==='load'){if(dirty())throw Error('Apply or cancel setup changes before loading a checkpoint.');stop();const next=QQ.restore(saved[Number(el.dataset.index)]);checkpoint();state=next;draft=QQ.clone(state.config);selection=null;render();}
+  else if(a==='restart'){stop();if(dirty()){review();return;}modal(`<h2 id="dialog-title">Restart from day 0?</h2><p>Your current run will be saved as a checkpoint. The new run uses the same applied assumptions and seed.</p><div class="actions">${btn('Cancel','close')}${btn('Save & restart','confirm-restart','primary')}</div>`);render();}
+  else if(a==='confirm-restart'){checkpoint();state=QQ.fresh(state.config);draft=QQ.clone(state.config);selection=null;view='map';closeModal();render();}
+  else if(a==='example'){stop();modal(`<h2 id="dialog-title">Open a worked example?</h2><p>Load a hypothetical studio on day 12, with projects to inspect. Your complete workspace will be preserved inside the app, including checkpoints and unfinished inputs.</p><div class="actions">${btn('Cancel','close')}${btn('Preserve & open example','confirm-example','primary')}</div>`);render();}
+  else if(a==='confirm-example'){archiveCurrent();state=QQ.fresh();saved=[];checkpointInfo=[];recoveryFiles=[];recoveryRaw=null;for(let i=0;i<12;i++)QQ.step(state);draft=QQ.clone(state.config);view='map';selection=null;closeModal();render();}
+  else if(a==='cash')cashModal();
+  else if(a==='fund'){modal(`<h2 id="dialog-title">Add owner funding</h2><p>Cash increases. Revenue and profit do not change.</p><label class="input-field">Amount ($)<input id="funding" type="number" min="0.01" max="100000000" step="0.01" value="1000"></label><div class="actions">${btn('Cancel','close')}${btn('Add funding','confirm-fund','primary')}</div>`);render();}
+  else if(a==='confirm-fund'){const f=$('#funding');if(!f.checkValidity())return f.reportValidity();QQ.fund(state,Number(f.value));closeModal();render();toast('Funding added. Resume when ready.');}
+  else if(a==='backup'){download('MEIQQ-Backup-Day-'+state.day+'.json',MEIQQWorkspace.serialize(currentWorkspace(),archives));toast('Backup download requested. Unfinished inputs and preserved workspaces are included.');}
+  else if(a==='recover')download('MEIQQ-original-save.json',recoveryRaw);
+  else if(a==='import')importFile();
+  else if(a==='confirm-import'){if(!pendingImport)throw Error('Choose a backup first.');openImportedWorkspace(pendingImport);pendingImport=null;view=state.day?'map':'setup';closeModal();render();toast('Backup opened. Previous workspace preserved in Scenarios.');}
+else if(a==='open-archive'){
+   const index=Number(el.dataset.index),item=archives[index];if(!item)throw Error('Workspace not found.');
+   const next=QQ.clone(item.workspace),rest=archives.filter((_,i)=>i!==index);
+   MEIQQWorkspace.archive(rest,currentWorkspace());installWorkspace({...next,archives:rest});recoveryRaw=null;selection=null;render();toast('Preserved workspace reopened.');
+  }
+  else if(a==='export-archive'){const item=archives[Number(el.dataset.index)];if(!item)throw Error('Workspace not found.');download('MEIQQ-Preserved-Workspace.json',MEIQQWorkspace.serialize(item.workspace));}
+  else if(a==='recovery-file'){const file=recoveryFiles[Number(el.dataset.index)];if(!file)throw Error('Recovery file not found.');download('MEIQQ-Recovered-Original.json',file.text);}
+  else if(a==='rename-checkpoint'){const i=Number(el.dataset.index);modal(`<h2 id="dialog-title">Name this checkpoint</h2><label class="input-field">Name<input id="checkpoint-name" maxlength="100" value="${esc(checkpointInfo[i].label)}"></label><div class="actions">${btn('Cancel','close')}${btn('Save name','confirm-rename','primary',`data-index="${i}"`)}</div>`);}
+  else if(a==='confirm-rename'){const i=Number(el.dataset.index),label=$('#checkpoint-name').value.trim();if(!label||label.length>100)throw Error('Enter a name up to 100 characters.');checkpointInfo[i]={label,kind:'manual'};closeModal();render();}
+  else if(['delete-checkpoint','delete-archive'].includes(a)){const kind=a==='delete-checkpoint'?'checkpoint':'workspace';modal(`<h2 id="dialog-title">Delete this ${kind}?</h2><p>This removes the saved copy from this browser. Existing downloaded backups keep their copy.</p><div class="actions">${btn('Cancel','close')}${btn('Delete saved copy','confirm-delete','primary',`data-kind="${kind}" data-index="${Number(el.dataset.index)}"`)}</div>`);}
+  else if(a==='confirm-delete'){const i=Number(el.dataset.index);if(el.dataset.kind==='checkpoint'){saved.splice(i,1);checkpointInfo.splice(i,1);}else archives.splice(i,1);closeModal();render();}
+  else if(a==='close'){closeModal();render();}
+  if(['apply','discard','add-service','duplicate','remove-service','balance','priority','deadline','approve','checkpoint','confirm-branch','load','confirm-restart','confirm-example','confirm-fund','confirm-import','open-archive','confirm-rename','confirm-delete'].includes(a))save();
+ }catch(err){showError(err.message||'The action could not be completed.');}
+});
+document.addEventListener('keydown',e=>{if(!$('#modal').firstChild)return;if(e.key==='Escape'){closeModal();render();}if(e.key==='Tab'){const els=[...document.querySelectorAll('#modal button, #modal input, #modal select')].filter(el=>!el.disabled);if(!els.length)return;if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===els.at(-1)){e.preventDefault();els[0].focus();}}});
+window.addEventListener('beforeunload',e=>{save();if(storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw){e.preventDefault?.();e.returnValue='';}});
+render();
+const appReady=initializeStorage();
+</script></body></html>

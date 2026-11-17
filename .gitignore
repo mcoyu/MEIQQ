@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+coverage/
+*.log
+*.tmp
+*.tmp.zip
+.env
+.env.*
+!.env.example
+MEIQQ-Backup-*.json
+MEIQQ-before-example.json
+MEIQQ-original-save.json
+MEIQQ-Recovered-Original.json
+MEIQQ-Preserved-Workspace.json
