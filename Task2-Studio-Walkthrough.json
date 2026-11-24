@@ -1,0 +1,337 @@
+{
+  "format": "meiqq-planner",
+  "version": 1,
+  "planner": {
+    "version": 1,
+    "nextId": 4,
+    "plans": [
+      {
+        "id": "plan-1",
+        "revision": 12,
+        "origin": "example",
+        "name": "Our 8-hour weeks · four at $600",
+        "notes": "Director guidance: one combined income target for both owners; at most 8 hours/week each. A 30-day model uses 4.4 workweeks, so 35.2 hours each is a modeled ceiling, not a calendar schedule. Placeholder: reserve 6 sales/admin hours each per period. Owner nonproject hours are entered directly; partner delivery availability is 35.2 minus 6 = 29.2 hours before the 10% buffer. Partner hourly cash cost is 0 because both owners draw from the combined remainder, not because partner work has no value. Combined income target is $2,000, confirmed by the director and editable. The older frozen baseline intentionally retains the earlier unknown target. Retained amount $400 and all service prices, costs and effort are editable fictional placeholders. Four jobs require owner20 hours and partner30 hours INCLUDING admin, 50 actual combined hours; the app counted-work total excludes partner admin and shows44. Two setups in every alternative. No demand or payment collection is confirmed.",
+        "ownerHours": "35.2",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "29.2",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "4",
+            "setupCount": "2",
+            "price": "600",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "5",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-ebbf655ff4b6f842",
+          "date": "2026-11-20",
+          "label": "Our 8-hour weeks · four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "Our 8-hour weeks · four at $600",
+            "notes": "Director guidance: one combined income target for both owners; at most 8 hours/week each. A 30-day model uses 4.4 workweeks, so 35.2 hours each is a modeled ceiling, not a calendar schedule. Placeholder: reserve 6 sales/admin hours each per period. Owner nonproject hours are entered directly; partner delivery availability is 35.2 minus 6 = 29.2 hours before the 10% buffer. Partner hourly cash cost is 0 because both owners draw from the combined remainder, not because partner work has no value. Combined income target is UNKNOWN. Retained amount $400 and all service prices, costs and effort are editable fictional placeholders. Four jobs require owner20 hours and partner30 hours INCLUDING admin, 50 actual combined hours; the app counted-work total excludes partner admin and shows44. Two setups in every alternative. No demand or payment collection is confirmed.",
+            "ownerHours": "35.2",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "29.2",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "plan-2",
+        "revision": 5,
+        "origin": "example",
+        "name": "Our 8-hour weeks · four at $450",
+        "notes": "Director guidance: one combined income target for both owners; at most 8 hours/week each. A 30-day model uses 4.4 workweeks, so 35.2 hours each is a modeled ceiling, not a calendar schedule. Placeholder: reserve 6 sales/admin hours each per period. Owner nonproject hours are entered directly; partner delivery availability is 35.2 minus 6 = 29.2 hours before the 10% buffer. Partner hourly cash cost is 0 because both owners draw from the combined remainder, not because partner work has no value. Combined income target is $2,000, confirmed by the director and editable. The older frozen baseline intentionally retains the earlier unknown target. Retained amount $400 and all service prices, costs and effort are editable fictional placeholders. Four jobs require owner20 hours and partner30 hours INCLUDING admin, 50 actual combined hours; the app counted-work total excludes partner admin and shows44. Two setups in every alternative. No demand or payment collection is confirmed.",
+        "ownerHours": "35.2",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "29.2",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "4",
+            "setupCount": "2",
+            "price": "450",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "5",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-ebbf655ff4b6f842",
+          "date": "2026-11-20",
+          "label": "Our 8-hour weeks · four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "Our 8-hour weeks · four at $600",
+            "notes": "Director guidance: one combined income target for both owners; at most 8 hours/week each. A 30-day model uses 4.4 workweeks, so 35.2 hours each is a modeled ceiling, not a calendar schedule. Placeholder: reserve 6 sales/admin hours each per period. Owner nonproject hours are entered directly; partner delivery availability is 35.2 minus 6 = 29.2 hours before the 10% buffer. Partner hourly cash cost is 0 because both owners draw from the combined remainder, not because partner work has no value. Combined income target is UNKNOWN. Retained amount $400 and all service prices, costs and effort are editable fictional placeholders. Four jobs require owner20 hours and partner30 hours INCLUDING admin, 50 actual combined hours; the app counted-work total excludes partner admin and shows44. Two setups in every alternative. No demand or payment collection is confirmed.",
+            "ownerHours": "35.2",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "29.2",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "plan-3",
+        "revision": 5,
+        "origin": "example",
+        "name": "Our 8-hour weeks · five at $600",
+        "notes": "Director guidance: one combined income target for both owners; at most 8 hours/week each. A 30-day model uses 4.4 workweeks, so 35.2 hours each is a modeled ceiling, not a calendar schedule. Placeholder: reserve 6 sales/admin hours each per period. Owner nonproject hours are entered directly; partner delivery availability is 35.2 minus 6 = 29.2 hours before the 10% buffer. Partner hourly cash cost is 0 because both owners draw from the combined remainder, not because partner work has no value. Combined income target is $2,000, confirmed by the director and editable. The older frozen baseline intentionally retains the earlier unknown target. Retained amount $400 and all service prices, costs and effort are editable fictional placeholders. Four jobs require owner20 hours and partner30 hours INCLUDING admin, 50 actual combined hours; the app counted-work total excludes partner admin and shows44. Two setups in every alternative. No demand or payment collection is confirmed.",
+        "ownerHours": "35.2",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "29.2",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "5",
+            "setupCount": "2",
+            "price": "600",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "5",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-ebbf655ff4b6f842",
+          "date": "2026-11-20",
+          "label": "Our 8-hour weeks · four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "Our 8-hour weeks · four at $600",
+            "notes": "Director guidance: one combined income target for both owners; at most 8 hours/week each. A 30-day model uses 4.4 workweeks, so 35.2 hours each is a modeled ceiling, not a calendar schedule. Placeholder: reserve 6 sales/admin hours each per period. Owner nonproject hours are entered directly; partner delivery availability is 35.2 minus 6 = 29.2 hours before the 10% buffer. Partner hourly cash cost is 0 because both owners draw from the combined remainder, not because partner work has no value. Combined income target is UNKNOWN. Retained amount $400 and all service prices, costs and effort are editable fictional placeholders. Four jobs require owner20 hours and partner30 hours INCLUDING admin, 50 actual combined hours; the app counted-work total excludes partner admin and shows44. Two setups in every alternative. No demand or payment collection is confirmed.",
+            "ownerHours": "35.2",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "29.2",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -22,13 +22,27 @@ test('write failures report unsaved state and can be retried',async()=>{
   fail=false;writer.push('new');assert.equal(await writer.flush(),true);assert.equal(statuses.at(-1),'saved');
 });
 test('startup waits for primary storage and migrates legacy storage without deleting it',async()=>{
-  const q=require('./engine.js'),legacy=JSON.stringify({state:q.fresh(),saved:[],draft:{...q.clone(q.DEFAULT),ownerHours:null}}),db=database();
+  const q=require('./engine.js'),old=q.fresh();old.version=2;
+  const legacy=JSON.stringify({state:old,saved:[],draft:{...q.clone(q.DEFAULT),ownerHours:null}}),db=database();
   const first=setup([['qq-studio-lab-v1',legacy]],{indexedDB:db.factory});first.click('step');assert.equal(vm.runInContext('state.day',first.ctx),0);
   await vm.runInContext('appReady',first.ctx);await vm.runInContext('saveWriter.flush()',first.ctx);
   assert.equal(first.storage.get('qq-studio-lab-v1'),legacy);assert.ok(db.records.has('qq-studio-lab-v1'));
+  assert.equal(vm.runInContext('recoveryFiles.find(f=>f.name==="Original save before migration").text',first.ctx),legacy);
+  assert.equal(require('./workspace.js').parseText(db.records.get('qq-studio-lab-v1').text).recoveryFiles.find(f=>f.name==='Original save before migration').text,legacy);
   vm.runInContext('draft.ownerHours=22;save()',first.ctx);await vm.runInContext('saveWriter.flush()',first.ctx);
   const second=setup([['qq-studio-lab-v1',legacy]],{indexedDB:db.factory});await vm.runInContext('appReady',second.ctx);
   assert.equal(vm.runInContext('draft.ownerHours',second.ctx),22);
+});
+test('primary migration retains its exact original before replacing the browser record',async()=>{
+  const q=require('./engine.js'),w=require('./workspace.js'),old=q.fresh();old.version=2;
+  const raw=JSON.stringify({version:2,state:old,saved:[],draft:q.clone(old.config)}),db=database();
+  db.records.set('qq-studio-lab-v1',{revision:4,text:raw});
+  const ui=setup(undefined,{indexedDB:db.factory});
+  await vm.runInContext('appReady',ui.ctx);await vm.runInContext('saveWriter.flush()',ui.ctx);
+  const migrated=w.parseText(db.records.get('qq-studio-lab-v1').text);
+  assert.equal(migrated.state.version,3);
+  assert.equal(migrated.recoveryFiles.find(f=>f.name==='Original save before migration').text,raw);
+  assert.equal(vm.runInContext('recoveryRaw',ui.ctx),null);
 });
 test('unreadable primary data is preserved instead of overwritten by a fallback',async()=>{
   const db=database();db.records.set('qq-studio-lab-v1','{broken');const ui=setup(undefined,{indexedDB:db.factory});

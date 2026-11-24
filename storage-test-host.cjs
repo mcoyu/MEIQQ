@@ -11,6 +11,7 @@ function database() {
       queueMicrotask(()=>{
         if(aborted)return;
         if(write&&options.failWrites){tx.error=Error('Quota exceeded');tx.abort();return;}
+        if(!write&&options.failReads){tx.error=Error('Read failed');tx.abort();return;}
         if(write)changes.set(key,value);
         request.result=write?key:records.get(key);request.onsuccess?.();pending--;
         if(!pending&&!aborted){for(const [k,v]of changes)records.set(k,v);tx.oncomplete?.();}

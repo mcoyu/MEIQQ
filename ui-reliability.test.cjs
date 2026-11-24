@@ -18,10 +18,11 @@ test('malformed stored draft cannot crash startup or overwrite its original data
   const q=require('./engine.js'),state=q.fresh();const raw=JSON.stringify({state,saved:[],draft:{...state.config,services:null}});
   const {ctx,elements}=setup([['qq-studio-lab-v1',raw]]);
   assert.equal(vm.runInContext('state.cash',ctx),6000);assert.equal(vm.runInContext('recoveryFiles.length',ctx),1);
-  assert.match(elements['#root'].innerHTML,/preserved for recovery/);
+  assert.doesNotMatch(elements['#root'].innerHTML,/Earlier save restored|preserved for recovery/);
+  assert.match(vm.runInContext('scenariosView()',ctx),/Original files \(1\)/);
 });
 test('ledger text is escaped even if an internal caller bypasses import validation',()=>{
-  const {ctx}=setup();const html=vm.runInContext("state.ledger.push({day:0,type:'expense',amount:0,note:'test',project:'<b>unsafe</b>'});financeView(QQ.metrics(state))",ctx);
+  const {ctx}=setup();const html=vm.runInContext("state.ledger.push({day:0,type:'expense',amount:0,note:'test',project:'<b>unsafe</b>'});analyticsTab='cash';financeView(QQ.metrics(state))",ctx);
   assert.ok(!html.includes('<b>unsafe</b>'));assert.match(html,/&lt;b&gt;unsafe/);
 });
 test('quota failures preserve previous saved bytes and leave backup available',()=>{

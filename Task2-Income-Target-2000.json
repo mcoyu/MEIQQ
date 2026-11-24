@@ -1,0 +1,555 @@
+{
+  "format": "meiqq-planner",
+  "version": 1,
+  "planner": {
+    "version": 1,
+    "nextId": 6,
+    "plans": [
+      {
+        "id": "plan-1",
+        "revision": 12,
+        "origin": "example",
+        "name": "$2,000 target · current four at $600",
+        "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nCurrent scope needs 20 owner hours and 30 partner hours, including administration. A staggered weekly allocation of 5 owner hours and 7.5 partner hours fits the 8-hour hard cap. The partner has only 2 hours of slack against the chosen 2.6-hour reserve. The $2,000 income target is covered, but only $120 remains in the business: $280 below the separate $400 retention goal.",
+        "ownerHours": "32",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "26",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "4",
+            "setupCount": "2",
+            "price": "600",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "5",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-3c6ec3ece57d7146",
+          "date": "2026-11-20",
+          "label": "$2,000 target · current four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "$2,000 target · current four at $600",
+            "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nCurrent scope needs 20 owner hours and 30 partner hours, including administration. A staggered weekly allocation of 5 owner hours and 7.5 partner hours fits the 8-hour hard cap. The partner has only 2 hours of slack against the chosen 2.6-hour reserve. The $2,000 income target is covered, but only $120 remains in the business: $280 below the separate $400 retention goal.",
+            "ownerHours": "32",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "2000",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "26",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "plan-2",
+        "revision": 6,
+        "origin": "example",
+        "name": "$2,000 target · three at $900",
+        "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nNo delivery-time improvement is assumed. Owner: 11 project + 6 admin = 17 hours. Partner: 19 project + 6 admin = 25 hours. One illustrative weekly allocation, including 1.5 admin hours each week, is owner 4.5 / 4.5 / 4.5 / 3.5 hours and partner 6.5 / 6.5 / 6.5 / 5.5 hours. Complete setup before the associated work. This is a capacity sketch, not promised customer dates.\n\nThis plan leaves $440 after the $2,000 combined income target. The arithmetic minimum price is $886.67 per engagement; $900 is an editable rounded test price, not a market recommendation.",
+        "ownerHours": "32",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "26",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "3",
+            "setupCount": "2",
+            "price": "900",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "5",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-3c6ec3ece57d7146",
+          "date": "2026-11-20",
+          "label": "$2,000 target · current four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "$2,000 target · current four at $600",
+            "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nCurrent scope needs 20 owner hours and 30 partner hours, including administration. A staggered weekly allocation of 5 owner hours and 7.5 partner hours fits the 8-hour hard cap. The partner has only 2 hours of slack against the chosen 2.6-hour reserve. The $2,000 income target is covered, but only $120 remains in the business: $280 below the separate $400 retention goal.",
+            "ownerHours": "32",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "2000",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "26",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "plan-3",
+        "revision": 5,
+        "origin": "example",
+        "name": "$2,000 target · four at $670, current scope",
+        "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nPrice-only comparison: costs, time and scope stay at their original estimates. This pays $2,000 combined and retains $400, but the partner's 24 project hours exceed the buffered capacity of 23.4 by 0.6 hours. Owner 20 and partner 30 total hours fit the 32-hour hard allowance. No automatic cut to the 10% reserve has been made.",
+        "ownerHours": "32",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "26",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "4",
+            "setupCount": "2",
+            "price": "670",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "5",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-3c6ec3ece57d7146",
+          "date": "2026-11-20",
+          "label": "$2,000 target · current four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "$2,000 target · current four at $600",
+            "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nCurrent scope needs 20 owner hours and 30 partner hours, including administration. A staggered weekly allocation of 5 owner hours and 7.5 partner hours fits the 8-hour hard cap. The partner has only 2 hours of slack against the chosen 2.6-hour reserve. The $2,000 income target is covered, but only $120 remains in the business: $280 below the separate $400 retention goal.",
+            "ownerHours": "32",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "2000",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "26",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "plan-4",
+        "revision": 6,
+        "origin": "example",
+        "name": "$2,000 target · four at $670, tighter scope",
+        "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nUNVERIFIED efficiency or scope hypothesis: partner delivery effort falls from 5 to 4.85 hours per engagement (9 minutes less), while both 2-hour setups remain. Confirm this reduction through actual work before relying on it.\n\nOwner: 14 project + 6 admin = 20 hours. Partner: 23.4 project + 6 admin = 29.4 hours. A weekly sketch is owner 3.5 project + 1.5 admin = 5 hours and partner 4.85 delivery + 1 setup + 1.5 admin = 7.35 hours. The two engagements without extra setup can finish in weeks 1 and 3. The two requiring setup can finish in weeks 2 and 4, with their setup split across the preceding and delivery weeks. This requires ready inputs and compatible deadlines.\n\nThis plan pays $2,000 combined and retains $400 at the entered estimates.",
+        "ownerHours": "32",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "26",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "4",
+            "setupCount": "2",
+            "price": "670",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "4.85",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-3c6ec3ece57d7146",
+          "date": "2026-11-20",
+          "label": "$2,000 target · current four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "$2,000 target · current four at $600",
+            "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nCurrent scope needs 20 owner hours and 30 partner hours, including administration. A staggered weekly allocation of 5 owner hours and 7.5 partner hours fits the 8-hour hard cap. The partner has only 2 hours of slack against the chosen 2.6-hour reserve. The $2,000 income target is covered, but only $120 remains in the business: $280 below the separate $400 retention goal.",
+            "ownerHours": "32",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "2000",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "26",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "plan-5",
+        "revision": 7,
+        "origin": "example",
+        "name": "$2,000 target · five at $540, narrower scope",
+        "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nUNVERIFIED narrower-offer hypothesis: partner delivery effort falls from 5 to 3.88 hours per engagement, a 22.4% reduction, with both 2-hour setups retained. This requires materially less work per engagement; it is not a measured productivity improvement.\n\nOwner: 17 project + 6 admin = 23 hours. Partner: 23.4 project + 6 admin = 29.4 hours. A staggered weekly allowance is 5.75 owner hours and 7.35 partner hours, including administration. Actual handoffs and delivery dates must fit those buckets. This plan pays $2,000 combined and retains $400. Customer willingness to buy the narrower scope is unknown.",
+        "ownerHours": "32",
+        "nonProjectHours": "6",
+        "bufferPct": "10",
+        "ownerTarget": "2000",
+        "profitTarget": "400",
+        "nextPoolId": 2,
+        "nextServiceId": 2,
+        "nextExpenseId": 2,
+        "pools": [
+          {
+            "id": "pool-1",
+            "name": "Partner · analytics",
+            "hours": "26",
+            "rate": "0"
+          }
+        ],
+        "expenses": [
+          {
+            "id": "expense-1",
+            "name": "Software and recurring studio costs",
+            "amount": "200"
+          }
+        ],
+        "services": [
+          {
+            "id": "service-1",
+            "name": "One business question",
+            "unit": "scoped diagnostic",
+            "quantity": "5",
+            "setupCount": "2",
+            "price": "540",
+            "directCost": "20",
+            "setupCost": "0",
+            "ownerHours": "3",
+            "setupOwnerHours": "1",
+            "allocations": [
+              {
+                "name": "Partner · analytics",
+                "poolId": "pool-1",
+                "hours": "3.88",
+                "setupHours": "2"
+              }
+            ],
+            "source": null
+          }
+        ],
+        "baseline": {
+          "key": "baseline-3c6ec3ece57d7146",
+          "date": "2026-11-20",
+          "label": "$2,000 target · current four at $600",
+          "snapshot": {
+            "origin": "example",
+            "name": "$2,000 target · current four at $600",
+            "notes": "Director's editable goal: $2,000 combined monthly income, before tax. Both owners draw from that amount. Partner hourly cash cost is $0 here to avoid charging their compensation twice.\n\nEach person has a hard maximum of 8 hours a week. This review uses only four weeks, or 32 hours each, inside the 30-day planner. It does not rely on the simulator's 4.4-week convention.\n\nEditable placeholders: 6 sales/admin hours per person; 10% delivery reserve; $400 extra retained money; $200 recurring studio costs; $20 other direct cost per engagement; two setups adding 2 partner hours and 1 owner hour each. Partner delivery availability is 32 minus 6 = 26 hours before the buffer. After the buffer, both people have 23.4 project hours.\n\nPrices, demand, costs and effort are unvalidated hypotheses. Work must be staggered to fit each week; the planner does not enforce calendar deadlines. Counted-work totals exclude the partner's 6 administrative hours, which are included in the actual work totals below.\n\nCurrent scope needs 20 owner hours and 30 partner hours, including administration. A staggered weekly allocation of 5 owner hours and 7.5 partner hours fits the 8-hour hard cap. The partner has only 2 hours of slack against the chosen 2.6-hour reserve. The $2,000 income target is covered, but only $120 remains in the business: $280 below the separate $400 retention goal.",
+            "ownerHours": "32",
+            "nonProjectHours": "6",
+            "bufferPct": "10",
+            "ownerTarget": "2000",
+            "profitTarget": "400",
+            "nextPoolId": 2,
+            "nextServiceId": 2,
+            "nextExpenseId": 2,
+            "pools": [
+              {
+                "id": "pool-1",
+                "name": "Partner · analytics",
+                "hours": "26",
+                "rate": "0"
+              }
+            ],
+            "expenses": [
+              {
+                "id": "expense-1",
+                "name": "Software and recurring studio costs",
+                "amount": "200"
+              }
+            ],
+            "services": [
+              {
+                "id": "service-1",
+                "name": "One business question",
+                "unit": "scoped diagnostic",
+                "quantity": "4",
+                "setupCount": "2",
+                "price": "600",
+                "directCost": "20",
+                "setupCost": "0",
+                "ownerHours": "3",
+                "setupOwnerHours": "1",
+                "allocations": [
+                  {
+                    "name": "Partner · analytics",
+                    "poolId": "pool-1",
+                    "hours": "5",
+                    "setupHours": "2"
+                  }
+                ],
+                "source": null
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

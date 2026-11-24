@@ -28,19 +28,19 @@ An interactive hypothetical model of a local marketing business with overseas de
 
 ## Current milestone
 
-Prototype 03 completes Stage A of the November 17 audit: workspace preservation and recovery, financial validation, safe rendering of imported values, prepaid completion, accurate cash observations and controlled storage growth. Stages B and C remain pending. This is not the complete production application. README and the in-app Model guide distinguish implemented behavior from future scope.
+Prototype 03 completes Stages A, B and the automated implementation portion of Stage C from the November 17 audit. Stage A covers workspace preservation and recovery, financial validation, safe rendering of imported values, prepaid completion, accurate cash observations and controlled storage growth. Stage B adds stable external-demand identities, explicit daily ordering and same-day transitions, per-project designer capacity, commitment boundaries, persistent client/contract records, separated fulfillment/payment/renewal status, and stronger delay and bottleneck measures. The customer-profile extension adds a hypothetical 22-type local-business catalog, editable group mix and niche focus, and suitable offerings. Stage C adds service economics and capacity previews, structured validation, exact assumption changes, persistent pinned baselines, result explanations and interruptible month runs. Its cross-browser release gate remains open. This is not the complete production application. README and the stage notes distinguish implemented behavior from future scope.
 
 ## Defaults chosen for the prototype
 
 - MEIQQ working title; restrained green / off-white workspace.
 - Single offline HTML distribution before native packaging.
-- Pooled role capacity and hourly pay for actual design labor.
+- Shared owner capacity; one designer-day maximum per project with parallel work across designers; hourly pay for actual design labor.
 - Fixed stage routing; printing is omitted when print cost is zero.
 - Actual elapsed-day event history; seeded randomness.
 - Daily atomic transactions: a failed cash payment rolls back the proposed day.
 - Earliest-deadline scheduling by default, priority overrides, alternative FIFO.
 - Simplified incurred-cost operating result, explicitly distinct from formal accounting.
-- Subscription cycle begins after the previous cycle is delivered and paid, with a minimum 30-day cycle from its original inquiry.
+- The recurring option is a paid-cycle subscription: its next cycle begins after the previous cycle is delivered and paid, no earlier than 30 days after the prior inquiry. It is not fixed calendar billing.
 - New workspaces begin at day 0; the day-12 worked example is optional.
 - Setup uses a separate draft with explicit Apply/Cancel; inputs show percentages and units.
 - Full workspace backups preserve runs, projects, decisions, checkpoints, unfinished drafts, recovery originals and archived workspaces.
@@ -48,4 +48,4 @@ Prototype 03 completes Stage A of the November 17 audit: workspace preservation 
 
 ## Next validation
 
-Stage A is complete; see STAGE-A.md. Stages B and C require the next approval. Complete real-browser interaction, layout and offline storage checks when available; then review model and interface changes before expanding staffing, supplier detail or desktop packaging.
+See STAGE-A.md, STAGE-B.md and STAGE-C.md. Complete the Stage C real-browser matrix for current stable Chrome, Edge, Safari and Firefox on their major desktop platforms, including the canonical journey, keyboard behavior, narrow windows, downloaded-backup reopen and offline storage fallback. Automated contract-host coverage is not browser certification. Finish that gate before expanding staffing, supplier detail or desktop packaging.
