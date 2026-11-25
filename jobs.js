@@ -1,6 +1,8 @@
 /* Offline job records. Planning drafts, accepted terms and posted actuals stay distinct. */
 (function(root){
  'use strict';
+ const Ideas=typeof module!=='undefined'?require('./studio.js'):root.QQStudio;
+ const MAX_SCOPE=20002; // Both Studio text fields plus a paragraph break.
  const VERSION=2,FORMAT='meiqq-jobs',STORAGE_KEY='meiqq-jobs-v1',MAX_BYTES=8*1024*1024,MAX_JOBS=500,MAX_ENTRIES=10000,MAX_AGREEMENTS=1000;
  const DRAFT_FIELDS=['title','client','scope','owner','nextAction','nextActionDate','dueDate','paymentTerms','price','estimatedDirectCost','ownerHours','ownerRate','overhead'];
  const FORM_FIELDS={agreement:['date','reference','reason'],work:['date','person','kind','hours','description'],cost:['date','amount','supplier','description'],'cost-payment':['date','costId','amount','reference'],receipt:['date','amount','reference'],refund:['date','amount','reference'],approval:['date','reference','description'],delivery:['date','reference','description'],void:['date','targetId','reason']};
@@ -23,7 +25,13 @@
  }
  function postedNumber(value,label,max=100000000){const n=decimal(value,max);if(n===null||n<=0)throw Error('Enter '+label+' greater than zero, with at most two decimals.');return n;}
  function storedNumber(value,label,max=10000000000){if(!Number.isSafeInteger(value)||value<=0||value>max)throw Error(label+' is invalid.');return value;}
- function normalizeDraft(value={},strict=false){shape(value,DRAFT_FIELDS,'Job draft',strict?DRAFT_FIELDS:[]);return Object.fromEntries(DRAFT_FIELDS.map(k=>[k,text(value[k]??'', ['scope','paymentTerms','nextAction'].includes(k)?10000:300,k)]));}
+ function draftLimit(key){if(key==='scope')return MAX_SCOPE;return ['paymentTerms','nextAction'].includes(key)?10000:300;}
+ function normalizeDraft(value={},strict=false){shape(value,DRAFT_FIELDS,'Job draft',strict?DRAFT_FIELDS:[]);return Object.fromEntries(DRAFT_FIELDS.map(k=>[k,text(value[k]??'',draftLimit(k),k)]));}
+ function ideaSource(value){
+  shape(value,['ideaKey','ideaId','ideaVersion','name','jobKey'],'Source idea');
+  if(ordinal(value.ideaId,'idea')===null)throw Error('Source idea ID is invalid.');
+  return {ideaKey:Ideas.linkKey(value.ideaKey),ideaId:value.ideaId,ideaVersion:counter(value.ideaVersion,'Idea version'),name:text(value.name,300,'Idea name'),jobKey:Ideas.linkKey(value.jobKey)};
+ }
  function emptyForms(){return Object.fromEntries(Object.entries(FORM_FIELDS).map(([type,fields])=>[type,Object.fromEntries(fields.map(k=>[k,type==='work'&&k==='kind'?'owner':'']))]));}
  function normalizeForms(value){shape(value,Object.keys(FORM_FIELDS),'Unposted job forms');const result={};for(const [type,fields]of Object.entries(FORM_FIELDS)){shape(value[type],fields,type+' form');result[type]=Object.fromEntries(fields.map(k=>[k,text(value[type][k],['description','reason'].includes(k)?10000:500,type+' '+k)]));}return result;}
  function fresh(){return {version:VERSION,nextId:1,jobs:[]};}
@@ -82,7 +90,8 @@
  }
  function validateJob(value,version){
   const fields=['id','mode','draft','forms','nextAgreementId','agreements','nextEntryId','entries'];
-  shape(value,version===1?fields:[...fields,'location'],'Job');
+  if(version!==1)fields.push('location');
+  shape(value,version===1?fields:[...fields,'source'],'Job',fields);
   if(ordinal(value.id,'job')===null)throw Error('Job ID is invalid.');if(!['real','practice'].includes(value.mode))throw Error('Choose a real or practice job.');
   const location=version===1?'active':value.location;if(!['active','trash','archive'].includes(location))throw Error('Job location is invalid.');
   counter(value.nextAgreementId,'Next agreement ID');counter(value.nextEntryId,'Next entry ID');
@@ -94,7 +103,7 @@
   ledger(entries);
   if(location==='trash'&&!canTrash({agreements,entries}))throw Error('Jobs with recorded history cannot be placed in Trash. Archive them instead.');
   if(location==='archive'&&canTrash({agreements,entries}))throw Error('Unrecorded drafts belong in Trash, not Archive.');
-  return {id:value.id,mode:value.mode,location,draft:normalizeDraft(value.draft,true),forms:normalizeForms(value.forms),nextAgreementId:value.nextAgreementId,agreements,nextEntryId:value.nextEntryId,entries};
+  return {id:value.id,mode:value.mode,location,draft:normalizeDraft(value.draft,true),forms:normalizeForms(value.forms),nextAgreementId:value.nextAgreementId,agreements,nextEntryId:value.nextEntryId,entries,...(own(value,'source')?{source:ideaSource(value.source)}:{})};
  }
  function validate(value){
   shape(value,['version','nextId','jobs'],'Jobs workspace');if(![1,VERSION].includes(value.version))throw Error('Unsupported Jobs workspace version.');counter(value.nextId,'Next job ID');
@@ -106,9 +115,14 @@
  function parseText(raw){if(typeof raw!=='string'||new TextEncoder().encode(raw).byteLength>MAX_BYTES)throw Error('Jobs backup must be JSON text within 8 MiB.');let value;try{value=JSON.parse(raw);}catch(e){throw Error('Jobs backup is not valid JSON.');}return parse(value);}
  function commit(book,id,next){const candidate={...book,jobs:book.jobs.map(v=>v.id===id?next:v)};serialize(candidate);book.jobs[book.jobs.findIndex(v=>v.id===id)]=next;return next;}
  function create(book,options={}){
-  shape(options,['mode','draft'],'New job options',[]);validate(book);if(book.nextId>=Number.MAX_SAFE_INTEGER-1)throw Error('Job IDs are exhausted.');
+  shape(options,['mode','draft','source'],'New job options',[]);validate(book);if(book.nextId>=Number.MAX_SAFE_INTEGER-1)throw Error('Job IDs are exhausted.');
   const job={id:'job-'+book.nextId,mode:options.mode??'real',location:'active',draft:normalizeDraft(options.draft),forms:emptyForms(),nextAgreementId:1,agreements:[],nextEntryId:1,entries:[]};
+  if(own(options,'source'))job.source=ideaSource(options.source);
   serialize({...book,nextId:book.nextId+1,jobs:[...book.jobs,job]});book.nextId++;book.jobs.push(job);return job;
+ }
+ function fromIdea(book,idea){
+  const draft={title:idea.name,scope:[idea.scope,idea.deliverables].filter(part=>part.trim()).join('\n\n'),price:idea.price};
+  return create(book,{draft,source:{ideaKey:idea.linkKey,ideaId:idea.id,ideaVersion:idea.version,name:idea.name,jobKey:Ideas.newLinkKey()}});
  }
  function updateDraft(book,id,patch){shape(patch,DRAFT_FIELDS,'Draft changes',[]);const job=find(book,id,true);return commit(book,id,{...job,draft:normalizeDraft({...job.draft,...patch},true)});}
  function setForm(book,id,type,patch){if(!own(FORM_FIELDS,type))throw Error('Unknown job form.');shape(patch,FORM_FIELDS[type],'Unposted form changes',[]);const job=find(book,id,true);return commit(book,id,{...job,forms:normalizeForms({...job.forms,[type]:{...job.forms[type],...patch}})});}
@@ -147,6 +161,28 @@
   const status=!agreement?'draft':hasDelivery&&outstanding===0&&overpayment===0&&unpaidCosts===0?'settled':hasDelivery?'delivered':hasActualEntries?'working':'agreed';
   return {status,agreement,acceptedPrice,estimatedDirectCost,estimatedOwnerHours:estimatedHours===null?null:estimatedHours/100,ownerRate,overhead,estimatedOwnerAllowance,estimatedRemainder:minus(acceptedPrice,estimatedDirectCost,estimatedOwnerAllowance,overhead),received,refunded,netReceipts,outstanding,overpayment,incurredCosts,paidCosts,unpaidCosts,jobCash:netReceipts-paidCosts,ownerHours:ownerHundredths/100,externalHours:externalHundredths/100,totalHours:(ownerHundredths+externalHundredths)/100,actualOwnerAllowance,remainderAfterIncurredCosts,remainderAfterOwnerTime,remainderAfterAllowances,costs,activeEntries,voidedIds,hasReceipts:has('receipt'),hasCosts:has('cost'),hasWork:has('work'),hasApproval:has('approval'),hasDelivery,hasActualEntries};
  }
- const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_JOBS,MAX_ENTRIES,MAX_AGREEMENTS,DRAFT_FIELDS:Object.freeze([...DRAFT_FIELDS]),FORM_FIELDS:Object.freeze(Object.fromEntries(Object.entries(FORM_FIELDS).map(([k,v])=>[k,Object.freeze([...v])]))),fresh,create,updateDraft,setForm,canTrash,move,recordAgreement,postEntry,voidEntry,metrics,merge,validate,serialize,parse,parseText};
+ function recentOwnerHours(book,ideaKey){
+  if(!ideaKey)return [];
+  const samples=[],jobs=new Map();
+  for(const job of book.jobs){
+   if(job.mode!=='real'||job.source?.ideaKey!==ideaKey)continue;
+   // Reimporting a backup creates copies. Use the most complete posted
+   // history for a linked job, including corrections to previous entries.
+   const previous=jobs.get(job.source.jobKey);
+   if(!previous||job.entries.length>previous.entries.length||
+    (job.entries.length===previous.entries.length&&job.agreements.length>previous.agreements.length)){
+    jobs.set(job.source.jobKey,job);
+   }
+  }
+  for(const job of jobs.values()){
+   if(job.location==='trash'||!job.agreements.length)continue;
+   const m=metrics(job);
+   if(!m.hasDelivery||!m.ownerHours)continue;
+   const delivered=m.activeEntries.reduce((latest,e)=>e.type==='delivery'&&e.date>latest?e.date:latest,'');
+   samples.push({id:job.id,title:m.agreement.snapshot.title,delivered,hours:m.ownerHours});
+  }
+  return samples.sort((a,b)=>b.delivered.localeCompare(a.delivered)||ordinal(b.id,'job')-ordinal(a.id,'job')).slice(0,3);
+ }
+ const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_JOBS,MAX_ENTRIES,MAX_AGREEMENTS,DRAFT_FIELDS:Object.freeze([...DRAFT_FIELDS]),FORM_FIELDS:Object.freeze(Object.fromEntries(Object.entries(FORM_FIELDS).map(([k,v])=>[k,Object.freeze([...v])]))),fresh,create,fromIdea,draftLimit,recentOwnerHours,updateDraft,setForm,canTrash,move,recordAgreement,postEntry,voidEntry,metrics,merge,validate,serialize,parse,parseText};
  root.QQJobs=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

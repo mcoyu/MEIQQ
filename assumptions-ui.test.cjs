@@ -8,7 +8,7 @@ test('a new workspace automatically uses the conservative outreach baseline with
  assert.equal(vm.runInContext('state.config.leadsPerHour',ui.ctx),.30);
  assert.equal(vm.runInContext('state.config.conversion',ui.ctx),.30);
  assert.equal(vm.runInContext('state.config.designerRate',ui.ctx),18);
- assert.equal(vm.runInContext('QQ.estimate(state.config).orders',ui.ctx),1.584);
+ assert.equal(vm.runInContext('QQ.estimate(state.config).orders',ui.ctx),4.68);
  ui.click('current-evidence');
  assert.match(ui.elements['#modal'].innerHTML,/services\.0\.price/);
  assert.match(ui.elements['#modal'].innerHTML,/low confidence/);

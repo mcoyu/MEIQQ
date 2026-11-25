@@ -1,0 +1,50 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const {setup}=require('./ui-test-host.cjs');
+const read=(ui,source)=>vm.runInContext(source,ui.ctx);
+
+test('a month’s cash link opens the matching postings and returns to the same report',()=>{
+ const ui=setup();
+ read(ui,`state=QQ.fresh({...QQ.clone(QQ.DEFAULT),months:3,startingCash:50000});
+  QQ.fund(state,12.34);
+  for(let i=0;i<30;i++)QQ.step(state);
+  QQ.fund(state,56.78);
+  for(let i=0;i<8;i++)QQ.step(state);
+  QQ.fund(state,91.23);
+  draft=QQ.clone(state.config);view='finances';selectResultsMonth(1);render()`);
+ ui.click('month-cash',{month:'1'});
+ const html=ui.elements['#root'].innerHTML;
+ assert.match(html,/Cash ledger/);
+ assert.match(html,/Back to month 1 results/);
+ const transactions=html.slice(html.indexOf('id="ledger-heading"'));
+ assert.match(transactions,/\$56\.78/);
+ assert.doesNotMatch(transactions,/\$12\.34|\$91\.23/);
+ assert.match(html,/Day 0 to day 30/i);
+ ui.click('month-overview',{month:'1'});
+ assert.match(ui.elements['#root'].innerHTML,/Operating result · Days 1–30/);
+ ui.click('view',{view:'map'});
+ ui.click('review-latest-results');
+ assert.match(ui.elements['#root'].innerHTML,/Operating result · Days 31–38/);
+});
+
+test('ledger pages cover every dated posting without moving the run',()=>{
+ const ui=setup();
+ read(ui,`state=QQ.fresh({...QQ.clone(QQ.DEFAULT),acquisition:'preset',inquiries:0,overhead:0});
+  QQ.step(state);
+  for(let i=1;i<=105;i++)QQ.fund(state,i);
+  draft=QQ.clone(state.config);view='finances'`);
+ ui.click('month-cash',{month:'1'});
+ const ledger=()=>ui.elements['#root'].innerHTML.split('id="ledger-heading"')[1];
+ const page=ledger();
+ assert.match(page,/Transactions 1–100 of 106/);
+ assert.match(page,/\$105</);
+ assert.doesNotMatch(page,/\$1</);
+ ui.click('ledger-page',{delta:'1'});
+ assert.match(ledger(),/Transactions 101–106 of 106/);
+ assert.match(ledger(),/\$1</);
+ assert.doesNotMatch(ledger(),/\$105</);
+ ui.click('ledger-page',{delta:'-1'});
+ assert.equal(ledger(),page);
+ assert.equal(read(ui,'state.day'),1);
+});

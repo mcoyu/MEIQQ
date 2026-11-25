@@ -3,6 +3,9 @@
   'use strict';
   function upgradeModel(s,q) {
     if(s.modelVersion===q.MODEL_VERSION)return;
+    // Earlier models used different inquiry identities.
+    delete s.demandHistory;
+    for(const h of s.history){if(h){delete h.externalArrivals;delete h.unservedInquiries;}}
     const clients=new Map(),contracts=new Map(),nameIds=new Map(),cycleCounts=new Map();let clientIndex=1;
     const clientIdFor=p=>p.clientId||nameIds.get(p.client)||(()=>{const id='C_legacy_'+clientIndex++;nameIds.set(p.client,id);return id;})();
     for(const p of s.projects){
@@ -45,6 +48,53 @@
     }
     s.clients=[...clients.values()];s.contracts=[...contracts.values()];s.upgradedFromModel=s.modelVersion||1;s.modelVersion=q.MODEL_VERSION;s.workloadId??='legacy-upgraded-seed-'+s.config.seed;
   }
+  function validateDemandHistory(s,q){
+    const periods=s.demandHistory;
+    if(periods===undefined){
+      if(s.history.some(h=>h.externalArrivals!==undefined||h.unservedInquiries!==undefined))throw Error('Daily demand history has no matching settings.');
+      return;
+    }
+    if(!Array.isArray(periods)||!periods.length||periods.length>s.day)throw Error('Saved demand history is invalid.');
+    let previousDay=0;
+    const configs=periods.map(period=>{
+      if(!Number.isInteger(period?.day)||period.day<=previousDay||period.day>s.day)throw Error('Demand history dates are invalid.');
+      previousDay=period.day;
+      const settings=period.settings;
+      if(!Array.isArray(settings?.services)||settings.services.length>20||settings.services.some(v=>!v||!(v.weight>0)))throw Error('Saved demand settings are invalid.');
+      // Only routing inputs enter this record. Use the normal range and service
+      // validators, then restore canonical property order for comparison.
+      const c={...q.DEFAULT,acquisition:settings.acquisition,ownerHours:120,seed:s.config.seed,
+        services:settings.services.map(v=>({...q.DEFAULT.services[0],id:v.id,weight:v.weight,audience:v.audience}))};
+      if(c.acquisition==='sales'){c.outreachHours=settings.outreachHours;c.leadsPerHour=settings.leadsPerHour;}else c.inquiries=settings.inquiries;
+      if(settings.customerMix!==undefined){c.customerMix=settings.customerMix;c.focusType=settings.focusType;}
+      else{delete c.customerMix;delete c.focusType;delete c.profileStrength;}
+      q.validateConfig(c);
+      period.settings=q.externalDemandSettings(c);
+      return c;
+    });
+    const trackedFrom=periods[0].day;
+    const external=s.projects.filter(p=>p.orderKind==='new-business'&&p.created>=trackedFrom);
+    const remaining=new Map(external.map(p=>[p.demandId,p]));
+    if(remaining.size!==external.length)throw Error('Duplicate external inquiry identity.');
+    let period=0,unserved=0;
+    for(const h of s.history){
+      if(h.day<trackedFrom){
+        if(h.externalArrivals!==undefined||h.unservedInquiries!==undefined)throw Error('Daily demand predates its settings.');
+        continue;
+      }
+      if(periods[period+1]?.day===h.day)period++;
+      const unmatched=[];
+      const arrivals=q.visitExternalInquiries(configs[period],h.day,(id,profile,service,index)=>{
+        if(!service){unmatched.push([index,profile?.id||null]);return;}
+        const p=remaining.get(id);
+        if(!p||p.created!==h.day||p.clientType!==profile?.id||p.serviceId!==service.id||p.clientId!=='C_'+id.replace(/:/g,'_'))throw Error('Recorded external inquiry does not match its settings.');
+        remaining.delete(id);
+      });
+      if(h.externalArrivals!==arrivals||JSON.stringify(h.unservedInquiries??[])!==JSON.stringify(unmatched))throw Error('Recorded daily demand does not reconcile.');
+      unserved+=unmatched.length;
+    }
+    if(remaining.size||unserved>(s.unserved||0)||trackedFrom===1&&unserved!==(s.unserved||0))throw Error('Recorded external inquiries do not reconcile.');
+  }
   function restore(input, q) {
     if (!input || ![1, 2, 3].includes(input.version)) throw Error('Unsupported saved-run version.');
     if(input.modelVersion!==undefined&&![1,q.MODEL_VERSION].includes(input.modelVersion))throw Error('Unsupported simulation model version.');
@@ -69,6 +119,7 @@
     upgradeModel(s,q);
     if(!Array.isArray(s.clients)||!Array.isArray(s.contracts)||s.clients.length>300000||s.contracts.length>300000)throw Error('Saved client or contract records are invalid.');
     if(s.modelVersion!==q.MODEL_VERSION||typeof s.workloadId!=='string'||s.workloadId.length>200)throw Error('Saved simulation model is invalid.');
+    if(s.day===0&&/^model2-seed-\d+$/.test(s.workloadId))s.workloadId='model2-seed-'+s.config.seed;
     const clients=new Map();
     for(const client of s.clients){
       if(!client||typeof client.id!=='string'||!/^[a-zA-Z0-9_-]{1,120}$/.test(client.id)||clients.has(client.id)||typeof client.name!=='string'||client.name.length>200||
@@ -178,6 +229,7 @@
     for(const contract of contracts.values())if(contract.kind==='campaign-relationship'&&(contract.skipped!==(campaignSkipCounts.get(contract.id)||0)||contract.cycles!==(campaignSettledCycles.get(contract.id)||1)))throw Error('Saved campaign relationship counts do not reconcile.');
     const reference = value => value === null || projects.has(value);
     const receipts = new Map(), costs = new Map(), flows = Array.from({length:s.day+1},()=>({amount:0,expense:0,funding:0,revenue:0}));
+    const postedHours=new Map(),undatedHours=new Set();
     let lastDay = 0, total = 0, expenses = 0, funding = 0;
     for (const e of s.ledger) {
       if (!e || !day(e.day) || e.day < lastDay || !cash(e.amount) || typeof e.note !== 'string' || e.note.length > 5000 ||
@@ -187,6 +239,11 @@
           (e.type === 'funding' && (e.amount <= 0 || e.project !== null))) throw Error('Cash ledger transaction sign or project is invalid.');
       const p = projects.get(e.project);
       if (p && (e.day < p.accepted || p.accepted === undefined)) throw Error('Ledger transaction predates project acceptance.');
+      const labor=p&&e.type==='expense'&&e.note==='Design labor for '+p.id;
+      if(e.designHours!==undefined){
+        if(!labor||!finite(e.designHours,0,24)||e.designHours===0)throw Error('Designer hours on a labor posting are invalid.');
+        postedHours.set(p.id,(postedHours.get(p.id)||0)+e.designHours);
+      }else if(labor)undatedHours.add(p.id);
       const amount = cents(e.amount); lastDay = e.day; total += amount; flows[e.day].amount += amount;
       if (e.type === 'expense') { expenses -= amount; flows[e.day].expense -= amount; if(p) costs.set(p.id,(costs.get(p.id)||0)-amount); }
       if (e.type === 'receipt') receipts.set(p.id,(receipts.get(p.id)||0)+amount);
@@ -200,6 +257,10 @@
     for (const p of s.projects) {
       same(p.paid, (receipts.get(p.id)||0)/100, 'Project paid receipts');
       same(p.cost, (costs.get(p.id)||0)/100, 'Project costs');
+      if(postedHours.has(p.id)){
+        const missing=p.designHours-postedHours.get(p.id);
+        if(missing < -1e-6 || (!undatedHours.has(p.id)&&Math.abs(missing)>1e-6))throw Error('Designer hours on labor postings do not reconcile.');
+      }
       owner += p.ownerHours; design += p.designHours;
       if (p.delivered) { revenue += cents(p.price); flows[p.deliveredDay].revenue += cents(p.price); }
     }
@@ -257,10 +318,12 @@
       hours=h.ownerHours;
     }
     if (Math.abs(hours-s.ownerHours)>1e-6) throw Error('Daily owner hours do not reconcile.');
+    validateDemandHistory(s,q);
     if (legacy) {
       for (const p of s.projects) if(p.stage==='payment' && cents(p.paid)===cents(p.price)) q.completePaid(s,p);
       if(s.history.length){const m=q.metrics(s);Object.assign(s.history.at(-1),{complete:m.complete,active:m.active,late:m.late});}
     }
+    q.validateReplayJournal(s);
     s.version=3;
     return s;
   }

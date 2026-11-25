@@ -19,6 +19,18 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const textLimit = key => NUMBER_FIELDS.includes(key) ? 80 : ['name', 'family', 'unit'].includes(key) ? 300 : 10000;
 
+  // Local numeric IDs can coincide across separately imported workspaces.
+  function newLinkKey() {
+    const words = new Uint32Array(4);
+    if (root.crypto?.getRandomValues) root.crypto.getRandomValues(words);
+    else for (let i = 0; i < words.length; i++) words[i] = Math.floor(Math.random() * 0x100000000);
+    return Array.from(words, word => word.toString(16).padStart(8, '0')).join('');
+  }
+  function linkKey(value) {
+    if (typeof value !== 'string' || !/^[0-9a-f]{32}$/.test(value)) throw Error('Studio link identity is invalid.');
+    return value;
+  }
+
   function keys(value, allowed, label, required = allowed) {
     if (!object(value) || Object.keys(value).some(key => !allowed.includes(key)) || required.some(key => !own(value, key))) {
       throw Error(label + ' has an unsupported structure.');
@@ -72,13 +84,14 @@
     });
   }
   function offering(input, id, version, drafting) {
-    keys(input, drafting ? EDITABLE_FIELDS : OFFERING_FIELDS, 'Studio idea', drafting ? [] : OFFERING_FIELDS);
+    keys(input, drafting ? EDITABLE_FIELDS : [...OFFERING_FIELDS, 'linkKey'], 'Studio idea', drafting ? [] : OFFERING_FIELDS);
     const result = {id, version, status:input.status === undefined ? 'idea' : input.status};
     if (!STATUSES.includes(result.status)) throw Error('Choose Idea, Researching or Ready to test.');
     for (const key of TEXT_FIELDS) result[key] = drafting ? draftText(input[key], textLimit(key), key) : text(input[key], textLimit(key), key);
     for (const key of NUMBER_FIELDS) result[key] = drafting ? draftText(input[key], textLimit(key), key) : text(input[key], textLimit(key), key);
     result.origin = origin(input.origin);
     result.roles = roles(input.roles === undefined && drafting ? [{name:'Delivery role', hours:'', setupHours:'', rate:''}] : input.roles, drafting);
+    if (own(input, 'linkKey')) result.linkKey = linkKey(input.linkKey);
     return result;
   }
 
@@ -91,13 +104,15 @@
     text(value.name, 300, 'Studio name');
     if (!Number.isSafeInteger(value.nextId) || value.nextId < 1 || value.nextId >= Number.MAX_SAFE_INTEGER) throw Error('Studio next ID is invalid.');
     if (!Array.isArray(value.offerings) || value.offerings.length > MAX_OFFERINGS) throw Error('Studio has too many ideas.');
-    const ids = new Set();
+    const ids = new Set(), links = new Set();
     const normalized = value.offerings.map(item => {
       if (!object(item)) throw Error('Studio idea is malformed.');
       const number = ordinal(item.id, 'idea');
       if (number === null || number >= value.nextId || ids.has(item.id)) throw Error('Studio idea IDs must be valid, unique and below the next ID.');
       if (!Number.isSafeInteger(item.version) || item.version < 1 || item.version >= Number.MAX_SAFE_INTEGER) throw Error('Idea version is invalid.');
       ids.add(item.id);
+      if (item.linkKey && links.has(item.linkKey)) throw Error('Studio idea links must be unique.');
+      if (item.linkKey) links.add(item.linkKey);
       return offering(item, item.id, item.version, false);
     });
     return {version:VERSION, name:value.name, nextId:value.nextId, offerings:normalized};
@@ -112,6 +127,7 @@
     if (studio.offerings.length >= MAX_OFFERINGS) throw Error('Studio has reached its idea limit.');
     if (studio.nextId >= Number.MAX_SAFE_INTEGER - 1) throw Error('Studio has exhausted its idea IDs.');
     const result = offering(draft, 'idea-' + studio.nextId, 1, true);
+    result.linkKey = newLinkKey();
     studio.offerings.push(result);
     studio.nextId++;
     return result;
@@ -121,6 +137,7 @@
     const current = find(studio, id);
     const editable = Object.fromEntries(EDITABLE_FIELDS.map(key => [key, own(patch, key) ? patch[key] : current[key]]));
     const next = offering(editable, current.id, current.version, true);
+    if (current.linkKey) next.linkKey = current.linkKey;
     if (JSON.stringify(next) === JSON.stringify(current)) return current;
     if (current.version >= Number.MAX_SAFE_INTEGER - 1) throw Error('Idea has exhausted its versions.');
     next.version++;
@@ -149,6 +166,28 @@
     if (index < 0) return false;
     studio.offerings.splice(index, 1);
     return true;
+  }
+  function linkIdea(studio, id) {
+    const idea = find(studio, id);
+    if (!idea.linkKey) {
+      const linked = {...idea, linkKey:newLinkKey()};
+      serialize({...studio, offerings:studio.offerings.map(item => item === idea ? linked : item)});
+      idea.linkKey = linked.linkKey;
+    }
+    return idea;
+  }
+  function merge(studio, incoming) {
+    const next = validate(studio), links = new Set(next.offerings.map(idea => idea.linkKey));
+    for (const {id, version, linkKey, ...draft} of validate(incoming).offerings) {
+      const copy = create(next, draft);
+      if (linkKey && !links.has(linkKey)) {
+        copy.linkKey = linkKey;
+        copy.version = version;
+      }
+      links.add(copy.linkKey);
+    }
+    serialize(next);
+    return next;
   }
   function rename(studio, name) {
     studio.name = text(name, 300, 'Studio name');
@@ -248,7 +287,8 @@
 
   const api = {VERSION, FORMAT, STORAGE_KEY, MAX_BYTES, MAX_OFFERINGS, MAX_ROLES, STATUSES:Object.freeze([...STATUSES]),
     TEXT_FIELDS:Object.freeze([...TEXT_FIELDS]), NUMBER_FIELDS:Object.freeze([...NUMBER_FIELDS]),
-    fresh, create, update, setField, duplicate, remove, rename, validate, economics, serialize, parse, parseText};
+    fresh, create, update, setField, duplicate, remove, rename, validate, economics, serialize, parse, parseText,
+    linkIdea, linkKey, newLinkKey, merge};
   root.QQStudio = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(globalThis);

@@ -124,3 +124,44 @@
 @media(max-width:780px){ .planner-layout { grid-template-columns: 1fr; } .planner-list { max-height: 250px; overflow-y: auto; padding: 5px; } .planner-editor { padding: 17px; } }
 @media(max-width:540px){ .planner-fields, .planner-adjust-grid, .planner-lab-metrics, .planner-capacity-cards { grid-template-columns: 1fr; } .planner-editor { padding: 14px; } .planner-toolbar > .planner-actions { width: 100%; } .planner-toolbar > .planner-actions button { flex: 1; } .planner-idea-picker label { min-width: 0; flex-basis: 100%; } .planner-row { padding: 12px; } .planner-lab-summary, .planner-lab-service { padding: 12px; } }
 @media(pointer:coarse){ .planner-workspace :is(input,select,button) { min-height: 44px; } .planner-field :is(input,select,textarea), .planner-idea-picker select { font-size: 16px; } }
+
+/* Quantities stay visible while one service is being edited. */
+.planner-mix-layout {max-width:960px;margin-inline:auto}
+.planner-mix-layout .planner-heading {align-items:center}
+.planner-plan-tools[open] {width:100%}
+.planner-plan-tools[open] .planner-list {margin:12px 0}
+.planner-mix>h3 {font-size:18px}
+.planner-mix>.planner-muted {margin:4px 0 18px}
+.planner-mix-item {border-top:1px solid var(--line)}
+.planner-mix-row {display:grid;grid-template-columns:minmax(0,1fr) minmax(98px,124px);align-items:center;gap:16px;padding:10px 0}
+.planner-mix-toggle {display:flex;gap:12px;justify-content:space-between;text-align:start;border:0;background:transparent;padding:10px 4px;color:var(--ink)}
+.planner-mix-toggle>span:first-child {display:grid;gap:4px;overflow-wrap:anywhere}
+.planner-mix-toggle strong {font-size:14px}
+.planner-mix-toggle small,.planner-service-end small {font-size:12px;font-weight:400;color:var(--muted)}
+.planner-mix-row .planner-field {font-size:11px;gap:3px}
+.planner-service-body {padding:0 14px 14px;background:var(--raised);border:1px solid var(--line);margin-bottom:14px}
+.planner-service-body[hidden] {display:none}
+.planner-service-body .planner-disclosure {margin-top:12px}
+.planner-service-end {display:flex;align-items:center;justify-content:end;gap:10px;flex-wrap:wrap;margin-top:8px}
+.planner-service-end small {margin-right:auto;overflow-wrap:anywhere}
+.planner-mix-footer {display:flex;justify-content:flex-end;border-top:1px solid var(--line);padding-top:16px}
+@media(max-width:540px){
+ .planner-mix-row {grid-template-columns:minmax(0,1fr) 92px;gap:8px}
+ .planner-plan-tools .planner-list {display:flex}
+}
+.planner-lab-service>summary {display:flex;align-items:center;gap:10px;list-style:none}
+.planner-lab-service>summary::-webkit-details-marker {display:none}
+.planner-lab-service>summary strong {flex:1;overflow-wrap:anywhere;font-size:14px}
+.planner-lab-service>summary>span:not(.disclosure-chevron) {font-size:12px;overflow-wrap:anywhere;color:var(--muted)}
+.planner-lab-service>.planner-actions {margin-top:14px}
+.planner-mix-footer {align-items:center;gap:12px;flex-wrap:wrap}
+.planner-mix-footer>div {display:grid;gap:4px;margin-right:auto;min-width:0}
+.planner-mix-footer small {font-size:11px;color:var(--muted)}
+.planner-mix-footer strong {font-size:12px;overflow-wrap:anywhere}
+.planner-hour-estimate {min-width:0}
+.planner-job-hours {margin-top:8px;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.planner-job-hours summary {color:var(--accent);cursor:pointer}
+.planner-job-hours ul {list-style:none;padding:0;margin:8px 0}
+.planner-job-hours li {display:flex;justify-content:space-between;gap:12px}
+.planner-job-hours li strong {white-space:nowrap}
+.planner-job-hours p {color:var(--muted)}

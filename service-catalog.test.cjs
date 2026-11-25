@@ -34,7 +34,7 @@ test('duplicated catalog instances keep provenance by package id and expose spec
 
 test('every service publishes explicit cost-floor arithmetic and bundle weights disclaim demand calibration',()=>{
  for(const service of catalog.SERVICES){const model=catalog.DERIVATIONS[service.id];assert.equal(model.costFloor,Math.round((model.designLabor+model.ownerTime+model.supplierCost)*100)/100);assert.ok(service.price>=model.costFloor);assert.ok(model.explanation.length>80);}
- for(const bundle of catalog.BUNDLES)assert.match(bundle.note,/not observed demand/);
+ for(const bundle of catalog.BUNDLES)assert.match(bundle.note,/example weights apply within each eligible customer group/);
 });
 
 test('physical packages expose a valid managed-print versus self-print choice',()=>{

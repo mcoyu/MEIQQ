@@ -1,3 +1,43 @@
+# Historical job reviews and accepted-work projections · 2026-11-24
+
+- Monthly results reopen the jobs, costs and waits at the selected close. A capacity wait leads directly into a replay of that month for the same order. Replay, saved comparisons and offline reports use the same historical owner-time valuation.
+- Monthly and carried replays explain profit, cash and backlog differences, including booked capacity, actual labor and job-level costs. Setup links validation errors to the relevant field and shows the current source attached to each estimate.
+- **Finish the accepted work** projects a completed comparison with intake closed. Both schedules carry their commitments and overhead through the same final collection date. The restaurant example's operating-profit difference moves from **−$405.26 on day 90** to **+$271.31 on day 142**. [Open the finished comparison](Designer-Hours-Finish-Accepted.html#accepted-work-heading).
+- Release 1 passed 499 tests before the projection was added. The final package passed 513 tests, 24 annual simulations and 96 restore checks. Desktop Chrome and a 390 × 844 viewport completed the historical job replay, cancellation, saved projection, reload and offline HTML download. The reduced-motion check suppressed the animated replay prompt. [Release 1 checkpoint](MEIQQ-Release-1.html) · [Current simulator](MEIQQ.html) · [Desktop replay](simulator-accepted-work-desktop.jpg) · [Phone-sized replay](simulator-accepted-work-mobile.jpg)
+
+# Trace a replay’s costs to individual jobs · 2026-11-24
+
+- Carried replays and their offline reports show designer hours and charges for each affected order or repeat cycle. The breakdown reconciles posted costs by job, separates shared overhead, and shows costs on jobs still awaiting delivery at the closing day in each schedule.
+- In the 90-day restaurant example, unfinished work accounted for $604.80 with twelve designer hours per week and $199.53 with six. The $405.27 increase on unfinished work and one cent less on delivered work reconcile to $405.26 of additional designer labor. [Open the example comparison](Designer-Hours-Day-90.html#job-costs).
+- Verified all 490 automated tests, 24 annual simulations and 20 independent paired runs. The saved comparison reopened with the same dollars and job identities on desktop and a phone-sized viewport.
+
+# Carry a capacity change through the rest of the run · 2026-11-24
+
+- A completed monthly replay can now continue both schedules to the configured end day. The result follows the same job, compares ending backlog, and shows each month's operating-profit difference alongside the cumulative difference. A gain that disappears in a later month is visible in the final verdict.
+- Saved comparisons reopen at the horizon verdict. The offline report includes that verdict, the original replay month and both ending runs. Older pairs can explicitly project from their saved month-end if the original's later decisions are unavailable.
+- All 484 automated tests passed, along with 24 annual simulations. On desktop, moving from six to twelve designer hours per week delivered the selected job 14 days earlier but reduced 90-day operating profit by $405.26. On an emulated phone, moving from 24 to 32 hours delivered the job one day earlier and left 90-day operating profit unchanged.
+
+# Same-month comparisons and longer runs · 2026-11-24
+
+- New scenarios open at 90 days. Setup accepts 1–12 whole model months, shows an estimate for the selected duration and can simulate the full run. Monthly results sit alongside whole-run totals.
+- A job waiting for owner or designer time offers an animated **Test one change** prompt. The replay reconstructs the selected month, checks the original against recorded events and runs the alternative with one capacity change. The verdict shows the job’s delivery status, ending backlog, revenue and cost changes, operating profit, owner-time result and cash.
+- Saved pairs reopen from Compare runs and carry the selected job and month into the offline comparison report. Partial months identify projected days. Funding pauses and missing historical inputs explain when a matched result is unavailable.
+- All 467 automated tests passed. The annual review completed 24 simulations and 96 replay checks. A 90-day desktop run and a 60-day emulated-phone run exercised both a profitable backlog clearance and a delivery improvement that increased the month’s loss.
+
+# Job waits and monthly results · 2026-11-24
+
+- Run opens with up to three jobs to watch. Each shows the responsible party, the wait and its next action. Project controls, agreed terms, timelines and all queues are available on demand.
+- Results opens on the latest simulated month with delivered revenue, ranked spending, operating result, owner-time result and cash. Earlier months use their own delivery and posting dates. An accepted job still awaiting delivery links back to the project, including when it has incurred no direct costs.
+- The cash ledger opens on the selected month, supports earlier pages and returns to the same report. Funding decisions show the exact shortfall.
+- All 448 automated tests and 24 year-long simulations passed. Desktop and emulated-phone browser checks covered a profitable month, a zero-capacity loss, a partial month, prior-month reconciliation and keyboard return from a project.
+
+# Simulator setup, service assumptions and results · 2026-11-24
+
+- Split first use into a blank business and a named restaurant example. Guided setup covers offers, demand, people and cash. All assumptions, workflows, project interventions and run controls remain available.
+- Added effective inquiry shares, separate print and files-only prices and costs, dated input sources and editable service drafts with unknown values. The preview shows both operating result and the result after valuing owner time, alongside capacity warnings.
+- Connected setup confirmation to the requested run. Results reconcile earnings and cash, trace payments to projects, compare demand histories and support 20 independent first-month replays.
+- Verified all 431 automated tests and 24 year-long simulations. Browser tests reached day 30 for the restaurant example at 1366 × 900 and a custom reporting service at an emulated 390 × 844. Keyboard checks followed a payment to its project and returned to the same ledger row.
+
 # Native studio planning controls · 2026-11-20
 
 - Added Earnings lab sliders and exact-value inputs for income, prices, volumes, costs, effort, weekly capacity and reserves directly in MEIQQ.

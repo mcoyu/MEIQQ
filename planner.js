@@ -1,6 +1,7 @@
 /* Offline 30-day studio planning. Estimates never create jobs, receipts or simulator state. */
 (function(root){
  'use strict';
+ const Ideas=typeof module!=='undefined'?require('./studio.js'):root.QQStudio;
  const VERSION=2,FORMAT='meiqq-planner',STORAGE_KEY='meiqq-planner-v1',MAX_BYTES=8*1024*1024,MAX_PLANS=100;
  const PERIOD_DAYS=30,WORK_DAYS=22;
  const EDIT_FIELDS=['name','notes','ownerHours','nonProjectHours','bufferPct','ownerTarget','profitTarget'];
@@ -15,7 +16,13 @@
  function date(v){text(v,10,'Snapshot date');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||v.slice(0,4)==='0000')throw Error('Use a date in YYYY-MM-DD format.');const d=new Date(v+'T00:00:00Z');if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==v)throw Error('Use a valid calendar date.');return v;}
  function count(v,label){if(!Number.isSafeInteger(v)||v<1||v>=Number.MAX_SAFE_INTEGER)throw Error(label+' is invalid.');return v;}
  function ordinal(v,prefix){if(typeof v!=='string'||!new RegExp('^'+prefix+'-[1-9]\\d*$').test(v))return null;const n=Number(v.slice(prefix.length+1));return Number.isSafeInteger(n)&&n<Number.MAX_SAFE_INTEGER?n:null;}
- function source(v){if(v===null)return null;shape(v,['ideaId','ideaVersion','copiedAt','name'],'Idea source');text(v.ideaId,300,'Idea ID');if(!v.ideaId||!Number.isSafeInteger(v.ideaVersion)||v.ideaVersion<1)throw Error('Idea source identity is invalid.');return {ideaId:v.ideaId,ideaVersion:v.ideaVersion,copiedAt:date(v.copiedAt),name:text(v.name,300,'Idea name')};}
+ function source(v){
+  if(v===null)return null;
+  const fields=['ideaId','ideaVersion','copiedAt','name'];
+  shape(v,[...fields,'ideaKey'],'Idea source',fields);
+  text(v.ideaId,300,'Idea ID');if(!v.ideaId||!Number.isSafeInteger(v.ideaVersion)||v.ideaVersion<1)throw Error('Idea source identity is invalid.');
+  return {ideaId:v.ideaId,ideaVersion:v.ideaVersion,copiedAt:date(v.copiedAt),name:text(v.name,300,'Idea name'),...(own(v,'ideaKey')?{ideaKey:Ideas.linkKey(v.ideaKey)}:{})};
+ }
  function allocation(v,strict=true){shape(v,ALLOCATION_FIELDS,'Role allocation',strict?ALLOCATION_FIELDS:[]);return {name:text(strict?v.name:v.name??'',300,'Allocation name'),poolId:text(strict?v.poolId:v.poolId??'',80,'Role pool'),hours:raw(strict?v.hours:v.hours??'','hours'),setupHours:raw(strict?v.setupHours:v.setupHours??'','setupHours')};}
  function service(v,id,drafting=false){
   shape(v,drafting?[...SERVICE_FIELDS,'allocations','source']:['id',...SERVICE_FIELDS,'allocations','source'],'Planned service',drafting?[]:['id',...SERVICE_FIELDS,'allocations','source']);
@@ -82,7 +89,7 @@
  function setAllocation(book,id,serviceId,poolId,patch={}){shape(patch,['name','hours','setupHours'],'Allocation changes',[]);const next=clone(find(book,id)),s=next.services.find(v=>v.id===serviceId);if(!s)throw Error('Planned service not found.');const index=poolId?s.allocations.findIndex(v=>v.poolId===poolId):-1,row=allocation({...(index<0?{name:'',hours:'',setupHours:''}:s.allocations[index]),...patch,poolId},false);if(index<0)s.allocations.push(row);else s.allocations[index]=row;commit(book,id,next);return row;}
  function removeAllocation(book,id,serviceId,index){const next=clone(find(book,id)),s=next.services.find(v=>v.id===serviceId);if(!s||!Number.isInteger(index)||!s.allocations[index])throw Error('Role allocation not found.');s.allocations.splice(index,1);commit(book,id,next);return true;}
  function fromIdea(book,id,idea,when){
-  if(!object(idea)||!Array.isArray(idea.roles))throw Error('Choose a saved Studio idea.');const origin=source({ideaId:idea.id,ideaVersion:idea.version,copiedAt:when,name:idea.name});
+  if(!object(idea)||!Array.isArray(idea.roles))throw Error('Choose a saved Studio idea.');const origin=source({ideaId:idea.id,ideaVersion:idea.version,copiedAt:when,name:idea.name,...(idea.linkKey?{ideaKey:idea.linkKey}:{})});
   return addService(book,id,{name:idea.name,unit:idea.unit||'engagement',quantity:'',setupCount:'',price:idea.price,directCost:idea.directCost,setupCost:idea.setupCost,ownerHours:idea.ownerHours,setupOwnerHours:idea.setupOwnerHours,allocations:idea.roles.map(role=>({name:role.name,poolId:'',hours:role.hours,setupHours:role.setupHours})),source:origin});
  }
  function makeBaseline(p,when){const snapshot=settings(p);return {key:baselineKey(snapshot,date(when)),date:when,label:p.name||'Untitled plan',snapshot};}

@@ -73,3 +73,20 @@ test('planner save failures retain editable data with a warning and downloadable
  const h=await open(undefined,{failWrites:true});edit(h,'name','Keep this local draft');h.drainTimers();await run(h,'plannerSession.flush()');
  assert.equal(run(h,'plannerSession.status'),'error');assert.equal(run(h,'plannerSession.data.plans[0].name'),'Keep this local draft');h.click('planner-backup');assert.equal(h.downloads.at(-1).download,'MEIQQ-Planner.json');
 });
+
+test('mix quantities can be edited with closed service details and the next estimate opens its field',async()=>{
+ const h=await open();h.click('planner-tab',{tab:'mix'});
+ const planId=run(h,'plannerController.ui.selectedId');
+ edit(h,'services.0.quantity','7');h.click('planner-service-add');
+ const serviceId=run(h,'plannerController.ui.editingService.serviceId');
+ assert.match(h.elements['#root'].innerHTML,/data-field="quantity"/);
+ edit(h,'services.1.quantity','2');assert.match(h.elements['#root'].innerHTML,/data-field="setupCount"/);
+ const details={open:false},selector='[data-plan-id="'+planId+'"][data-planner-field="services.1.setupCount"]';
+ let focused=false;h.elements[selector]={closest:()=>details,focus(){focused=true;}};
+ h.click('planner-edit-service',{planId,serviceId,field:'setupCount'});
+ assert.ok(focused&&details.open);
+ assert.equal(run(h,'plannerController.ui.editingService.serviceId'),serviceId);
+ h.click('planner-edit-service',{planId,serviceId});assert.equal(run(h,'plannerController.ui.editingService'),null);
+ assert.equal(run(h,'plannerSession.data.plans[0].services[0].quantity'),'7');
+ assert.equal(run(h,'plannerSession.data.plans[0].services[1].setupCount'),'');
+});

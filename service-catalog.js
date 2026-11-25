@@ -40,7 +40,19 @@ const GOALS={
 };
 for(const service of SERVICES){service.goal=GOALS[service.id];service.category=service.recurring?'recurring':service.id==='brand-starter'?'branding':service.id.includes('menu')?'menu':service.id.includes('window')?'visibility':'offer';if(service.print>0)service.spec.printUnit=service.id==='window-promo-12sf'?'sq ft':'pieces';}
 const DESIGN_ONLY_PRICES={'postcard-250':200,'table-tents-100':275,'takeout-menus-100':350,'window-promo-12sf':325,'poster-pack-25':225,'monthly-promo-5':500,'seasonal-campaign':600};
-for(const service of SERVICES)if(service.print>0)service.fulfillment={mode:'customer-choice',managedShare:.70,designOnlyPrice:DESIGN_ONLY_PRICES[service.id]};
+const FILES_ONLY_SCOPE={
+ 'postcard-250':'Print-ready artwork for one 4×6 postcard.',
+ 'table-tents-100':'Print-ready files for one two-sided table-tent design.',
+ 'takeout-menus-100':'Print-ready and web PDFs for one updated menu.',
+ 'window-promo-12sf':'Scaled proof and print-ready artwork for one window graphic.',
+ 'poster-pack-25':'Print-ready artwork for one store poster.',
+ 'monthly-promo-5':'Campaign key visual, print-ready poster and four digital companion graphics.',
+ 'seasonal-campaign':'Print-ready poster and postcard artwork plus the agreed digital campaign files.'
+};
+for(const service of SERVICES)if(service.print>0){
+ service.fulfillment={mode:'customer-choice',managedShare:.70,designOnlyPrice:DESIGN_ONLY_PRICES[service.id]};
+ service.filesOnlyScope=FILES_ONLY_SCOPE[service.id];
+}
 SERVICES.find(service=>service.id==='monthly-promo-5').campaign={cadenceDays:30,relationshipDays:365};
 SERVICES.find(service=>service.id==='seasonal-campaign').campaign={cadenceDays:90,relationshipDays:365};
 const DERIVATIONS={
@@ -71,9 +83,9 @@ for(const service of SERVICES)DERIVATIONS[service.id].numericAssumptions={
  modeledPrintCostRange:{value:clone(service.spec.modeledPrintCostRange),basis:service.spec.modeledPrintCostRange?'Planning interval around the cited supplier observation; not a guaranteed quote.':'No print-cost range for digital delivery.'}
 };
 const BUNDLES=[
- {id:'restaurant-starter',name:'Restaurant everyday starter',note:'Menu, table and monthly promotion work for an independent food business. The 40/30/30 inquiry shares are low-confidence modeling weights, not observed demand.',items:[{id:'menu-refresh',weight:40},{id:'table-tents-100',weight:30},{id:'monthly-promo-5',weight:30}]},
- {id:'retail-starter',name:'Retail everyday starter',note:'Storefront, print and social promotion for an independent shop. The 30/30/40 inquiry shares are low-confidence modeling weights, not observed demand.',items:[{id:'window-promo-12sf',weight:30},{id:'poster-pack-25',weight:30},{id:'social-pack-4',weight:40}]},
- {id:'services-starter',name:'Local-service starter',note:'Simple digital and print promotions for appointment and neighborhood services. The 35/30/35 inquiry shares are low-confidence modeling weights, not observed demand.',items:[{id:'digital-flyer',weight:35},{id:'postcard-250',weight:30},{id:'monthly-promo-5',weight:35}]}
+ {id:'restaurant-starter',name:'Restaurant everyday starter',note:'Menu, table and monthly promotion work for an independent food business. The 40/30/30 example weights apply within each eligible customer group. Customer mix determines the overall shares.',items:[{id:'menu-refresh',weight:40},{id:'table-tents-100',weight:30},{id:'monthly-promo-5',weight:30}]},
+ {id:'retail-starter',name:'Retail everyday starter',note:'Storefront, print and social promotion for an independent shop. The 30/30/40 example weights apply within each eligible customer group.',items:[{id:'window-promo-12sf',weight:30},{id:'poster-pack-25',weight:30},{id:'social-pack-4',weight:40}]},
+ {id:'services-starter',name:'Local-service starter',note:'Simple digital and print promotions for appointment and neighborhood services. The 35/30/35 example weights apply within each eligible customer group.',items:[{id:'digital-flyer',weight:35},{id:'postcard-250',weight:30},{id:'monthly-promo-5',weight:35}]}
 ];
 const BUNDLE_DERIVATIONS={
  'restaurant-starter':{weights:{'menu-refresh':40,'table-tents-100':30,'monthly-promo-5':30},basis:'Unmeasured starter prior balancing menu work, in-store offers and ongoing physical campaigns; not published demand.'},
@@ -82,7 +94,7 @@ const BUNDLE_DERIVATIONS={
 };
 function createService(id){const service=SERVICES.find(value=>value.id===id);if(!service)throw Error(`Unknown catalog service: ${id}`);return clone(service);}
 function starterServices(bundleId='restaurant-starter'){const bundle=BUNDLES.find(value=>value.id===bundleId);if(!bundle)throw Error(`Unknown service bundle: ${bundleId}`);return bundle.items.map(item=>({...createService(item.id),weight:item.weight}));}
-function auditService(service){const source=SERVICES.find(value=>value.id===service?.spec?.packageId),compatible=Boolean(source&&service?.spec?.catalogId===CATALOG.id&&service?.spec?.version===CATALOG.version);if(!compatible)return{compatible:false,edited:[],records:[],derivation:'Custom, legacy, or unknown-catalog service; no catalog evidence was substituted.'};const fields=['name','deliverable','price','hours','review','print','recurring','audience','goal','category','spec','fulfillment','campaign'],edited=fields.filter(key=>JSON.stringify(service[key])!==JSON.stringify(source[key]));return{compatible:true,edited,records:source.spec.evidenceIds.map(id=>clone(SOURCES.find(value=>value.id===id))).filter(Boolean),derivation:DERIVATIONS[source.id].explanation,modelRecord:clone(DERIVATIONS[source.id]),catalogService:clone(source)};}
+function auditService(service){const source=SERVICES.find(value=>value.id===service?.spec?.packageId),compatible=Boolean(source&&service?.spec?.catalogId===CATALOG.id&&service?.spec?.version===CATALOG.version);if(!compatible)return{compatible:false,edited:[],records:[],derivation:'Custom, legacy, or unknown-catalog service; no catalog evidence was substituted.'};const fields=['name','deliverable','filesOnlyScope','price','hours','review','print','recurring','audience','goal','category','spec','fulfillment','campaign'],edited=fields.filter(key=>(key!=='filesOnlyScope'||service.filesOnlyScope!==undefined)&&JSON.stringify(service[key])!==JSON.stringify(source[key]));return{compatible:true,edited,records:source.spec.evidenceIds.map(id=>clone(SOURCES.find(value=>value.id===id))).filter(Boolean),derivation:DERIVATIONS[source.id].explanation,modelRecord:clone(DERIVATIONS[source.id]),catalogService:clone(source)};}
 const deepFreeze=value=>{if(value&&typeof value==='object'&&!Object.isFrozen(value)){Object.freeze(value);for(const item of Object.values(value))deepFreeze(item);}return value;};
 for(const value of [CATALOG,SOURCES,PRINT_OBSERVATIONS,DERIVATIONS,BUNDLE_DERIVATIONS,BUNDLES,SERVICES])deepFreeze(value);
 const api=deepFreeze({CATALOG,SOURCES,PRINT_OBSERVATIONS,DERIVATIONS,BUNDLE_DERIVATIONS,BUNDLES,SERVICES,starterServices,createService,auditService});root.QQServiceCatalog=api;if(typeof module!=='undefined')module.exports=api;

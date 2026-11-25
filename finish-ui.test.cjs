@@ -61,6 +61,21 @@ test('evidence opener data-id is not confused with an unrelated DOM id on focus 
  assert.equal(vm.runInContext('exactFocused',ctx),true);assert.equal(vm.runInContext('wrongFocused',ctx),false);
 });
 
+test('a completed close or modal refresh cannot steal focus back from the next keyboard action',()=>{
+ const ui=setup(),vm=require('node:vm');
+ vm.runInContext(`
+  function control(id){return {id,dataset:{},tabIndex:0,closest:()=>null,getClientRects:()=>[{}],focus(){document.activeElement=this;}};}
+  const opener=control('month-job-list'),first=control('cancel-report'),downloadButton=control('download-report');
+  document.querySelectorAll=selector=>selector.startsWith('#modal ')?[first,downloadButton]:selector.startsWith('#root [id]')?[opener]:[];
+  opener.focus();modal('<h2>Download comparison</h2>');downloadButton.focus();
+ `,ui.ctx);
+ ui.drainTimers();
+ assert.equal(vm.runInContext('document.activeElement.id',ui.ctx),'download-report');
+ vm.runInContext('closeModal();first.focus()',ui.ctx);
+ ui.drainTimers();
+ assert.equal(vm.runInContext('document.activeElement.id',ui.ctx),'cancel-report');
+});
+
 test('same-value blur does not rerender, rewrite preview, or consume undo state',()=>{
  const {ctx}=setup(),vm=require('node:vm');
  const result=JSON.parse(vm.runInContext(`(()=>{

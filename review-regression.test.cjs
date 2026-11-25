@@ -110,7 +110,8 @@ test('rapidly added and duplicated services remain independently valid', () => {
   ui.click('add-service');
   ui.click('duplicate', {index:'0'});
   assert.equal(vm.runInContext('new Set(draft.services.map(s=>s.id)).size', ui.ctx), 5);
-  assert.doesNotThrow(() => vm.runInContext('QQ.validateConfig(draft)', ui.ctx));
+  assert.equal(vm.runInContext("draft.services.filter(s=>s.customOffer&&s.price===null&&s.weight===0).length",ui.ctx),1);
+  assert.doesNotThrow(() => vm.runInContext('QQ.validateConfig(draftRunConfig())', ui.ctx));
 });
 
 test('opening a cash dialog pauses the clock and updates its visible control', () => {

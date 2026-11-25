@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ui-test-host.cjs');
 test('distributed HTML exactly matches the source modules and has no external assets',()=>{
   let expected=fs.readFileSync('index.template.html','utf8');
-  for(const [tag,file]of [['STYLE','style.css'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['APP','app.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
+  for(const [tag,file]of [['STYLE','style.css'],['CHINESE','zh-CN.js'],['I18N','i18n.js'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['APP','app.js'],['SUNSET_SCENE','sunset-scene.js'],['SHARD_FLIGHT','shard-flight.js'],['GALAXY','galaxy.js'],['SKY_EDITOR','sky-editor.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
   expected=expected.replace('</style>',()=>fs.readFileSync('themes.css','utf8')+'\n</style>');
   const html=fs.readFileSync('MEIQQ.html','utf8');assert.equal(html,expected);assert.ok(!/<script[^>]+src=|<link[^>]+href=|url\(https?:/i.test(html));
 });
@@ -14,7 +14,7 @@ test('packaged HTML loads the versioned service catalog before creating the star
   assert.equal(vm.runInContext('QQPresets.audit(state.config).lineage.find(row=>row.path==="services.0.price").recordIds.length>0',ctx),true);
 });
 test('packaged offline scripts run, fund, back up and restore through the UI',()=>{
-  const {ctx,click,elements,drainTimers}=setup(undefined,{built:true});click('finish');drainTimers();assert.equal(vm.runInContext('state.day',ctx),30);
+  const {ctx,click,elements,drainTimers}=setup(undefined,{built:true});click('start-restaurant');click('view',{view:'map'});click('finish');drainTimers();assert.equal(vm.runInContext('state.day',ctx),30);
   click('fund');elements['#funding']={value:'1000',checkValidity:()=>true};click('confirm-fund');
   assert.equal(vm.runInContext('QQ.cashSeries(state).at(-1).cash===state.cash',ctx),true);
   vm.runInContext('draft.ownerHours=null;pendingImport=parseBackup(JSON.parse(JSON.stringify(backupPayload())))',ctx);
@@ -35,7 +35,7 @@ test('packaged HTML completes the Phase C delayed-project comparison journey',as
   assert.ok(delayed);assert.ok(delayed.due<30);
   vm.runInContext(`selection={type:'project',id:${JSON.stringify(delayed.id)}};view='map';render()`,ctx);
   assert.match(elements['#root'].innerHTML,/design team needs .* more work hours/i);
-  vm.runInContext("view='scenarios';render()",ctx);
+  click('compare-runs');
   assert.match(elements['#root'].innerHTML,/Compared with pinned baseline/);
   assert.match(elements['#root'].innerHTML,/Exact assumption changes/);
   click('backup');assert.equal(downloads[0].download,'MEIQQ-Backup-Day-30.json');
@@ -57,15 +57,16 @@ test('packaged HTML includes preset evidence and preserves composed values',()=>
   const {ctx,handlers,click,elements,storage,drainTimers}=setup(undefined,{built:true});
   assert.equal(vm.runInContext('QQPresets.MARKETS.length*QQPresets.OPERATIONS.length*QQPresets.MIXES.length*QQPresets.CONDITIONS.length',ctx),720);
   assert.equal(vm.runInContext('QQPresets.SOURCES.every(v=>v.url.startsWith("https://"))',ctx),true);
-  assert.match(elements['#root'].innerHTML,/Frozen records document each recipe value and its derivation/);
+  click('start-restaurant');click('toggle-recipe');click('recipe-evidence');
+  assert.match(elements['#modal'].innerHTML,/Values, sources and derivations/);
   assert.equal(vm.runInContext('QQPresetEvidence.RECORDS.length>=7',ctx),true);
-  assert.match(elements['#root'].innerHTML,/Research basis and preset limits/);
-  assert.equal(vm.runInContext('QQPresets.SOURCES.every(source=>document.querySelector("#root").innerHTML.includes(source.url))',ctx),true);
-  handlers.change({target:{id:'preset-market',value:'dearborn',dataset:{}}});
+  assert.match(elements['#modal'].innerHTML,/Published comparisons and context/);
+  assert.equal(vm.runInContext('QQPresets.SOURCES.every(source=>document.querySelector("#modal").innerHTML.includes(source.url))',ctx),true);
+  click('close');handlers.change({target:{id:'preset-market',value:'dearborn',dataset:{}}});
   handlers.change({target:{id:'preset-operation',value:'lean',dataset:{}}});
   handlers.change({target:{id:'preset-mix',value:'food',dataset:{}}});
   handlers.change({target:{id:'preset-condition',value:'busy',dataset:{}}});
-  const expected=vm.runInContext('JSON.stringify(QQPresets.compose({market:"dearborn",operation:"lean",mix:"food",condition:"busy"},{...QQ.DEFAULT,services:QQServiceCatalog.starterServices()}))',ctx);
+  const expected=vm.runInContext('JSON.stringify(QQPresets.compose({market:"dearborn",operation:"lean",mix:"food",condition:"busy"},draft))',ctx);
   click('apply-preset');assert.match(elements['#modal'].innerHTML,/Load this recipe into your draft/);click('confirm-preset');
   assert.equal(vm.runInContext('state.config.inquiries',ctx),45);
   assert.equal(vm.runInContext('JSON.stringify(draft)',ctx),expected);
@@ -75,4 +76,40 @@ test('packaged HTML includes preset evidence and preserves composed values',()=>
   assert.equal(vm.runInContext('presetSelection.market',refreshed.ctx),'dearborn');
   const exported=vm.runInContext('MEIQQWorkspace.parseText(MEIQQWorkspace.serialize(currentWorkspace(),archives))',refreshed.ctx);
   assert.equal(JSON.stringify(exported.draft),expected);
+});
+
+test('one permanent copper scene serves all workspaces and remembers an explicit motion preference', async () => {
+  const contents = fs.readFileSync('MEIQQ.html','utf8');
+  const sky = contents.match(/<body><aero-shards aria-hidden="true">([\s\S]*?)<\/aero-shards><div id="root">/);
+  assert.ok(sky);
+  assert.match(sky[1], /class="sunset-environment"/);
+  assert.match(sky[1], /class="sunset-horizon"/);
+  assert.doesNotMatch(sky[1], /<img|<picture/);
+  assert.doesNotMatch(contents,/function loadAeroShardsGPU\(|function mountAeroShards\(/);
+  const ui = setup(undefined,{built:true});
+  const settings = value => ui.handlers.change({target:{id:'shard-motion',value}});
+  const host = ui.elements['aero-shards'];
+  let suspended;
+  host.toggleAttribute = (key,value) => {if(key==='suspended') suspended=value;};
+  for (const hidden of [true,false]) {
+    ui.ctx.document.hidden=hidden;
+    ui.handlers.visibilitychange();
+    assert.equal(suspended,hidden);
+  }
+  let applied;
+  host.setAttribute = (key,value) => {if (key==='motion') applied=value;};
+  settings('animate');
+  assert.equal(applied,'animate');
+  assert.equal(ui.storage.get('qq-studio-shard-motion'),'animate');
+  await vm.runInContext('Promise.all([studioReady,jobsReady,plannerReady])',ui.ctx);
+  for (const view of ['studio','jobs','planner','setup']) {
+    ui.click('view',{view});
+    assert.doesNotMatch(ui.elements['#root'].innerHTML,/<aero-shards/);
+    assert.match(ui.elements['#root'].innerHTML,/<option value="animate" selected>Animate<\/option>/);
+  }
+  settings('unsupported');
+  assert.equal(applied,'animate');
+  settings('still');
+  const restored=setup(ui.storage,{built:true});
+  assert.match(restored.elements['#root'].innerHTML,/<option value="still" selected>Still<\/option>/);
 });

@@ -1,5 +1,4 @@
-:root[data-theme="light"]{color-scheme:light}
-:root[data-theme="dark"]{color-scheme:dark;--paper:#0d151d;--surface:#192530;--raised:#233440;--ink:#e3edf2;--muted:#a4b9c5;--line:#3b4d5b;--nav:#0b131a;--nav-text:#b9cbd6;--accent:#83dbc3;--accent-ink:#09271f;--selected:#203e36;--warn:#f2bb75;--warn-bg:#352b20;--warn-line:#9d7343;--negative:#ff9c92;--positive:#83e3ad;--danger-bg:#3e2225;--shadow:none}
+:root[data-theme="dark"]{color-scheme:dark;--paper:#0d151d;--surface:#192530;--raised:#233440;--ink:#e3edf2;--muted:#a4b9c5;--line:#3b4d5b;--nav:#0a1223;--nav-text:#b9cbd6;--accent:#a5cbff;--accent-ink:#101c32;--selected:#20344d;--warn:#f2bb75;--warn-bg:#352b20;--warn-line:#9d7343;--negative:#ff9c92;--positive:#83e3ad;--danger-bg:#3e2225;--shadow:none}
 :root[data-theme="terminal"]{color-scheme:dark;--paper:#000;--surface:#0b0b0b;--raised:#191919;--ink:#ffd07a;--muted:#bdbdbd;--line:#484848;--nav:#060606;--nav-text:#d2bd98;--accent:#ffb000;--accent-ink:#000;--selected:#2e230b;--warn:#ffd065;--warn-bg:#2f1f00;--warn-line:#a7761e;--negative:#ff8686;--positive:#6cea98;--danger-bg:#341d1d;--shadow:none;font-family:"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;font-variant-numeric:tabular-nums}
 :root[data-theme="terminal"] :is(button,input,select,.panel,.metric,.banner,.stage-card,.service-editor,.input-wrap,.brandmark,.badge,.tag,.modal,.toast){border-radius:0}
 :root[data-theme="terminal"] :is(h1,.eyebrow,.navlabel,.panelhead h2){text-transform:uppercase;letter-spacing:.5px}
@@ -11,3 +10,118 @@
 :root[data-theme="terminal"] .brandmark{background:var(--accent);color:#000}
 :root[data-theme="terminal"] .navbutton.active{color:var(--accent);box-shadow:inset 3px 0 var(--accent);background:var(--selected)}
 :root[data-theme="terminal"] .chart polyline{stroke:#6bcaff}
+
+:root[data-theme="dark"] .brand {color: #f6f8ff}
+:root[data-theme="dark"] .brandmark {background: #c2e4ff; color: #132e62}
+:root[data-theme="dark"] .navbutton.active {box-shadow: inset 3px 0 #91c6ff}
+:root[data-theme="dark"] .navlabel {color: #a0b3cb}
+
+/* The sky and horizon are drawn from the editable scene model. */
+body {isolation:isolate; background:var(--paper)}
+aero-shards {
+  position:fixed; inset:0; z-index:-1; display:block; overflow:hidden;
+  pointer-events:none; contain:strict;
+  background:linear-gradient(#27364c,#798590 65%,#d6ab95);
+}
+.sunset-environment,.sunset-horizon {position:absolute; width:100%; display:block; left:0}
+.sunset-environment {inset:0; height:100%}
+.sunset-horizon[hidden] {display:none}
+aero-shards::after {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg,rgba(10,14,26,.37),transparent 47%),
+    linear-gradient(90deg,rgba(19,17,28,.22),transparent 56%);
+}
+body:has(#sky-editor[open]) :is(#root,#toast) {visibility:hidden}
+body:has(#sky-editor[open]) aero-shards::after {display:none}
+#sky-editor {
+  position:fixed; inset:0; margin:0; width:100%; max-width:none; height:100%; max-height:none;
+  padding:0; border:0; background:transparent; color:var(--ink);
+}
+#sky-editor::backdrop {background:transparent}
+.sky-viewport {position:absolute; inset:0; touch-action:none}
+.sky-viewport.can-move {cursor:grab}
+.sky-viewport.can-move:active {cursor:grabbing}
+.sky-controls {
+  position:absolute; right:clamp(12px,2.4vw,40px); bottom:clamp(12px,2.4vw,40px);
+  width:min(320px,calc(100% - 24px)); max-height:88%; overflow:auto; padding:20px;
+  background:color-mix(in srgb,var(--surface) 96%,transparent); border:1px solid var(--line);
+  box-shadow:0 10px 35px #1114; border-radius:8px; font:14px/1.4 system-ui,sans-serif;
+}
+.sky-drag-tip {font-size:12px; margin:10px 0 0; color:var(--muted)}
+.sky-controls h2 {font-size:19px; margin:0 0 14px}
+.sky-layer,.sky-slider {display:grid; gap:6px; align-items:center}
+.sky-layer {grid-template-columns:auto 1fr; margin-bottom:12px}
+.sky-layer select {min-width:0; width:100%; background:var(--raised); color:var(--ink)}
+.sky-visible {display:flex; align-items:center; gap:7px; margin-bottom:6px}
+.sky-visible input {accent-color:var(--accent)}
+.sky-slider {grid-template-columns:1fr 38px; margin:9px 0}
+.sky-slider span {grid-column:1/-1; font-size:12px}
+.sky-slider input {width:100%; min-width:0; accent-color:var(--accent); margin:0}
+.sky-slider output {font-size:12px; text-align:end; font-variant-numeric:tabular-nums}
+.sky-controls footer {display:flex; gap:6px; margin-top:16px}
+.sky-controls footer button {font-size:12px; padding:6px 9px}
+.sky-controls footer button:first-child {margin-right:auto}
+@media (max-width:620px) {
+  .sky-controls {left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));width:auto;max-height:44%;padding:12px 16px}
+  .dock-top .sky-controls {top:max(8px,env(safe-area-inset-top));bottom:auto}
+  .sky-controls h2 {font-size:16px;margin:0 0 8px}
+  .sky-slider {grid-template-columns:minmax(92px,1fr) minmax(75px,1.5fr) 36px;margin:8px 0}
+  .sky-slider span {grid-column:auto}
+}
+/* Keep small labels legible where the workspace puts text directly on the sky. */
+:is(.jobs-app,.planner-app) .workspace,
+.simulator-app .workspace:not(:has(.setup-start)) {
+  background:linear-gradient(to bottom,
+    color-mix(in srgb,var(--paper) 54%,transparent),
+    color-mix(in srgb,var(--paper) 77%,transparent) 6rem,
+    color-mix(in srgb,var(--paper) 77%,transparent) calc(100% - 5rem),transparent);
+}
+.workspace .workspace-heading {
+  min-height:clamp(54px,5.2vw,78px); padding:0; margin:0 0 clamp(16px,1.5vw,24px);
+  align-items:center; border:0; background:transparent;
+}
+.workspace .workspace-heading h1 {
+  margin:0; font-size:clamp(25px,2.3vw,37px); line-height:1.13; text-wrap:balance;
+  text-shadow:0 2px 14px var(--paper);
+}
+.workspace-heading .heading-actions {position:relative}
+.workspace .setup-start {background:linear-gradient(110deg,color-mix(in srgb,var(--surface) 94%,#b77d52),var(--surface) 75%); border-color:color-mix(in srgb,var(--line) 74%,#b08163)}
+.workspace-heading .draft-indicator {background:var(--warn-bg); color:var(--warn); padding:4px 8px}
+.app .topbar {
+  background:linear-gradient(95deg,color-mix(in srgb,var(--surface) 91%,transparent),color-mix(in srgb,var(--surface) 77%,transparent));
+  border-bottom-color:color-mix(in srgb,var(--line) 75%,#aa7652);
+}
+.app .sidebar {
+  background:linear-gradient(170deg,color-mix(in srgb,var(--nav) 92%,#a26746),color-mix(in srgb,var(--nav) 94%,transparent) 38%);
+  border-right:1px solid color-mix(in srgb,var(--line) 65%,#9a6142);
+}
+:root[data-theme] .brandmark {
+  background:linear-gradient(135deg,#ffdab0 0%,#e3a171 46%,#c5845c 47%,#af704d 100%);
+  color:#27150e; border-radius:0; clip-path:polygon(0 0,76% 0,100% 23%,100% 100%,20% 100%,0 80%);
+}
+:root[data-theme] .navbutton.active {box-shadow:inset 3px 0 #e5a378}
+.motion-picker select {max-width:100%}
+@media (max-width:780px) {
+  .workspace .workspace-heading {min-height:45px; margin-bottom:14px}
+  .workspace .workspace-heading h1 {font-size:clamp(22px,5.5vw,28px)}
+}
+@media (forced-colors:active) {
+  aero-shards {display:none}
+  .workspace .workspace-heading h1 {text-shadow:none}
+  :root[data-theme] .brandmark {background:CanvasText;color:Canvas}
+}
+
+.language-tools {margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0}
+.currency-info {position:relative; font-size:12px}
+.currency-info summary {white-space:nowrap; color:var(--muted)}
+.currency-info p {position:absolute; z-index:10; right:0; top:100%; width:min(250px,70vw); padding:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); line-height:1.6}
+.language-picker select {max-width: none}
+:root[lang="zh-CN"] :is(.navlabel, .eyebrow, .subbrand, h1) {letter-spacing: normal}
+:root[lang="zh-CN"] {line-break: strict; font-family: Inter, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif}
+:root[lang="zh-CN"][data-theme="terminal"] {font-family: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace}
+@media (max-width: 780px) {
+  .language-picker > span {display: none}
+  .topbar {position:relative}
+  .currency-info {position:static}
+  .currency-info p {inset:auto 12px auto auto; top:100%; margin:0; width:min(300px,calc(100% - 24px))}
+}

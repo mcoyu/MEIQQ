@@ -12,8 +12,8 @@ test('Phase C journey changes a service, runs, inspects, compares, and reopens',
  assert.equal(vm.runInContext('state.config.services[0].price',ctx),290,'editing must not mutate the applied run');
  assert.match(elements['#root'].innerHTML,/Per project/);
  assert.match(elements['#root'].innerHTML,/Designer labor/);
- assert.match(elements['#root'].innerHTML,/Expected supplier cost|Supplier batch cost/);
- assert.match(elements['#root'].innerHTML,/Expected first 30 days/);
+ assert.match(elements['#root'].innerHTML,/Supplier allowance/);
+ assert.match(elements['#root'].innerHTML,/Expected over 90 days/);
  assert.match(elements['#root'].innerHTML,/Design capacity/);
  vm.runInContext('review()',ctx);
  assert.match(elements['#modal'].innerHTML,/Design only · price/);
@@ -33,7 +33,7 @@ test('Phase C journey changes a service, runs, inspects, compares, and reopens',
  assert.match(elements['#root'].innerHTML,/Delivery due<\/label><strong>Day/);
  assert.match(elements['#root'].innerHTML,/Project timeline/);
  assert.match(elements['#root'].innerHTML,/Quote accepted/);
- vm.runInContext("view='scenarios';render()",ctx);
+ click('compare-runs');
  assert.match(elements['#root'].innerHTML,/Compared with pinned baseline/);
  assert.match(elements['#root'].innerHTML,/Design only · price/);
  assert.match(elements['#root'].innerHTML,/Exact assumption changes/);

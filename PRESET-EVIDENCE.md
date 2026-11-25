@@ -15,14 +15,14 @@ The application therefore uses phrases such as “modeled assumptions—not quot
 
 ## How to use the builder
 
-The builder does not ask a user to choose among 720 named scenarios. It asks four independent questions:
+Open **Try a scenario** inside Setup to explore four choices.
 
-1. **Where?** A local-market narrative changes modeled response, qualified-quote acceptance, timing, overhead and customer-mix assumptions.
-2. **How large?** An operating model changes modeled time, staffing, labor rate and active outreach. It does not replace starting cash.
-3. **Who?** A shop mix changes modeled customer targeting; it does not replace custom services.
-4. **What month?** A condition changes modeled demand and delay pressure.
+1. **Market context** labels the location. In newly composed recipes, all market labels use the same regional baseline for operating assumptions.
+2. **Operating model** sets the example staffing, hours, labor rate, overhead scale and outreach effort.
+3. **Customer mix** sets the modeled customer groups, focus and profile variation while keeping the service menu.
+4. **Business conditions** sets the modeled demand and delay pressure across the entire run.
 
-The 720 figure is only the product of those choices (6 × 4 × 6 × 5), not a claim that 720 environments were observed or researched. Start with the closest understandable choices, inspect the preview, and edit the resulting assumptions. Recipe labels are navigation aids; saved numeric assumptions are authoritative.
+Six location labels describe the same 120 operating combinations (four operations × six customer mixes × five conditions). Selecting a different location alone preserves the business inputs. Earlier saved recipes preserve their original geography-specific values and derivations. Inspect the proposed changes, then merge the recipe into the draft. Each recipe preserves the scenario name, seed, horizon, starting cash and services.
 
 ## Source register
 
@@ -37,20 +37,20 @@ The 720 figure is only the product of those choices (6 × 4 × 6 × 5), not a cl
 
 ## Capacity semantics still requiring a product decision
 
-**Steady month** means the neutral demand-condition multiplier, not a capacity guarantee. Capacity depends on market, operation, custom services and customer mix. The current conservative catalog happens to keep the shipped service catalog below 100% in all steady combinations, but no rule caps a changed or future combination. The interface must continue warning when a preview is overloaded.
+**Steady month** means the neutral demand-condition multiplier, not a capacity guarantee. Capacity depends on the operation, custom services and customer mix. The current conservative catalog happens to keep the shipped service catalog below 100% in all steady combinations, but no rule caps a changed or future combination. The interface must continue warning when a preview is overloaded.
 
 Do not silently reinterpret **steady** as **capacity-balanced**: doing so would require either changing demand per operating model or removing valid overload experiments. The recommended policy is to keep steady as a demand narrative, say so explicitly, and offer a separately named capacity-balanced starting action if onboarding needs one.
 
 ## Persistence boundary
 
-Applying **Use this recipe** composes ordinary editable setup values into the unfinished draft. It does not alter the active simulation until the user explicitly applies the draft.
+Use **Review proposed changes** and **Merge into draft** to compose editable setup values into the unfinished draft. It does not alter the active simulation until the user explicitly applies the draft.
 
 The composed draft and applied configuration include catalog/ledger versions, the frozen applied-value snapshot and its checksum. They survive browser saves, backups, preserved workspaces and reopened runs. Selector choices remain a separate browser preference, but recipe identity in the configuration allows evidence audit after import.
 
-Recipes preserve scenario name, seed, horizon, starting cash and every service leaf. They apply only market, team, customer and condition settings. The initial new workspace additionally snapshots every configuration leaf so later edits are visible without treating unchanged user-owned values as source-calibrated.
+Recipes preserve scenario name, seed, horizon, starting cash and every service leaf. They set market context, team, customer and condition assumptions. New recipes freeze the commercial inputs inherited from each service and identify later additions by service identity. The initial new workspace additionally snapshots every configuration leaf so later edits are visible without treating unchanged user-owned values as source-calibrated.
 
 ## Reproducibility limits
 
-The repository now includes frozen observations, retrieval/source dates, record hashes, catalog/ledger versions and a value-by-value derivation API. It still lacks studio CRM history, quote outcomes, vendor defect records, remote-contractor invoices and an extraction notebook. Therefore `empiricallyCalibrated` remains false for every recipe. Replace modeled records with versioned studio/vendor observations before making a calibration claim.
+The repository includes frozen observations, retrieval/source dates, record hashes, catalog/ledger versions and a value-by-value derivation API. In the app, an owner can attach a dated source and sample to the exact demand, labor, timing or service input it supports. A changed value needs a new observation. These local records survive saves and backups. It still lacks studio CRM history, quote outcomes, vendor defect records, remote-contractor invoices and an extraction notebook. Therefore `empiricallyCalibrated` remains false for every recipe. Replace modeled records with versioned studio/vendor observations before making a calibration claim.
 
 The automatic new-workspace funnel is deliberately conservative: 4 outreach hours/week × 6 contacts/hour × 5% contact-to-qualified inquiry × 4.4 weeks = 5.28 qualified inquiries/month; at 30% qualified-quote acceptance, that is 1.584 expected initial wins/month. All four real-world disruption families are enabled at low modeled priors (10% rush, 3% supplier reprint, 15% repeated revision, 15% extended late payment); the stress recipe raises them. These are editable hypotheses, not measured frequencies.

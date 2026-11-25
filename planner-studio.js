@@ -50,9 +50,14 @@
   Model.serialize(next);Object.assign(book,next);return true;
  }
  function fromIdea(book,idea,when){
-  const next=Model.validate(book),p=open(next),existing=p.services.find(s=>s.source?.ideaId===idea.id&&s.source.ideaVersion===idea.version);
+  const next=Model.validate(book),p=open(next);
+  const copies=p.services.filter(s=>s.source?.ideaVersion===idea.version);
+  const existing=copies.find(s=>idea.linkKey&&s.source.ideaKey===idea.linkKey)||
+   copies.find(s=>!s.source.ideaKey&&s.source.ideaId===idea.id&&s.source.name===idea.name);
+  const linked=Boolean(existing&&idea.linkKey&&!existing.source.ideaKey);
+  if(linked){existing.source.ideaKey=idea.linkKey;p.revision++;}
   if(!existing)Model.fromIdea(next,p.id,idea,when);
-  Model.serialize(next);Object.assign(book,next);return {planId:p.id,serviceId:existing?.id||book.plans.find(v=>v.id===p.id).services.at(-1).id,added:!existing};
+  Model.serialize(next);Object.assign(book,next);return {planId:p.id,serviceId:existing?.id||book.plans.find(v=>v.id===p.id).services.at(-1).id,added:!existing,linked};
  }
  const api={open,initialize,update,updateField,tryScenario,fromIdea,restorePartner};root.QQPlannerStudio=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

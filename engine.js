@@ -36,18 +36,53 @@ const DISRUPTION_RULES={rushDeadlines:{defaultRate:.10,leadFactor:.5,minLeadDays
 const DEFAULT_DISRUPTION_RATES=Object.fromEntries(Object.entries(DISRUPTION_RULES).map(([key,rule])=>[key,rule.defaultRate]));
 const RECIPE_V2={catalog:'metro-detroit-2026-v2',version:2,ledger:'meiqq-preset-evidence-2026-11-18-v2',ledgerHash:'b1addbcf08a57e7cd1d00f53303862028154d7376bc737e82c3beb383232c587'};
 const SERVICE_SPEC_KEYS=['catalogId','deliverables','evidenceIds','includedRevisions','modeledPriceRange','modeledPrintCostRange','packageId','printCostBasis','printQuantity','printSpec','scope','version'];
-const DEFAULT={name:'Studio baseline',seed:2417,months:1,startingCash:6000,ownerHours:10,ownerTarget:30,designers:1,designerHours:24,designerRate:12,overhead:180,inquiries:45,conversion:0.7,deposit:0.5,paymentDays:5,approvalDays:2,printDays:3,quoteHours:0.6,deliveryHours:0.5,leadDays:14,priority:'deadline',acquisition:'preset',outreachHours:3,leadsPerHour:3.5,retention:0.8,repeat:0.15,customerMix:{food:55,retail:25,services:20},profileStrength:.5,focusType:'none',realism:false,uncertainty:{complexity:true,revisions:true,approval:true,supplier:true,payment:true},disruptions:{rushDeadlines:false,supplierReprints:false,repeatedRevisions:false,extendedLatePayments:false},disruptionRates:DEFAULT_DISRUPTION_RATES,services:[
+const DEFAULT={name:'Studio baseline',seed:2417,months:3,startingCash:6000,ownerHours:10,ownerTarget:30,designers:1,designerHours:24,designerRate:12,overhead:180,inquiries:45,conversion:0.7,deposit:0.5,paymentDays:5,approvalDays:2,printDays:3,quoteHours:0.6,deliveryHours:0.5,leadDays:14,priority:'deadline',acquisition:'preset',outreachHours:3,leadsPerHour:3.5,retention:0.8,repeat:0.15,customerMix:{food:55,retail:25,services:20},profileStrength:.5,focusType:'none',realism:false,uncertainty:{complexity:true,revisions:true,approval:true,supplier:true,payment:true},disruptions:{rushDeadlines:false,supplierReprints:false,repeatedRevisions:false,extendedLatePayments:false},disruptionRates:DEFAULT_DISRUPTION_RATES,services:[
 {id:'design',name:'Design only',deliverable:'Menu, poster or promotional graphic',price:290,hours:5,review:1,print:0,weight:45,recurring:false,color:'#287d77'},
 {id:'print',name:'Design + print',deliverable:'Design and a batch of printed menus',price:540,hours:6,review:1.5,print:140,weight:35,recurring:false,color:'#8871b1'},
 {id:'monthly',name:'Monthly promotion',deliverable:'Four promotional graphics per cycle',price:720,hours:10,review:2,print:0,weight:20,recurring:true,color:'#bd8753'}]};
 function random(seed,key){let h=seed|0;for(const c of String(key))h=Math.imul(h^c.charCodeAt(0),16777619);h^=h>>>16;h=Math.imul(h,0x7feb352d);h^=h>>>15;return(h>>>0)/4294967296;}
 function demandDraw(c,demandId,stream){return random(c.seed,'model2:'+demandId+':'+stream);}
 function recipeFingerprint(value){let hash=2166136261;for(const ch of JSON.stringify(value)){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619);}return(hash>>>0).toString(16).padStart(8,'0');}
+const ASSUMPTION_FIELDS={
+ demand:{inquiries:'New inquiries per month',leadsPerHour:'Qualified inquiries per outreach hour',conversion:'Quote acceptance',retention:'Campaign quote acceptance',repeat:'One-off repeat orders'},
+ people:{ownerHours:'Weekly owner hours',designerHours:'Weekly hours per designer',designerRate:'Designer hourly cost',quoteHours:'Owner hours per quote',deliveryHours:'Owner hours per delivery'},
+ cash:{overhead:'Monthly overhead',deposit:'Deposit',paymentDays:'Final payment terms',approvalDays:'Client approval time',printDays:'Supplier turnaround'},
+ service:{price:'Customer price',hours:'Designer hours per project',review:'Owner review hours',print:'Supplier batch cost','fulfillment.managedShare':'Managed-print share','fulfillment.designOnlyPrice':'Files-only price'}
+};
+function assumptionRecordValue(c,path){
+ const parts=path.split('.');
+ if(parts[0]==='services'&&parts.length>=3){
+  const service=Array.isArray(c.services)?c.services.find(s=>s?.id===parts[1]):undefined;
+  return parts.slice(2).reduce((value,key)=>value?.[key],service);
+ }
+ return c[path];
+}
+function validAssumptionRecords(records){
+ if(!records||typeof records!=='object'||Array.isArray(records)||Object.keys(records).length>200)return false;
+ for(const [path,r] of Object.entries(records)){
+  const parts=path.split('.');
+  const allowed=parts[0]==='services'?parts.length>=3&&/^[a-zA-Z0-9_-]{1,60}$/.test(parts[1])&&Object.hasOwn(ASSUMPTION_FIELDS.service,parts.slice(2).join('.')):['demand','people','cash'].some(group=>Object.hasOwn(ASSUMPTION_FIELDS[group],path));
+  if(!allowed||!r||typeof r!=='object'||Array.isArray(r)||Object.keys(r).sort().join(',')!=='date,sample,source,value'||!Number.isFinite(r.value))return false;
+  if(typeof r.source!=='string'||!r.source.trim()||r.source.length>160||typeof r.sample!=='string'||!r.sample.trim()||r.sample.length>120||typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return false;
+  const date=new Date(r.date+'T00:00:00Z');
+  if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==r.date)return false;
+ }
+ return true;
+}
+function withCurrentAssumptionRecords(c){
+ const records=c.assumptionRecords;
+ if(!records||!validAssumptionRecords(records))return c;
+ const entries=Object.entries(records),matching=entries.filter(([path,r])=>r.value===assumptionRecordValue(c,path));
+ if(matching.length===entries.length)return c;
+ const next={...c};
+ if(matching.length)next.assumptionRecords=Object.fromEntries(matching);else delete next.assumptionRecords;
+ return next;
+}
 function validRecipeV2(recipe){
  const baseKeys=['applied','appliedHash','catalog','condition','ledger','ledgerHash','market','mix','operation','version'],keys=Object.keys(recipe||{}).sort(),validKeys=[baseKeys,[...baseKeys,'profile'].sort()].some(expected=>keys.join(',')===expected.join(','));
  if(!recipe||typeof recipe!=='object'||Array.isArray(recipe)||!validKeys)return false;
  if(recipe.catalog!==RECIPE_V2.catalog||recipe.version!==RECIPE_V2.version||recipe.ledger!==RECIPE_V2.ledger||typeof recipe.ledgerHash!=='string'||!/^[0-9a-f]{64}$/.test(recipe.ledgerHash))return false;
- if(recipe.profile!==undefined&&recipe.profile!=='new-workspace')return false;
+ if(recipe.profile!==undefined&&!['new-workspace','business-conditions'].includes(recipe.profile))return false;
  if(!['market','operation','mix','condition'].every(key=>typeof recipe[key]==='string'&&/^[a-z0-9_-]{1,40}$/.test(recipe[key])))return false;
  if(!recipe.applied||typeof recipe.applied!=='object'||Array.isArray(recipe.applied))return false;
  const entries=Object.entries(recipe.applied);if(!entries.length||entries.length>1000||JSON.stringify(recipe.applied).length>262144)return false;
@@ -111,10 +146,19 @@ function averageProfileFactor(c,key){
  },0);
 }
 function workingDays(days=30){let n=0;for(let d=0;d<days;d++)if(d%7<5)n++;return n;}
-function fresh(config=DEFAULT){let c=normalize(config);validateConfig(c);return{version:3,modelVersion:MODEL_VERSION,workloadId:'model2-seed-'+c.seed,config:c,day:0,projects:[],clients:[],contracts:[],cash:round(c.startingCash),initialCash:round(c.startingCash),revenue:0,expenses:0,ownerHours:0,designHours:0,funding:0,ledger:[],history:[],events:[],blocked:null,nextId:1,repeatQueue:[],lost:0,unserved:0};}
+function fresh(config=DEFAULT){let c=normalize(config);validateConfig(c);return{version:3,modelVersion:MODEL_VERSION,workloadId:'model2-seed-'+c.seed,config:c,replayJournal:{version:1,changes:[]},day:0,projects:[],clients:[],contracts:[],cash:round(c.startingCash),initialCash:round(c.startingCash),revenue:0,expenses:0,ownerHours:0,designHours:0,funding:0,ledger:[],history:[],events:[],blocked:null,nextId:1,repeatQueue:[],lost:0,unserved:0};}
 function event(s,p,text){const e={day:s.day,text};if(p)p.log.push(e);s.events.unshift({...e,project:p?.id||null});s.events=s.events.slice(0,120);}
-function entry(s,amount,type,p,note){amount=round(amount);if(!Number.isFinite(amount)||(type==='receipt'&&amount<0))throw Error('Invalid cash transaction.');s.cash=round(s.cash+amount);s.ledger.push({day:s.day,amount:round(amount),type,project:p?.id||null,note});if(type==='expense'){s.expenses=round(s.expenses-amount);if(p)p.cost=round(p.cost-amount);}if(type==='receipt'&&p)p.paid=round(p.paid+amount);}
-function pay(s,amount,p,note){amount=round(amount);if(s.cash+0.001<amount){s.blocked={amount,cash:s.cash,gap:round(amount-s.cash),project:p?.id||null,note};event(s,p,'Cash decision required: '+note);return false;}entry(s,-amount,'expense',p,note);return true;}
+function entry(s,amount,type,p,note,designHours){
+ amount=round(amount);
+ if(!Number.isFinite(amount)||(type==='receipt'&&amount<0))throw Error('Invalid cash transaction.');
+ s.cash=round(s.cash+amount);
+ const posting={day:s.day,amount,type,project:p?.id||null,note};
+ if(designHours!==undefined)posting.designHours=designHours;
+ s.ledger.push(posting);
+ if(type==='expense'){s.expenses=round(s.expenses-amount);if(p)p.cost=round(p.cost-amount);}
+ if(type==='receipt'&&p)p.paid=round(p.paid+amount);
+}
+function pay(s,amount,p,note,designHours){amount=round(amount);if(s.cash+0.001<amount){s.blocked={amount,cash:s.cash,gap:round(amount-s.cash),project:p?.id||null,note};event(s,p,'Cash decision required: '+note);return false;}entry(s,-amount,'expense',p,note,designHours);return true;}
 function move(s,p,stage){p.stage=stage;p.entered=s.day;p.wait=0;event(s,p,'Moved to '+LABELS[stage]);}
 function suitableServices(c,group){return c.services.filter(v=>v.weight>0&&(!group||!v.audience||v.audience==='all'||v.audience===group));}
 function projectRandomness(c,demandId){return Object.fromEntries(['conversion','complexity','revision','approval','supplier','payment','return'].map(stream=>[stream,demandDraw(c,demandId,stream)]));}
@@ -162,15 +206,17 @@ function accept(s,p){
  event(s,p,'Quote accepted at $'+p.price+(fulfillmentMode?' for '+(fulfillmentMode==='agency-managed'?'agency-managed printing':'design only / client self-print'):'')+'; deposit received; delivery due day '+p.due+(rush?' under a modeled rush-event promise':''));move(s,p,'design');
 }
 function estimate(input){
- const c=normalize(input),days=30,workdays=workingDays(days),weeks=workdays/5;
+ const c=normalize(input);
+ if(!Number.isInteger(c.months)||c.months<1||c.months>12)throw Error('Choose a run length from 1 to 12 whole months.');
+ const days=c.months*30,workdays=workingDays(days),weeks=workdays/5;
  const expectedPrice=service=>service.fulfillment?service.price*service.fulfillment.managedShare+service.fulfillment.designOnlyPrice*(1-service.fulfillment.managedShare):service.price;
  const expectedPrint=service=>service.fulfillment?service.print*service.fulfillment.managedShare:service.print;
- const outreach=c.acquisition==='sales'?Math.min(c.outreachHours,c.ownerHours)*weeks:0,leads=c.acquisition==='preset'?c.inquiries:outreach*c.leadsPerHour;
- let orders=0,revenue=0,hours=0,owner=outreach,print=0,unserved=0;
- const serviceRows=new Map(c.services.map(v=>[v.id,{id:v.id,name:v.name,inquiries:0,orders:0,revenue:0,designerHours:0,ownerHours:0,designerCost:0,printCost:0,directCost:0,contribution:0,ownerTimeValue:0,afterOwnerTime:0}]));
+ const outreach=c.acquisition==='sales'?Math.min(c.outreachHours,c.ownerHours)*weeks:0,leads=c.acquisition==='preset'?c.inquiries*c.months:outreach*c.leadsPerHour;
+ let orders=0,revenue=0,hours=0,owner=outreach,print=0,unserved=0,unservedShare=0;
+ const serviceRows=new Map(c.services.map(v=>[v.id,{id:v.id,name:v.name,effectiveShare:0,inquiries:0,orders:0,revenue:0,designerHours:0,ownerHours:0,designerCost:0,printCost:0,directCost:0,contribution:0,ownerTimeValue:0,afterOwnerTime:0}]));
  for(const group of c.customerMix?['food','retail','services']:[null]){
-  const groupLeads=leads*(group?c.customerMix[group]/100:1),eligible=suitableServices(c,group);
-  if(!eligible.length){unserved+=groupLeads;continue;}
+  const groupShare=group?c.customerMix[group]/100:1,groupLeads=leads*groupShare,eligible=suitableServices(c,group);
+  if(!eligible.length){unserved+=groupLeads;unservedShare+=groupShare;continue;}
   const total=eligible.reduce((n,v)=>n+v.weight,0),weighted=f=>eligible.reduce((n,v)=>n+f(v)*v.weight/total,0);
   const effort=group?averageProfileFactor({...c,customerMix:{food:group==='food'?100:0,retail:group==='retail'?100:0,services:group==='services'?100:0}},'effort'):1;
   const groupOrders=groupLeads*c.conversion;orders+=groupOrders;
@@ -179,12 +225,13 @@ function estimate(input){
   revenue+=groupOrders*weighted(expectedPrice);print+=groupOrders*weighted(expectedPrint);
   for(const v of eligible){
    const share=v.weight/total,row=serviceRows.get(v.id),serviceLeads=groupLeads*share,serviceOrders=groupOrders*share;
+   row.effectiveShare+=groupShare*share;
    row.inquiries+=serviceLeads;row.orders+=serviceOrders;row.revenue+=serviceOrders*expectedPrice(v);
    row.designerHours+=serviceOrders*v.hours*effort;row.ownerHours+=serviceLeads*c.quoteHours*effort+serviceOrders*(v.review*effort+c.deliveryHours);
    row.printCost+=serviceOrders*expectedPrint(v);
   }
  }
- const expense=hours*c.designerRate+print+c.overhead,ownerCapacity=c.ownerHours*weeks,designCapacity=c.designers*c.designerHours*weeks;
+ const expense=hours*c.designerRate+print+c.overhead*c.months,ownerCapacity=c.ownerHours*weeks,designCapacity=c.designers*c.designerHours*weeks;
  const ratio=(used,cap)=>cap?used/cap:used?Infinity:0;
  const services=[...serviceRows.values()].map(row=>{
   const service=c.services.find(v=>v.id===row.id),baseOwnerHours=c.quoteHours+service.review+c.deliveryHours;
@@ -200,7 +247,87 @@ function estimate(input){
   for(const key of ['inquiries','orders','revenue','designerHours','ownerHours','designerCost','printCost','directCost','contribution','ownerTimeValue','afterOwnerTime'])row[key]=round(row[key]);
   return row;
  });
- return{days,workdays,leads,unserved,orders,revenue,expense,profit:revenue-expense,owner,hours,outreach,ownerCapacity,designCapacity,ownerLoad:ratio(owner,ownerCapacity),designLoad:ratio(hours,designCapacity),surplus:revenue-expense-owner*c.ownerTarget,services};
+ return{days,workdays,leads,unserved,unservedShare,orders,revenue,expense,profit:revenue-expense,owner,hours,outreach,ownerCapacity,designCapacity,ownerLoad:ratio(owner,ownerCapacity),designLoad:ratio(hours,designCapacity),surplus:revenue-expense-owner*c.ownerTarget,services};
+}
+// Charge costs in the month they were incurred and recognize the agreed price
+// on delivery. A later payment or delivery cannot rewrite an earlier month.
+function directExpenseKind(posting){
+ if(posting.note==='Design labor for '+posting.project)return 'designLabor';
+ if(posting.note==='Print order for '+posting.project||posting.note==='Supplier reprint for '+posting.project)return 'supplierCost';
+ return 'otherDirectCost';
+}
+function periodOwnerValue(s,endDay,profit,hours){
+ // Each entry preserves the inputs through that day. Changes apply on the next step.
+ const closing=s.replayJournal?.changes.find(change=>change.day>=endDay)?.config||s.config;
+ const ownerRate=closing.ownerTarget,afterOwner=round(profit-hours*ownerRate);
+ return {ownerRate,rateHistoryAvailable:Boolean(s.replayJournal),afterOwner,ownerTime:round(profit-afterOwner)};
+}
+function monthResult(s,month=Math.max(1,Math.ceil(s.day/30))){
+ const latest=Math.max(1,Math.ceil(s.day/30));
+ if(!Number.isInteger(month)||month<1||month>latest)throw Error('Choose a month that has started.');
+ const firstDay=(month-1)*30+1,endDay=Math.min(s.day,month*30);
+ const cents=value=>Math.round(value*100);
+ let opening=cents(s.initialCash),receipts=0,funding=0,overhead=0,designLabor=0,supplierCost=0,otherProjectCost=0;
+ const projectCosts=new Map(),paymentsToDate=new Map();
+ for(const entry of s.ledger){
+  if(entry.day>endDay)break;
+  const amount=cents(entry.amount);
+  if(entry.type==='receipt')paymentsToDate.set(entry.project,(paymentsToDate.get(entry.project)||0)+amount);
+  if(entry.day<firstDay){opening+=amount;continue;}
+  if(entry.type==='receipt'){receipts+=amount;continue;}
+  if(entry.type==='funding'){funding+=amount;continue;}
+  if(!entry.project){overhead-=amount;continue;}
+  projectCosts.set(entry.project,(projectCosts.get(entry.project)||0)-amount);
+  const kind=directExpenseKind(entry);
+  if(kind==='designLabor')designLabor-=amount;
+  else if(kind==='supplierCost')supplierCost-=amount;
+  else otherProjectCost-=amount;
+ }
+ const serviceGroups=new Map();
+ const unfinishedJobs=[];
+ let delivered=0,revenue=0,receivable=0,depositsHeld=0,deliveredCost=0,unfinishedCost=0;
+ for(const p of s.projects){
+  if(p.created>endDay)continue;
+  const deliveredByEnd=p.deliveredDay!==undefined&&p.deliveredDay<=endDay;
+  const deliveredThisMonth=deliveredByEnd&&p.deliveredDay>=firstDay;
+  if(p.accepted!==undefined&&p.accepted<=endDay&&!deliveredByEnd){
+   unfinishedJobs.push({id:p.id,demandId:p.demandId,service:p.service.name,accepted:p.accepted,cost:(projectCosts.get(p.id)||0)/100});
+  }
+  const price=cents(p.price),paid=paymentsToDate.get(p.id)||0,cost=projectCosts.get(p.id)||0;
+  if(deliveredByEnd)receivable+=price-paid;else depositsHeld+=paid;
+  if(!deliveredThisMonth&&!cost)continue;
+  let group=serviceGroups.get(p.serviceId);
+  if(!group){
+   group={id:p.serviceId,name:p.service.name,delivered:0,revenue:0,deliveredCost:0,unfinishedCost:0,
+    largestDelivery:null,largestCost:null,largestUnfinished:null};
+   serviceGroups.set(p.serviceId,group);
+  }
+  if(deliveredThisMonth){
+   delivered++;revenue+=price;group.delivered++;group.revenue+=price;
+   if(!group.largestDelivery||price>group.largestDelivery.amount)group.largestDelivery={id:p.id,amount:price};
+  }
+  if(cost){
+   if(deliveredByEnd){deliveredCost+=cost;group.deliveredCost+=cost;}
+   else{
+    unfinishedCost+=cost;group.unfinishedCost+=cost;
+    if(!group.largestUnfinished||cost>group.largestUnfinished.amount)group.largestUnfinished={id:p.id,amount:cost};
+   }
+   if(!group.largestCost||cost>group.largestCost.amount)group.largestCost={id:p.id,amount:cost};
+  }
+ }
+ const services=Array.from(serviceGroups.values(),group=>{
+  const cost=group.deliveredCost+group.unfinishedCost;
+  return {id:group.id,name:group.name,delivered:group.delivered,revenue:group.revenue/100,cost:cost/100,
+   deliveredCost:group.deliveredCost/100,unfinishedCost:group.unfinishedCost/100,contribution:(group.revenue-cost)/100,
+   deliveredProjectId:group.largestDelivery?.id??null,costProjectId:group.largestCost?.id??null,unfinishedProjectId:group.largestUnfinished?.id??null};
+ }).sort((a,b)=>b.contribution-a.contribution||a.id.localeCompare(b.id));
+ const cost=deliveredCost+unfinishedCost+overhead,profit=(revenue-cost)/100,cashChange=receipts+funding-cost;
+ const ownerHours=(s.history[endDay-1]?.ownerHours||0)-(s.history[firstDay-2]?.ownerHours||0);
+ return {month,firstDay,endDay,days:Math.max(0,endDay-firstDay+1),delivered,revenue:revenue/100,cost:cost/100,profit,
+  ownerHours,...periodOwnerValue(s,endDay,profit,ownerHours),openingCash:opening/100,closingCash:(opening+cashChange)/100,
+  receipts:receipts/100,funding:funding/100,cashChange:cashChange/100,overhead:overhead/100,designLabor:designLabor/100,
+  supplierCost:supplierCost/100,otherProjectCost:otherProjectCost/100,deliveredCost:deliveredCost/100,unfinishedCost:unfinishedCost/100,
+  receivable:receivable/100,depositsHeld:depositsHeld/100,awaitingDelivery:unfinishedJobs.length,openProjectId:unfinishedJobs[0]?.id??null,unfinishedJobs,services};
 }
 function analytics(s){
  const ratio=(n,d)=>d>0?n/d:null, sum=(rows,key)=>rows.reduce((n,p)=>n+(p[key]||0),0);
@@ -218,7 +345,9 @@ function analytics(s){
   if(!serviceGroups.has(p.serviceId))serviceGroups.set(p.serviceId,[]);serviceGroups.get(p.serviceId).push(p);
   if(p.contractId){if(!contractGroups.has(p.contractId))contractGroups.set(p.contractId,[]);contractGroups.get(p.contractId).push(p);}
  }
- const services=[...serviceGroups].map(([id,ps])=>({id,name:ps.at(-1).service.name,...group(ps)})).sort((a,b)=>b.contribution-a.contribution);
+ const currentServices=new Map(s.config.services.map(service=>[service.id,service]));
+ for(const id of currentServices.keys())if(!serviceGroups.has(id))serviceGroups.set(id,[]);
+ const services=[...serviceGroups].map(([id,ps])=>({id,name:ps.at(-1)?.service.name??currentServices.get(id).name,inquiries:ps.filter(p=>p.orderKind==='new-business').length,...group(ps)})).sort((a,b)=>b.contribution-a.contribution);
  const contractRecords=new Map(s.contracts.map(c=>[c.id,c]));
  const contracts=[...contractGroups].map(([id,ps])=>{const record=contractRecords.get(id),campaign=record?.campaign,next=s.repeatQueue.find(item=>item.contractId===id);return{id,client:ps[0].client,kind:record?.kind||'repeat-purchase',status:record?.status||'active',currentCycle:record?.cycles||Math.max(...ps.map(p=>p.cycle||1)),skippedCampaigns:record?.skipped||0,cadenceDays:campaign?.cadenceDays??null,relationshipEndDay:campaign?.endDay??null,nextQuoteDay:next?.day??null,campaignCharges:campaign?ps.filter(p=>p.accepted!==undefined).map(p=>({cycle:p.cycle,project:p.id,price:p.price,fulfillment:p.terms?.fulfillment?.mode||null})):[],projects:ps.map(p=>p.id),...group(ps)};}).sort((a,b)=>b.contribution-a.contribution);
  const external=s.projects.filter(p=>p.orderKind==='new-business'), won=external.filter(p=>p.accepted!==undefined).length, lost=external.filter(p=>p.stage==='lost').length;
@@ -226,9 +355,9 @@ function analytics(s){
  const monthly=Array.from({length:Math.max(1,Math.ceil(s.day/30))},(_,i)=>{
   const start=i*30,end=Math.min(s.day,(i+1)*30), before=s.history.find(h=>h.day===start)||{revenue:0,expenses:0,ownerHours:0}, last=s.history.filter(h=>h.day>start&&h.day<=end).at(-1)||before;
   const revenue=round(last.revenue-before.revenue),cost=round(last.expenses-before.expenses),result=round(revenue-cost),ownerHours=last.ownerHours-before.ownerHours;
-  return {month:i+1,days:Math.max(0,end-start),revenue,cost,profit:result,margin:ratio(result,revenue),ownerHours,afterOwner:round(result-ownerHours*s.config.ownerTarget),delivered:delivered.filter(p=>p.deliveredDay>start&&p.deliveredDay<=end).length};
+  return {month:i+1,days:Math.max(0,end-start),revenue,cost,profit:result,margin:ratio(result,revenue),ownerHours,...periodOwnerValue(s,end,result,ownerHours),delivered:delivered.filter(p=>p.deliveredDay>start&&p.deliveredDay<=end).length};
  });
- return {directCost:round(directCost),deliveredCost:round(deliveredCost),contribution,contributionMargin:ratio(contribution,s.revenue),overhead,unfinishedCost,profit,operatingMargin:ratio(profit,s.revenue),ownerTime:round(s.ownerHours*s.config.ownerTarget),afterOwner:round(profit-s.ownerHours*s.config.ownerTarget),afterOwnerMargin:ratio(profit-s.ownerHours*s.config.ownerTarget,s.revenue),services,contracts,monthly,external:external.length,won,lost,pending:external.length-won-lost,conversion:ratio(won,won+lost),uniqueClients,repeatCycles:repeat.length,repeatShare:ratio(repeat.length,accepted.length),skippedCampaigns:contracts.reduce((total,contract)=>total+contract.skippedCampaigns,0),averageOrder:ratio(sum(accepted,'price'),accepted.length),backlog:round(sum(accepted.filter(p=>!p.delivered),'price')),revenuePerOwnerHour:ratio(s.revenue,s.ownerHours),profitPerOwnerHour:ratio(profit,s.ownerHours)};
+ return {periodAfterOwner:round(sum(monthly,'afterOwner')),directCost:round(directCost),deliveredCost:round(deliveredCost),contribution,contributionMargin:ratio(contribution,s.revenue),overhead,unfinishedCost,profit,operatingMargin:ratio(profit,s.revenue),ownerTime:round(s.ownerHours*s.config.ownerTarget),afterOwner:round(profit-s.ownerHours*s.config.ownerTarget),afterOwnerMargin:ratio(profit-s.ownerHours*s.config.ownerTarget,s.revenue),services,contracts,monthly,external:external.length,won,lost,pending:external.length-won-lost,conversion:ratio(won,won+lost),uniqueClients,repeatCycles:repeat.length,repeatShare:ratio(repeat.length,accepted.length),skippedCampaigns:contracts.reduce((total,contract)=>total+contract.skippedCampaigns,0),averageOrder:ratio(sum(accepted,'price'),accepted.length),backlog:round(sum(accepted.filter(p=>!p.delivered),'price')),revenuePerOwnerHour:ratio(s.revenue,s.ownerHours),profitPerOwnerHour:ratio(profit,s.ownerHours)};
 }
 function metrics(s){
  const active=s.projects.filter(p=>!['complete','lost'].includes(p.stage)),delivered=s.projects.filter(p=>p.delivered),profit=s.revenue-s.expenses;
@@ -237,24 +366,70 @@ function metrics(s){
  const totalLead=delivered.reduce((n,p)=>n+p.deliveredDay-p.created,0),acceptedLead=delivered.reduce((n,p)=>n+p.deliveredDay-p.accepted,0),onTime=delivered.length-lateDelivered.length;
  return{profit,ownerTimeValue:s.ownerHours*s.config.ownerTarget,surplus:profit-s.ownerHours*s.config.ownerTarget,effective:s.ownerHours?profit/s.ownerHours:0,active:active.length,late:lateOpen.length,lateCompleted:lateDelivered.length,onTimeRate:delivered.length?onTime/delivered.length:null,averageLeadDays:delivered.length?totalLead/delivered.length:null,averageAcceptedLeadDays:delivered.length?acceptedLead/delivered.length:null,quoteCount:quotes.length,oldestQuoteAge:quotes.length?Math.max(...quotes.map(p=>s.day-p.created)):0,ownerOpenHours,designerOpenHours,externalWaits:active.filter(p=>['approval','production','payment'].includes(p.stage)).length,throughput30:delivered.filter(p=>p.deliveredDay>Math.max(0,s.day-30)).length,overduePayments:active.filter(p=>p.delivered&&round(p.price-p.paid)>0&&s.day>p.paymentDue).length,complete:s.projects.filter(p=>p.stage==='complete').length,delivered:delivered.length,receivable:delivered.reduce((a,p)=>a+p.price-p.paid,0),unserved:s.unserved||0};
 }
-function demandSignature(config){
- const c=normalize(config);
- return JSON.stringify({seed:c.seed,acquisition:c.acquisition,inquiries:c.inquiries,outreachHours:c.outreachHours,leadsPerHour:c.leadsPerHour,customerMix:c.customerMix||null,focusType:c.focusType||'none',profileStrength:c.profileStrength??0,services:c.services.map(v=>({id:v.id,weight:v.weight,audience:v.audience||'all'}))});
+function externalDemandSettings(c){
+ const settings={acquisition:c.acquisition};
+ if(c.acquisition==='sales'){
+  settings.outreachHours=Math.min(c.ownerHours,c.outreachHours);
+  settings.leadsPerHour=c.leadsPerHour;
+ }else settings.inquiries=c.inquiries;
+ if(c.customerMix){
+  const {food,retail,services}=c.customerMix;
+  settings.customerMix={food,retail,services};
+  settings.focusType=c.focusType||'none';
+ }
+ settings.services=c.services.filter(v=>v.weight>0).map(v=>({
+  id:v.id,weight:v.weight,audience:c.customerMix?(v.audience||'all'):'all'
+ }));
+ return settings;
+}
+function completeDemandHistory(s){
+ return s.day===0 || (s.demandHistory?.[0]?.day===1 && s.history.length===s.day && s.history.every(h=>Number.isInteger(h.externalArrivals)));
+}
+function sameInquiries(current,baseline){
+ // An arrival's ID is its calendar day and index, even when no service fits.
+ // Returning cycles are an outcome of the business and deliberately excluded.
+ const external=s=>s.projects.filter(p=>p.orderKind==='new-business');
+ const currentProjects=external(current),baseProjects=external(baseline);
+ if(currentProjects.length!==baseProjects.length || (current.unserved??0)!==(baseline.unserved??0))return false;
+ const prior=new Map(baseProjects.map(p=>[p.demandId,p]));
+ if(prior.size!==baseProjects.length)return false;
+ for(const p of currentProjects){
+  const other=prior.get(p.demandId);
+  if(!other || other.created!==p.created || other.serviceId!==p.serviceId || other.clientId!==p.clientId || other.clientType!==p.clientType)return false;
+  prior.delete(p.demandId);
+ }
+ return current.history.every((h,i)=>h.externalArrivals===baseline.history[i].externalArrivals &&
+  JSON.stringify(h.unservedInquiries||[])===JSON.stringify(baseline.history[i].unservedInquiries||[]));
 }
 function compareRuns(current,baseline){
  const a=analytics(current),b=analytics(baseline),am=metrics(current),bm=metrics(baseline),delta=(x,y)=>round((x||0)-(y||0));
- const flags={sameElapsedDay:current.day===baseline.day,sameWorkloadIdentity:current.workloadId===baseline.workloadId,sameExternalDemandAssumptions:demandSignature(current.config)===demandSignature(baseline.config)};
- flags.likeForLike=flags.sameElapsedDay&&flags.sameWorkloadIdentity&&flags.sameExternalDemandAssumptions;
+ const flags={sameElapsedDay:current.day===baseline.day,sameWorkloadIdentity:current.config.seed===baseline.config.seed && Boolean(current.workloadId) && current.workloadId===baseline.workloadId,
+  sameExternalDemandAssumptions:JSON.stringify(externalDemandSettings(current.config))===JSON.stringify(externalDemandSettings(baseline.config)),
+  sameDemandHistory:null,sameRealizedInquiries:null};
+ if(flags.sameElapsedDay && completeDemandHistory(current) && completeDemandHistory(baseline)){
+  const currentPeriods=current.demandHistory||[],baselinePeriods=baseline.demandHistory||[];
+  flags.sameDemandHistory=currentPeriods.length===baselinePeriods.length && currentPeriods.every((period,i)=>
+   period.day===baselinePeriods[i].day && sameReplayValue(period.settings,baselinePeriods[i].settings));
+  flags.sameRealizedInquiries=sameInquiries(current,baseline);
+ }
+ flags.likeForLike=flags.sameElapsedDay && flags.sameWorkloadIdentity && flags.sameExternalDemandAssumptions && flags.sameDemandHistory===true && flags.sameRealizedInquiries===true;
  const warnings=[];
  if(!flags.sameElapsedDay)warnings.push({code:'different-day',message:'Runs are at different elapsed days; result deltas are descriptive, not causal.'});
  if(!flags.sameWorkloadIdentity)warnings.push({code:'different-workload',message:'Runs do not share a workload identity; customer-level outcomes are not directly comparable.'});
- if(!flags.sameExternalDemandAssumptions)warnings.push({code:'different-demand-assumptions',message:'External-demand assumptions differ even if the workload seed matches.'});
- const deltas={cash:delta(current.cash,baseline.cash),revenue:delta(current.revenue,baseline.revenue),deliveredDirectCost:delta(a.deliveredCost,b.deliveredCost),unfinishedCost:delta(a.unfinishedCost,b.unfinishedCost),overhead:delta(a.overhead,b.overhead),operatingResult:delta(a.profit,b.profit),ownerTimeValue:delta(a.ownerTime,b.ownerTime),afterOwnerTime:delta(a.afterOwner,b.afterOwner),delivered:am.delivered-bm.delivered,lateOpenDeliveries:am.late-bm.late,receivable:delta(am.receivable,bm.receivable),ownerOpenHours:delta(am.ownerOpenHours,bm.ownerOpenHours),designerOpenHours:delta(am.designerOpenHours,bm.designerOpenHours)};
+ if(!flags.sameExternalDemandAssumptions)warnings.push({code:'different-demand-assumptions',message:'The current effective demand settings differ. Check the arrival method, available outreach hours and customer or service mix.'});
+ if(flags.sameElapsedDay && flags.sameDemandHistory===null)warnings.push({code:'unverified-demand-history',message:'At least one run began before daily demand tracking. Its earlier workload cannot be verified.'});
+ if(flags.sameDemandHistory===false)warnings.push({code:'different-demand-history',message:'Different demand settings were in effect during the simulated days.'});
+ if(flags.sameRealizedInquiries===false)warnings.push({code:'different-inquiries',message:'The recorded new inquiries differ by arrival, customer type or requested service, including inquiries with no matching offer.'});
+ const deltas={cash:delta(current.cash,baseline.cash),revenue:delta(current.revenue,baseline.revenue),deliveredDirectCost:delta(a.deliveredCost,b.deliveredCost),unfinishedCost:delta(a.unfinishedCost,b.unfinishedCost),overhead:delta(a.overhead,b.overhead),operatingResult:delta(a.profit,b.profit),ownerTimeValue:delta(a.profit-a.periodAfterOwner,b.profit-b.periodAfterOwner),afterOwnerTime:delta(a.periodAfterOwner,b.periodAfterOwner),delivered:am.delivered-bm.delivered,lateOpenDeliveries:am.late-bm.late,receivable:delta(am.receivable,bm.receivable),ownerOpenHours:delta(am.ownerOpenHours,bm.ownerOpenHours),designerOpenHours:delta(am.designerOpenHours,bm.designerOpenHours)};
  const bridge=[{code:'delivered-revenue',label:'Delivered revenue',amount:deltas.revenue},{code:'delivered-direct-cost',label:'Delivered direct cost',amount:round(-deltas.deliveredDirectCost)},{code:'unfinished-cost',label:'Unfinished-work cost',amount:round(-deltas.unfinishedCost)},{code:'overhead',label:'Shared overhead',amount:round(-deltas.overhead)}];
  const dominantDriver=[...bridge].sort((x,y)=>Math.abs(y.amount)-Math.abs(x.amount))[0]||null;
  return{flags,warnings,deltas,bridge,dominantDriver,reconciles:round(bridge.reduce((n,v)=>n+v.amount,0))===deltas.operatingResult};
 }
-function projectDiagnostic(s,project){
+function workCapacity(config){
+ const outreach=config.acquisition==='sales'?Math.min(config.ownerHours,config.outreachHours):0;
+ return {owner:(config.ownerHours-outreach)/5,design:config.designers*config.designerHours/5};
+}
+function projectDiagnostic(s,project,workOrder){
  const p=typeof project==='string'?s.projects.find(v=>v.id===project):project;
  if(!p||!s.projects.includes(p))throw Error('Project not found');
  const stage=p.stage,done=['complete','lost'].includes(stage),lateDays=p.accepted!==undefined&&!p.delivered?Math.max(0,s.day-p.due):0;
@@ -270,8 +445,8 @@ function projectDiagnostic(s,project){
  if(stage==='inquiry'){result.responsible='owner';result.reasonCode='quote-intake';return result;}
  const ownerStages=['quote','review','delivery'],resourceStages=stage==='design'?['design']:ownerStages;
  result.reasonCode=stage==='design'?'design-capacity':'owner-capacity';
- result.dailyCapacity=stage==='design'?s.config.designers*s.config.designerHours/5:(s.config.ownerHours-(s.config.acquisition==='sales'?Math.min(s.config.outreachHours,s.config.ownerHours):0))/5;
- const ordered=orderedProjects(s),position=ordered.indexOf(p),ahead=ordered.slice(0,Math.max(0,position)).filter(v=>resourceStages.includes(v.stage));
+ result.dailyCapacity=workCapacity(s.config)[stage==='design'?'design':'owner'];
+ const ordered=workOrder||orderedProjects(s),position=ordered.indexOf(p),ahead=ordered.slice(0,Math.max(0,position)).filter(v=>resourceStages.includes(v.stage));
  result.queueAheadCount=ahead.length;result.queueAheadHours=round(ahead.reduce((n,v)=>n+(v.work[v.stage]||0),0));
  if(result.dailyCapacity>0){const ownDaily=stage==='design'?Math.min(result.dailyCapacity,s.config.designerHours/5):result.dailyCapacity;result.estimatedWorkdays=Math.ceil(result.queueAheadHours/result.dailyCapacity+result.remainingWorkHours/Math.max(ownDaily,Number.EPSILON));}
  return result;
@@ -282,8 +457,8 @@ function bottleneck(s){
   const hours=breakdown.reduce((n,v)=>n+v.hours,0),count=breakdown.reduce((n,v)=>n+v.count,0),leading=[...breakdown].sort((a,b)=>b.hours-a.hours||b.oldest-a.oldest)[0];
   return{resource,stage:leading?.stage||stages[0],stages:breakdown,count:leading?.count||0,hours:leading?.hours||0,combinedCount:count,combinedHours:hours,capacity,days:capacity>0?hours/capacity:hours>0?Infinity:0,oldest:Math.max(0,...breakdown.map(v=>v.oldest))};
  };
- const ownerCapacity=(c.ownerHours-(c.acquisition==='sales'?Math.min(c.outreachHours,c.ownerHours):0))/5;
- const ranked=[describe('owner',['quote','review','delivery'],ownerCapacity),describe('design',['design'],c.designers*c.designerHours/5)].filter(v=>v.count).sort((a,b)=>b.days-a.days);
+ const capacity=workCapacity(c);
+ const ranked=[describe('owner',['quote','review','delivery'],capacity.owner),describe('design',['design'],capacity.design)].filter(v=>v.count).sort((a,b)=>b.days-a.days);
  if(ranked.length)return ranked[0];
  const waits=['approval','production','payment'].map(stage=>{const ps=s.projects.filter(p=>p.stage===stage);return{resource:'external',stage,count:ps.length,hours:0,capacity:0,days:0,oldest:ps.length?Math.max(...ps.map(p=>s.day-p.entered)):0,stages:[]};}).filter(v=>v.count).sort((a,b)=>b.oldest-a.oldest);
  return waits[0]||null;
@@ -291,19 +466,31 @@ function bottleneck(s){
 function orderedProjects(s){const c=s.config;return [...s.projects].sort((a,b)=>Number(b.priority)-Number(a.priority)||(c.priority==='deadline'?(a.accepted===undefined)-(b.accepted===undefined)||a.due-b.due:a.created-b.created)||a.demandId.localeCompare(b.demandId)||a.id.localeCompare(b.id));}
 // Daily updates are atomic. If any payment fails, discard the proposed day's
 // work, preserve the diagnostic, then retry after an explicit funding decision.
-function step(s){if(s.blocked||s.day>=s.config.months*30)return false;let draft=clone(s);draft.day++;if(!advance(draft)){
+function nextDayDraft(s,closedIntake=false){
+ const draft=clone(s);
+ if(!draft.replayJournal&&legacyReplaySetupKnown(draft))draft.replayJournal={version:1,changes:[]};
+ draft.day++;if(!advance(draft,closedIntake)){
  // A newly created project disappears with the rolled-back day. Its ID stays
  // in the payment note, but only committed projects can be linked or saved.
- s.blocked={...draft.blocked,project:s.projects.some(p=>p.id===draft.blocked.project)?draft.blocked.project:null};return false;
-}Object.assign(s,draft);return true;}
-function collectPayment(s,p){const balance=round(p.price-p.paid);if(balance<0)throw Error('Project balance cannot be negative.');if(balance>0)entry(s,balance,'receipt',p,'Final payment');p.paymentStatus='paid';completePaid(s,p);}
+ s.blocked={...draft.blocked,project:s.projects.some(p=>p.id===draft.blocked.project)?draft.blocked.project:null};return null;
+ }
+ if(closedIntake)draft.events=[...draft.events.filter(e=>e.day===draft.day),...s.events];
+ return draft;
+}
+function step(s){
+ if(s.blocked||s.day>=s.config.months*30)return false;
+ const draft=nextDayDraft(s);
+ if(!draft)return false;
+ Object.assign(s,draft);return true;
+}
+function collectPayment(s,p,closedIntake){const balance=round(p.price-p.paid);if(balance<0)throw Error('Project balance cannot be negative.');if(balance>0)entry(s,balance,'receipt',p,'Final payment');p.paymentStatus='paid';completePaid(s,p,closedIntake);}
 function scheduleCampaign(s,p,contract,cycle){
  const cadence=contract.campaign.cadenceDays,maxCycles=Math.floor(contract.campaign.relationshipDays/cadence),day=Math.max(contract.started+(cycle-1)*cadence,s.day+1),demandId=contract.id+':cycle:'+cycle;
  if(cycle>maxCycles||day>contract.campaign.endDay){contract.status='ended';return null;}
  const existing=s.repeatQueue.find(item=>item.contractId===contract.id&&(item.cycle===cycle||item.demandId===demandId));if(existing)return existing.day;
  s.repeatQueue.push({day,serviceId:p.serviceId,client:p.client,clientType:p.clientType,clientId:p.clientId,contractId:contract.id,cycle,demandId,orderKind:'campaign-reoffer'});contract.status='active';return day;
 }
-function advanceProject(s,p,capacity){
+function advanceProject(s,p,capacity,closedIntake){
  const c=s.config;
  for(let transitions=0;transitions<16;transitions++){
   if(['complete','lost'].includes(p.stage))return true;p.wait=s.day-p.entered;
@@ -312,7 +499,7 @@ function advanceProject(s,p,capacity){
    const stage=p.stage,isDesign=stage==='design',available=isDesign?Math.min(capacity.design,Math.max(0,capacity.perDesigner-(capacity.designByProject.get(p.id)||0))):capacity.owner;
    const h=Math.min(available,p.work[stage]);
    if(h>0){
-    if(isDesign){if(!pay(s,h*c.designerRate,p,'Design labor for '+p.id))return false;capacity.design-=h;capacity.designByProject.set(p.id,(capacity.designByProject.get(p.id)||0)+h);s.designHours+=h;p.designHours+=h;}
+    if(isDesign){if(!pay(s,h*c.designerRate,p,'Design labor for '+p.id,h))return false;capacity.design-=h;capacity.designByProject.set(p.id,(capacity.designByProject.get(p.id)||0)+h);s.designHours+=h;p.designHours+=h;}
     else{capacity.owner-=h;s.ownerHours+=h;p.ownerHours+=h;}
     p.work[stage]=Math.max(0,p.work[stage]-h);
    }
@@ -329,7 +516,7 @@ function advanceProject(s,p,capacity){
    p.delivered=true;p.fulfillmentStatus='delivered';p.deliveredDay=s.day;p.paymentDue=s.day+(p.terms?.paymentDays??c.paymentDays);
    const extendedDelay=p.terms?.disruptions?.extendedPaymentDays||0,paymentDelay=extendedDelay||(variable(c,'payment')?Math.floor(p.random.payment*6):0);p.receiveDay=p.paymentDue+paymentDelay;s.revenue=round(s.revenue+p.price);event(s,p,'Delivered; revenue recognized');
    if(extendedDelay)event(s,p,'Modeled late-payment incident: collection expected '+extendedDelay+' days after the contractual due date');
-   if(round(p.price-p.paid)===0){p.paymentStatus='paid';completePaid(s,p);return true;}
+   if(round(p.price-p.paid)===0){p.paymentStatus='paid';completePaid(s,p,closedIntake);return true;}
    p.paymentStatus=p.paid>0?'partial':'unpaid';move(s,p,'payment');continue;
   }
   if(p.stage==='approval'){
@@ -347,36 +534,57 @@ function advanceProject(s,p,capacity){
    if(p.terms?.disruptions?.supplierReprint&&(p.reprintCount||0)<1){const reprintCost=round(p.printCost*DISRUPTION_RULES.supplierReprints.costFactor);if(!pay(s,reprintCost,p,'Supplier reprint for '+p.id))return false;p.reprintCount=(p.reprintCount||0)+1;p.printDuration=p.terms.disruptions.reprintDays;event(s,p,'Modeled supplier reprint added '+p.printDuration+' days and $'+reprintCost+' direct cost');move(s,p,'production');continue;}
    move(s,p,'delivery');continue;
   }
-  if(p.stage==='payment'){if(s.day<p.receiveDay)return true;collectPayment(s,p);return true;}
+  if(p.stage==='payment'){if(s.day<p.receiveDay)return true;collectPayment(s,p,closedIntake);return true;}
   return true;
  }
  throw Error('Project transition loop exceeded its safe limit.');
 }
-function advance(s){
+function visitExternalInquiries(c,day,visit){
+ const weekday=(day-1)%7<5;
+ const mean=c.acquisition==='preset'?c.inquiries/30:(weekday?Math.min(c.outreachHours/5,c.ownerHours/5)*c.leadsPerHour:0);
+ const arrivals=Math.floor(mean)+(demandDraw(c,'day:'+day,'arrival')<mean%1?1:0);
+ for(let index=0;index<arrivals;index++){
+  const demandId='lead:'+day+':'+index,profile=selectProfile(c,demandId);
+  const eligible=suitableServices(c,profile?.group);
+  const total=eligible.reduce((sum,service)=>sum+service.weight,0);
+  let pick=demandDraw(c,demandId,'service')*total,service=eligible.at(-1);
+  for(const candidate of eligible){pick-=candidate.weight;if(pick<0){service=candidate;break;}}
+  visit(demandId,profile,service,index);
+ }
+ return arrivals;
+}
+function advance(s,closedIntake=false){
  const c=s.config,weekday=(s.day-1)%7<5,dayInMonth=(s.day-1)%30;
  // Model 2 day order: due collections, fixed obligations, confirmed cycles,
  // external demand, outreach, then scheduled work and same-day transitions.
- for(const p of orderedProjects(s).filter(p=>p.stage==='payment'&&s.day>=p.receiveDay))collectPayment(s,p);
+ for(const p of orderedProjects(s).filter(p=>p.stage==='payment'&&s.day>=p.receiveDay))collectPayment(s,p,closedIntake);
  if(dayInMonth===0&&!pay(s,c.overhead,null,'Monthly software and overhead'))return false;
- const returns=s.repeatQueue.filter(r=>r.day<=s.day);s.repeatQueue=s.repeatQueue.filter(r=>r.day>s.day);
- for(const r of returns){const svc=c.services.find(x=>x.id===r.serviceId)||[...s.projects].reverse().find(p=>p.serviceId===r.serviceId&&p.clientId===r.clientId)?.service;if(svc)create(s,svc,null,r.client,true,r);}
- const mean=c.acquisition==='preset'?c.inquiries/30:(weekday?Math.min(c.outreachHours/5,c.ownerHours/5)*c.leadsPerHour:0);
- const arrivals=Math.floor(mean)+(demandDraw(c,'day:'+s.day,'arrival')<mean%1?1:0),total=c.services.reduce((a,v)=>a+v.weight,0);
- if(total>0)for(let i=0;i<arrivals;i++){
-  const demandId='lead:'+s.day+':'+i,profile=selectProfile(c,demandId),eligible=suitableServices(c,profile?.group),available=eligible.reduce((n,v)=>n+v.weight,0);
-  if(!available){s.unserved=(s.unserved||0)+1;event(s,null,(profile?.label||'Customer')+' inquiry could not be served by the current offerings');continue;}
-  let pick=demandDraw(c,demandId,'service')*available,svc=eligible.at(-1);for(const v of eligible){pick-=v.weight;if(pick<0){svc=v;break;}}
-  create(s,svc,null,null,false,{demandId,clientType:profile?.id});
+ if(!closedIntake){
+  const returns=s.repeatQueue.filter(r=>r.day<=s.day);s.repeatQueue=s.repeatQueue.filter(r=>r.day>s.day);
+  for(const r of returns){const svc=c.services.find(x=>x.id===r.serviceId)||[...s.projects].reverse().find(p=>p.serviceId===r.serviceId&&p.clientId===r.clientId)?.service;if(svc)create(s,svc,null,r.client,true,r);}
  }
+ const unservedInquiries=[];
+ const arrivals=closedIntake?0:visitExternalInquiries(c,s.day,(demandId,profile,service,index)=>{
+  if(service){create(s,service,null,null,false,{demandId,clientType:profile?.id});return;}
+  s.unserved=(s.unserved||0)+1;unservedInquiries.push([index,profile?.id||null]);
+  event(s,null,(profile?.label||'Customer')+' inquiry could not be served by the current offerings');
+ });
  const capacity={owner:weekday?c.ownerHours/5:0,design:weekday?c.designers*c.designerHours/5:0,perDesigner:weekday?c.designerHours/5:0,designByProject:new Map()};
  if(weekday&&c.acquisition==='sales'){const h=Math.min(capacity.owner,c.outreachHours/5);capacity.owner-=h;s.ownerHours+=h;}
- for(const p of orderedProjects(s))if(!advanceProject(s,p,capacity))return false;
- const m=metrics(s);s.history.push({day:s.day,cash:s.cash,revenue:s.revenue,expenses:s.expenses,profit:m.profit,ownerHours:s.ownerHours,complete:m.complete,active:m.active,late:m.late,onTimeRate:m.onTimeRate,oldestQuoteAge:m.oldestQuoteAge});return true;
+ const book=closedIntake?{...s,projects:s.projects.filter(p=>p.accepted!==undefined)}:s;
+ for(const p of orderedProjects(book))if(!advanceProject(s,p,capacity,closedIntake))return false;
+ if(!closedIntake){
+  const settings=externalDemandSettings(c);
+  s.demandHistory??=[];
+  if(JSON.stringify(settings)!==JSON.stringify(s.demandHistory.at(-1)?.settings))s.demandHistory.push({day:s.day,settings});
+ }
+ const m=metrics(closedIntake?{...s,projects:book.projects}:s);s.history.push({day:s.day,cash:s.cash,revenue:s.revenue,expenses:s.expenses,profit:m.profit,ownerHours:s.ownerHours,complete:m.complete,active:m.active,late:m.late,onTimeRate:m.onTimeRate,oldestQuoteAge:m.oldestQuoteAge,externalArrivals:arrivals,...(unservedInquiries.length?{unservedInquiries}:{})});return true;
 }
-function completePaid(s,p){
+function completePaid(s,p,closedIntake=false){
  if(p.stage==='complete')return;
  if(!p.delivered||round(p.price-p.paid)!==0)throw Error('Project must be delivered and fully paid.');
  p.fulfillmentStatus='delivered';p.paymentStatus='paid';move(s,p,'complete');
+ if(closedIntake)return;
  const recur=p.service.recurring,c=s.config,contract=s.contracts.find(value=>value.id===p.contractId);
  if(contract?.campaign){
   const nextDay=scheduleCampaign(s,p,contract,(p.cycle||1)+1);p.renewalStatus=nextDay===null?'not-returning':'scheduled';
@@ -404,10 +612,11 @@ function configIssues(c){
   const fields={seed:[0,1e9,"Workload seed"],months:[1,12,"Simulation months"],startingCash:[0,1e8,"Starting cash"],ownerHours:[0,120,"Your weekly hours"],ownerTarget:[0,1000,"Your hourly target"],designers:[0,50,"Number of designers"],designerHours:[0,120,"Weekly hours per designer"],designerRate:[0,1000,"Designer hourly cost"],overhead:[0,1e7,"Monthly overhead"],inquiries:[0,500,"Monthly inquiries"],conversion:[0,1,"Conversion rate"],deposit:[0,1,"Client deposit"],paymentDays:[0,90,"Payment terms"],approvalDays:[0,30,"Approval time"],printDays:[0,90,"Print time"],outreachHours:[0,120,"Weekly outreach hours"],leadsPerHour:[0,100,"Inquiries per outreach hour"],retention:[0,1,"Renewal rate"],repeat:[0,1,"Repeat purchase rate"],quoteHours:[0,24,"Hours per quote"],deliveryHours:[0,24,"Hours per delivery"],leadDays:[1,180,"Promised delivery time"]};
   for(const [k,[lo,hi,label]]of Object.entries(fields)){if(c[k]===undefined&&['quoteHours','deliveryHours','leadDays'].includes(k))continue;if(typeof c[k]!=="number"||!Number.isFinite(c[k])||c[k]<lo||c[k]>hi)add(k,label+" must be between "+lo+" and "+hi+".");}
   for(const key of ['seed','months','designers','paymentDays','approvalDays','printDays','leadDays'])if(c[key]!==undefined&&Number.isFinite(c[key])&&!Number.isInteger(c[key]))add(key,fields[key][2]+" must be a whole number.");
-  if(![1,3,6,12].includes(c.months))add('months','Choose a 1, 3, 6 or 12 month simulation horizon.');
   if(!['preset','sales'].includes(c.acquisition))add('acquisition','Choose how inquiries arrive.');
   if(!['deadline','fifo'].includes(c.priority))add('priority','Choose a valid queue order.');
   if(typeof c.realism!=='boolean')add('realism','Choose valid uncertainty settings.');
+  if(c.fixedInquiriesEntered!==undefined&&typeof c.fixedInquiriesEntered!=='boolean')add('inquiries','Fixed inquiry preference is invalid.');
+  if(c.assumptionRecords!==undefined&&(!validAssumptionRecords(c.assumptionRecords)||withCurrentAssumptionRecords(c)!==c))add('assumptionRecords','An assumption record has an invalid source, sample, date or matching value.');
   if(c.recipe!==undefined){
     const legacyKeys=['catalog','condition','market','mix','operation','version'],legacy=c.recipe&&typeof c.recipe==='object'&&!Array.isArray(c.recipe)&&
       Object.keys(c.recipe).sort().join(',')===legacyKeys.join(',')&&c.recipe.catalog==='metro-detroit-2026-v1'&&c.recipe.version===1&&
@@ -438,6 +647,12 @@ function configIssues(c){
     if(typeof v.id!=='string'||!/^[a-zA-Z0-9_-]{1,60}$/.test(v.id)||ids.has(v.id))add(base+'.id','Each service needs a unique valid identifier.');else ids.add(v.id);
     if(typeof v.name!=='string'||!v.name.trim()||v.name.length>100)add(base+'.name','Give this service a name (up to 100 characters).');
     if(typeof v.deliverable!=='string'||v.deliverable.length>500)add(base+'.deliverable','Describe the deliverable in up to 500 characters.');
+    else if(v.customOffer===true&&!v.deliverable.trim())add(base+'.deliverable','Describe what the client receives for one project.');
+    if(v.customOffer!==undefined&&typeof v.customOffer!=='boolean')add(base+'.customOffer','Check this custom service.');
+    if(v.supplierMode!==undefined&&!['none','print'].includes(v.supplierMode))add(base+'.supplierMode','Choose whether this project uses a print supplier.');
+    if(v.supplierMode==='none'&&v.print!==0)add(base+'.print','A project without a supplier has zero printing cost.');
+    if(v.supplierMode==='print'&&!(v.print>0))add(base+'.print','Enter the supplier batch cost for this print route.');
+    if(v.filesOnlyScope!==undefined&&(typeof v.filesOnlyScope!=='string'||v.filesOnlyScope.length>500))add(base+'.filesOnlyScope','Use up to 500 characters for the files-only deliverable.');
     if(typeof v.recurring!=='boolean')add(base+'.recurring','Choose a valid purchase pattern.');
     if(typeof v.color!=='string'||!/^#[0-9a-f]{6}$/i.test(v.color))add(base+'.color','Choose a valid service color.');
     if(v.audience!==undefined&&!['all','food','retail','services'].includes(v.audience))add(base+'.audience','Choose a valid service audience.');
@@ -474,9 +689,589 @@ function applyConfig(s,next){
   const c=normalize(next);validateConfig(c);
   if(s.day>0&&(c.startingCash!==s.config.startingCash||c.seed!==s.config.seed))throw Error('Starting cash and workload seed require a new run.');
   if(c.months*30<s.day)throw Error('The horizon must include the current simulation day.');
-  if(s.day===0){s.cash=round(s.cash+round(c.startingCash)-s.initialCash);s.initialCash=round(c.startingCash);}
+  if(s.day===0){s.cash=round(s.cash+round(c.startingCash)-s.initialCash);s.initialCash=round(c.startingCash);s.workloadId='model2-seed-'+c.seed;}
+  recordReplaySetup(s,c);
   s.config=clone(c);s.blocked=null;event(s,null,'Business settings updated. Existing quotes retain agreed prices and terms.');return s;
 }
+const capacityFields=['designers','designerHours','ownerHours'];
+function sameReplayValue(a,b){
+ if(a===b)return true;
+ if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
+ const keys=Object.keys(a);
+ return keys.length===Object.keys(b).length&&keys.every(key=>Object.hasOwn(b,key)&&sameReplayValue(a[key],b[key]));
+}
+function legacyReplaySetupKnown(s){
+ return s.events.length<120&&!s.events.some(e=>e.day>0&&e.text.startsWith('Business settings updated.'));
+}
+// Capture the inputs before the first edit on each day. Edits take effect on the
+// next simulated day. The final inputs already live in state.config.
+function recordReplaySetup(s,c){
+ if(!s.replayJournal){
+  if(!legacyReplaySetupKnown(s))return;
+  s.replayJournal={version:1,changes:[]};
+ }
+ if(!s.day||sameReplayValue(c,s.config))return;
+ const changes=s.replayJournal.changes;
+ if(changes.at(-1)?.day!==s.day)changes.push({day:s.day,config:clone(s.config)});
+}
+function validateReplayJournal(s){
+ const j=s.replayJournal;
+ if(j===undefined)return;
+ if(!j||j.version!==1||!Array.isArray(j.changes)||j.changes.length>s.day)throw Error('The saved replay setup history is invalid.');
+ let previous=0;
+ for(const row of j.changes){
+  if(!row||!Number.isInteger(row.day)||row.day<=previous||row.day>s.day||!row.config)throw Error('The saved replay setup dates are invalid.');
+  validateConfig(row.config);
+  if(row.config.seed!==s.config.seed||row.config.startingCash!==s.config.startingCash)throw Error('Replay history must keep the same starting cash and workload seed.');
+  previous=row.day;
+ }
+}
+function replayConfigAt(s,day){
+ const next=s.replayJournal?.changes.find(c=>c.day>day);
+ // A horizon extension changes when the clock stops, not the work on earlier days.
+ return {...clone(next?.config||s.config),months:s.config.months};
+}
+function capacityReplaySetup(s,month=Math.max(1,Math.ceil(s.day/30))){
+ if(!Number.isInteger(month)||month<1||month>Math.max(1,Math.ceil(s.day/30)))throw Error('Choose a month that has started.');
+ if(!s.replayJournal&&!legacyReplaySetupKnown(s))throw Error('This saved run does not contain its complete setup history. Start a new run to record a replayable month.');
+ validateReplayJournal(s);
+ const firstDay=(month-1)*30+1,endDay=Math.min(month*30,s.config.months*30);
+ const config=replayConfigAt(s,firstDay-1),conflicts=new Set();
+ for(const row of s.replayJournal?.changes||[]){
+  if(row.day<firstDay||row.day>=endDay)continue;
+  const next=replayConfigAt(s,row.day);
+  for(const key of capacityFields)if(row.config[key]!==next[key])conflicts.add(key);
+ }
+ return {month,firstDay,endDay,sourceDay:s.day,config,conflicts:[...conflicts]};
+}
+function changedCapacity(config,key,value){
+ const next=withCurrentAssumptionRecords({...config,[key]:value});
+ validateConfig(next);
+ if(key==='ownerHours'&&config.acquisition==='sales'&&Math.min(config.ownerHours,config.outreachHours)!==Math.min(value,config.outreachHours)){
+  throw Error('Those owner hours would also change outreach and incoming demand. Choose a value that covers the same outreach, or test designer capacity.');
+ }
+ return next;
+}
+function replayActions(s,endDay){
+ const byDay=new Map();
+ function add(day,action){
+  if(day>endDay)return;
+  if(!byDay.has(day))byDay.set(day,[]);
+  byDay.get(day).push(action);
+ }
+ // A day-30 edit starts on day 31; day-30 funding and project decisions are
+ // already posted and belong to the closing month.
+ for(const row of s.replayJournal?.changes||[])if(row.day<endDay)add(row.day,{kind:'settings',config:replayConfigAt(s,row.day)});
+ for(const e of s.ledger)if(e.type==='funding')add(e.day,{kind:'funding',amount:e.amount});
+ for(const p of s.projects){
+  for(const e of p.log){
+   let kind,value;
+   if(e.text==='Manually prioritized'||e.text==='Priority removed'){kind='priority';value=e.text==='Manually prioritized';}
+   else if(e.text==='Client approval confirmed manually')kind='approve';
+   else if(e.text.startsWith('Agreed deadline changed to day ')){kind='deadline';value=Number(e.text.slice('Agreed deadline changed to day '.length));}
+   if(kind)add(e.day,{kind,value,demandId:p.demandId});
+  }
+ }
+ return byDay;
+}
+function applyReplayActions(session,s,alternative){
+ for(const action of session.actions.get(s.day)||[]){
+  if(action.kind==='funding'){fund(s,action.amount);continue;}
+  if(action.kind==='settings'){
+   const config=alternative?changedCapacity(action.config,session.key,session.value):action.config;
+   applyConfig(s,config);
+   continue;
+  }
+  const p=s.projects.find(project=>project.demandId===action.demandId);
+  const settled=p&&(p.stage==='lost'||p.stage==='complete');
+  if(!p||(alternative&&settled)||(action.kind==='approve'&&p.stage!=='approval')||(action.kind==='deadline'&&(p.accepted===undefined||p.delivered||action.value<=p.due))){
+   throw Error('The recorded '+action.kind+' decision on day '+s.day+' cannot be repeated on the same job in this replay. Choose another month or change.');
+  }
+  if(action.kind!=='priority'||action.value!==p.priority)intervene(s,p.id,action.kind,action.value);
+ }
+}
+// Cross-check the unchanged replay against the saved business, including accepted
+// work that had no cash entries and all daily economics through the observed date.
+function verifyObservedReplay(source,control,end=control.day){
+ const daily=h=>[h.cash,h.revenue,h.expenses,h.ownerHours,h.active,h.complete,h.late];
+ const facts=p=>[p.id,p.demandId,p.clientId,p.serviceId,p.created,p.accepted<=end?p.accepted:null,p.accepted<=end?p.price:null,
+  p.deliveredDay<=end?p.deliveredDay:null,p.log.filter(e=>e.day<=end).map(e=>[e.day,e.text])];
+ const originalDemand=(source.demandHistory||[]).filter(e=>e.day<=end);
+ const sameDemand=originalDemand.every(e=>sameReplayValue(externalDemandSettings(replayConfigAt(source,e.day-1)),e.settings));
+ const events=s=>s.ledger.filter(e=>e.day<=end);
+ const recorded=events(source),replayed=events(control);
+ const samePostings=recorded.length===replayed.length&&recorded.every((e,i)=>{
+  const other=replayed[i];
+  return e.day===other.day&&e.type===other.type&&e.amount===other.amount&&e.project===other.project&&e.note===other.note&&
+   (e.designHours===undefined||other.designHours===undefined||Math.abs(e.designHours-other.designHours)<1e-8);
+ });
+ const projects=s=>s.projects.filter(p=>p.created<=end).map(facts);
+ const sameDay=(h,original)=>original&&sameReplayValue(daily(h),daily(original))&&
+  (original.externalArrivals===undefined||h.externalArrivals===original.externalArrivals&&sameReplayValue(h.unservedInquiries||[],original.unservedInquiries||[]));
+ const currentWork=s=>s.projects.map(p=>[p.demandId,p.stage,p.work,p.entered,p.due,p.priority,p.approvalConfirmed||false,p.terms,p.paid,p.cost,p.designHours]);
+ if(!sameDemand||!control.history.slice(0,end).every((h,i)=>sameDay(h,source.history[i]))||
+   !samePostings||!sameReplayValue(projects(control),projects(source))||
+   end===source.day&&end===control.day&&!sameReplayValue(currentWork(control),currentWork(source))){
+  throw Error('The unchanged replay did not reproduce the recorded month. Its saved history cannot support a one-change comparison.');
+ }
+}
+// Yield after each simulated day so the history dialog can be closed while verifying a long run.
+function* recordedMonthClose(source,month){
+ const period=capacityReplaySetup(source,month),end=Math.min(period.endDay,source.day);
+ const close=fresh(replayConfigAt(source,0)),session={actions:replayActions(source,end)};
+ applyReplayActions(session,close,false);
+ while(close.day<end){
+  if(!step(close))throw Error('The recorded work could not be reconstructed through day '+end+'.');
+  applyReplayActions(session,close,false);
+  yield close.day;
+ }
+ verifyObservedReplay(source,close,end);
+ return close;
+}
+function forkCapacityReplay(session){
+ const alternative=clone(session.baseline);
+ applyConfig(alternative,changedCapacity(alternative.config,session.key,session.value));
+ session.alternative=alternative;
+ session.phase='running';
+}
+function startCapacityReplay(source,{month,key,value,demandId=null}={}){
+ const period=capacityReplaySetup(source,month);
+ if(!capacityFields.includes(key))throw Error('Choose one capacity assumption to change.');
+ if(period.conflicts.includes(key))throw Error('This assumption changed during the recorded month. Choose a different assumption or month.');
+ if(value===period.config[key])throw Error('Enter a value different from the opening setup.');
+ changedCapacity(period.config,key,value);
+ if(demandId!==null&&!source.projects.some(p=>p.demandId===demandId&&p.created<=period.endDay))throw Error('The selected job had not arrived in this month.');
+ const observed=clone(source),baseline=fresh(replayConfigAt(observed,0));
+ const session={phase:'opening',month:period.month,firstDay:period.firstDay,endDay:period.endDay,sourceDay:source.day,
+  key,before:period.config[key],value,demandId,source:observed,actions:replayActions(observed,period.endDay),baseline,alternative:null};
+ applyReplayActions(session,baseline,false);
+ if(!source.day)verifyObservedReplay(observed,baseline);
+ if(period.firstDay===1)forkCapacityReplay(session);
+ return session;
+}
+function stepCapacityReplay(session){
+ if(session.phase==='done')return false;
+ if(session.phase==='error')throw Error(session.error);
+ try{
+  const advanceSide=(run,alternative)=>{
+   if(run.blocked||run.day>=session.endDay)return;
+   const observedDay=session.source.day;
+   const recordedHold=!alternative&&session.source.blocked&&run.day===observedDay;
+   const advanced=step(run);
+   if(recordedHold&&(advanced||['amount','cash','gap','note','project'].some(k=>run.blocked?.[k]!==session.source.blocked[k]))){
+    throw Error('The unchanged replay did not reproduce the recorded funding pause.');
+   }
+   if(!advanced){
+    if(!alternative&&run.day<Math.min(observedDay,session.endDay))throw Error('The unchanged replay paused before the recorded day. Its saved history cannot support this comparison.');
+    return;
+   }
+   applyReplayActions(session,run,alternative);
+   if(!alternative&&run.day===Math.min(observedDay,session.endDay))verifyObservedReplay(session.source,run);
+  };
+  advanceSide(session.baseline,false);
+  if(session.phase==='opening'){
+   if(session.baseline.day===session.firstDay-1)forkCapacityReplay(session);
+  }else{
+   advanceSide(session.alternative,true);
+   if([session.baseline,session.alternative].every(s=>s.blocked||s.day>=session.endDay))session.phase='done';
+  }
+  return session.phase!=='done';
+ }catch(error){
+  session.error=error.message;session.phase='error';throw error;
+ }
+}
+function replayJob(s,demandId){
+ const p=demandId?s.projects.find(item=>item.demandId===demandId):null;
+ return p?{id:p.id,stage:p.stage,accepted:p.accepted!==undefined,delivered:p.delivered,deliveredDay:p.deliveredDay??null,
+  remainingWorkHours:round(p.work[p.stage]||0)}:null;
+}
+function capacityEndpoint(s,month,demandId){
+ const firstDay=(month-1)*30+1;
+ const result=s.day>=firstDay?monthResult(s,month):null;
+ const days=s.history.filter(h=>h.day>=firstDay&&h.day<firstDay+30);
+ const inquiries=days.every(h=>Number.isInteger(h.externalArrivals))?days.reduce((n,h)=>n+h.externalArrivals,0):null;
+ return {day:s.day,blocked:s.blocked?clone(s.blocked):null,inquiries,
+  backlog:s.projects.filter(item=>item.accepted!==undefined&&!item.delivered).length,
+  delivered:result?.delivered||0,revenue:result?.revenue||0,cost:result?.cost||0,
+  profit:result?.profit||0,afterOwner:result?.afterOwner||0,closingCash:s.cash,
+  job:replayJob(s,demandId)};
+}
+function verifyCapacityPair(control,variant,firstDay,key,before,value){
+ if(!capacityFields.includes(key)||before===value)throw Error('The saved change is missing or invalid.');
+ const opening=firstDay-1;
+ const changeDays=new Set([0,opening,control.day]);
+ for(const run of [control,variant]){
+  validateReplayJournal(run);
+  if(!run.replayJournal)throw Error('The paired setup history is missing.');
+  for(const c of run.replayJournal.changes)changeDays.add(c.day);
+ }
+ for(const day of changeDays){
+  const base=replayConfigAt(control,day),alt=replayConfigAt(variant,day);
+  if(day===opening&&base[key]!==before)throw Error('The recorded change does not match the opening setup.');
+  const expected=day>=opening?changedCapacity(base,key,value):base;
+  expected.name=alt.name;
+  if(!sameReplayValue(expected,alt))throw Error('The paired setups differ beyond the selected change.');
+ }
+ verifyObservedReplay(control,variant,opening);
+ const decisions=s=>{
+  const rows=[];
+  for(const [day,actions] of replayActions(s,s.day))for(const a of actions)if(a.kind!=='settings')rows.push(JSON.stringify([day,a]));
+  return rows.sort();
+ };
+ if(JSON.stringify(decisions(control))!==JSON.stringify(decisions(variant)))throw Error('Funding or manual decisions differ between the paired runs.');
+}
+function capacityPairResult(control,variant,{month,key,before,value,demandId=null,sourceDay}){
+ const firstDay=(month-1)*30+1,endDay=month*30;
+ const baseline=capacityEndpoint(control,month,demandId),alternative=capacityEndpoint(variant,month,demandId);
+ let reason='';
+ if(control.blocked||variant.blocked)reason='At least one replay paused for funding. Its figures stop at the last completed day.';
+ else if(control.day!==endDay||variant.day!==endDay)reason='Both replays must reach the end of the same month to compare outcomes.';
+ else if(!compareRuns(variant,control).flags.likeForLike)reason='Incoming demand did not match. The difference cannot be attributed to one change.';
+ else{
+  try{verifyCapacityPair(control,variant,firstDay,key,before,value);}
+  catch(error){reason=error.message;}
+ }
+ const delta=reason?null:Object.fromEntries(['backlog','delivered','revenue','cost','profit','afterOwner','closingCash'].map(field=>[field,round(alternative[field]-baseline[field])]));
+ const costAttribution=reason?null:carryJobCosts(control,variant,firstDay,demandId);
+ const decision=reason?null:replayDecision(control,variant,firstDay,key,costAttribution);
+ return {comparable:!reason,reason,month,key,before,value,demandId,sourceDay,firstDay,endDay,baseline,alternative,delta,costAttribution,decision};
+}
+function capacityReplayResult(session){
+ if(session.phase!=='done')throw Error('Finish both replays to see the comparison.');
+ return capacityPairResult(session.baseline,session.alternative,session);
+}
+// Continue from the two settled month-end states. Funding and project decisions
+// on the closing day have been posted. Settings entered that day govern tomorrow.
+function startCapacityCarry(source,control,variant,descriptor){
+ const {month,key,before,demandId=null,sourceDay,projectFromClose=false}=descriptor,value=descriptor.after??descriptor.value;
+ const close=month*30,endDay=control.config.months*30,firstDay=close-29;
+ if(!Number.isInteger(month)||month<1||close>=endDay)throw Error('This replay already reaches the end of the configured run.');
+ if(!Number.isInteger(sourceDay)||sourceDay<(month===1?0:firstDay)||sourceDay>endDay)throw Error('The recorded source day is outside this experiment.');
+ const matching=capacityPairResult(control,variant,{month,key,before,value,demandId,sourceDay});
+ if(!matching.comparable)throw Error(matching.reason);
+ if(demandId&&!matching.baseline.job)throw Error('The selected job is missing from the original month.');
+ if(projectFromClose&&(projectFromClose!==true||source||sourceDay<close))throw Error('A projection from month close requires a saved pair with unavailable subsequent history.');
+ if(!source&&sourceDay>=close&&!projectFromClose)throw Error('The original run was not kept with this saved replay. Its decisions from the month close forward are unavailable.');
+ const observed=source||control;
+ if(source){
+  if(source.day!==sourceDay||source.config.months!==control.config.months||source.config.seed!==control.config.seed)throw Error('The source run no longer matches the saved experiment.');
+  capacityReplaySetup(source,month);
+  const cutoff=Math.min(close-1,sourceDay);
+  const dates=new Set([0,cutoff]);
+  for(const s of [source,control])for(const row of s.replayJournal?.changes||[])if(row.day<=cutoff)dates.add(row.day);
+  for(const day of dates){
+   if(!sameReplayValue(replayConfigAt(source,day),replayConfigAt(control,day)))throw Error('The source settings do not match the original replay.');
+  }
+  verifyObservedReplay(source,control,Math.min(sourceDay,close));
+ }
+ const actions=replayActions(observed,endDay);
+ // Reject a future conflict before starting either copy, including an edit
+ // entered exactly at the prior month close for the first continuation day.
+ for(const [day,entries] of actions){
+  if(day<close)continue;
+  for(const action of entries){
+   if(action.kind!=='settings')continue;
+   if(action.config[key]!==before)throw Error('The original run changed the selected capacity setting after the replay month. A single sustained change cannot be compared.');
+   changedCapacity(action.config,key,value);
+  }
+ }
+ actions.set(close,(actions.get(close)||[]).filter(a=>a.kind==='settings'));
+ const session={phase:'running',month,key,before,value,demandId,sourceDay,projectFromClose,firstDay,endDay,
+  source:clone(observed),actions,baseline:clone(control),alternative:clone(variant)};
+ applyReplayActions(session,session.baseline,false);
+ applyReplayActions(session,session.alternative,true);
+ return session;
+}
+function carryPeriods(s,firstMonth,demandId){
+ const periods=[],sumKeys=['delivered','revenue','cost','designLabor','profit','afterOwner','ownerHours','inquiries'];
+ const totals=Object.fromEntries(sumKeys.map(key=>[key,0]));
+ const last=Math.ceil(s.day/30);
+ for(let month=firstMonth;month<=last;month++){
+  const r=monthResult(s,month);
+  const inquiries=s.history.slice(r.firstDay-1,r.endDay).reduce((count,h)=>count+h.externalArrivals,0);
+  const p={month,day:r.endDay,delivered:r.delivered,backlog:r.awaitingDelivery,revenue:r.revenue,
+   cost:r.cost,designLabor:r.designLabor,profit:r.profit,afterOwner:r.afterOwner,ownerHours:r.ownerHours,
+   closingCash:r.closingCash,inquiries};
+  for(const key of sumKeys)totals[key]+=p[key];
+  periods.push(p);
+ }
+ for(const key of sumKeys)totals[key]=round(totals[key]);
+ return {periods,totals:{...totals,day:s.day,closingCash:s.cash,backlog:periods.at(-1)?.backlog??0,
+  job:replayJob(s,demandId),blocked:s.blocked?clone(s.blocked):null}};
+}
+function carryDelta(base,alt){
+ const fields=['delivered','backlog','revenue','cost','designLabor','profit','afterOwner','ownerHours','closingCash'];
+ return Object.fromEntries(fields.map(k=>[k,round(alt[k]-base[k])]));
+}
+// A comparison's money and work cover the selected interval. Receivables,
+// deposits and accepted orders are positions measured at the two boundaries.
+function replayCash(run,firstDay){
+ const firstMonth=Math.ceil(firstDay/30),lastMonth=Math.ceil(run.day/30);
+ const opening=firstMonth>1?monthResult(run,firstMonth-1):null;
+ const first=monthResult(run,firstMonth),last=lastMonth===firstMonth?first:monthResult(run,lastMonth);
+ const cents=n=>Math.round(n*100);
+ let receipts=0,funding=0;
+ for(const entry of run.ledger){
+  if(entry.day<firstDay)continue;
+  if(entry.type==='receipt')receipts+=cents(entry.amount);
+  if(entry.type==='funding')funding+=cents(entry.amount);
+ }
+ const lowest=cashSeries(run).slice(firstDay).reduce((low,point)=>point.cash<low.cash?point:low);
+ return {openingCash:first.openingCash,closingCash:last.closingCash,openingReceivable:opening?.receivable??0,
+  closingReceivable:last.receivable,openingDeposits:opening?.depositsHeld??0,closingDeposits:last.depositsHeld,
+  receipts:receipts/100,funding:funding/100,lowest};
+}
+function replayBacklog(control,variant){
+ const left=new Map(control.projects.map(p=>[p.demandId,p])),right=new Map(variant.projects.map(p=>[p.demandId,p]));
+ const groups={shared:[],cleared:[],additional:[],delayed:[],originalOnly:[]};
+ const open=p=>p?.accepted!==undefined&&!p.delivered;
+ let originalValue=0,changedValue=0;
+ for(const id of [...new Set([...left.keys(),...right.keys()])].sort()){
+  const a=left.get(id),b=right.get(id),originalOpen=open(a),changedOpen=open(b);
+  if(!originalOpen&&!changedOpen)continue;
+  if(originalOpen)originalValue+=Math.round(a.price*100);
+  if(changedOpen)changedValue+=Math.round(b.price*100);
+  const group=originalOpen?(changedOpen?'shared':b?.delivered?'cleared':'originalOnly'):(a?.delivered?'delayed':'additional');
+  const p=changedOpen?b:a;
+  groups[group].push({demandId:id,originalId:a?.id??null,changedId:b?.id??null,service:p.service.name,cycle:p.cycle||1,price:p.price});
+ }
+ return {groups,originalValue:originalValue/100,changedValue:changedValue/100};
+}
+function replayAvailableHours(run,firstDay,key){
+ let previous=firstDay-1,hours=0;
+ for(const {day,config} of [...run.replayJournal.changes,{day:run.day,config:run.config}]){
+  if(day<=previous)continue;
+  const weekdays=workingDays(day)-workingDays(previous);
+  const weekly=key==='ownerHours'?config.ownerHours:config.designers*config.designerHours;
+  hours+=weekdays*weekly/5;
+  previous=day;
+ }
+ return hours;
+}
+function replayDecision(control,variant,firstDay,key,costs){
+ const baseline=replayCash(control,firstDay),alternative=replayCash(variant,firstDay);
+ const difference=field=>Math.round(alternative[field]*100)-Math.round(baseline[field]*100);
+ const cash={baseline,alternative,opening:difference('openingCash')/100,closing:difference('closingCash')/100,
+  receipts:difference('receipts')/100,funding:difference('funding')/100,spending:costs.delta.cost,
+  deposits:(difference('closingDeposits')-difference('openingDeposits'))/100,
+  receivables:(difference('openingReceivable')-difference('closingReceivable'))/100};
+ const baselineAvailable=replayAvailableHours(control,firstDay,key),alternativeAvailable=replayAvailableHours(variant,firstDay,key);
+ const ownerHours=s=>s.ownerHours-(s.history[firstDay-2]?.ownerHours||0);
+ const owner=key==='ownerHours';
+ const capacity={owner,baselineAvailable:round(baselineAvailable),alternativeAvailable:round(alternativeAvailable),
+  availableDifference:round(alternativeAvailable-baselineAvailable),
+  baselineWorked:owner?round(ownerHours(control)):costs.baseline.designHours,
+  alternativeWorked:owner?round(ownerHours(variant)):costs.alternative.designHours,
+  workedDifference:owner?round(ownerHours(variant)-ownerHours(control)):costs.delta.designHours};
+ return {cash,capacity,backlog:replayBacklog(control,variant)};
+}
+// Only needed for an older job with undated labor on both sides of the
+// period boundary. The two schedules shared this opening work.
+function openingDesignerHours(control,day){
+ try{
+  const opening=fresh(replayConfigAt(control,0)),session={actions:replayActions(control,day)};
+  applyReplayActions(session,opening,false);
+  while(opening.day<day){
+   if(!step(opening))return null;
+   applyReplayActions(session,opening,false);
+  }
+  verifyObservedReplay(control,opening,day);
+  return new Map(opening.projects.map(p=>[p.demandId,p.designHours]));
+ }catch{return null;}
+}
+function jobExpenseBasis(run,firstDay,getOpening){
+ const byId=new Map(),jobs=new Map(),totals={designLabor:0,supplierCost:0,otherDirectCost:0,overhead:0,unfinishedCost:0,deliveredCost:0};
+ let totalHours=0;
+ for(const p of run.projects){
+  const figures={designLabor:0,supplierCost:0,otherDirectCost:0,openingHours:0,periodHours:0,missingOpening:false,missingPeriod:false};
+  byId.set(p.id,figures);
+ }
+ for(const posting of run.ledger){
+  if(posting.type!=='expense')continue;
+  const inPeriod=posting.day>=firstDay,cents=-Math.round(posting.amount*100);
+  if(!posting.project){
+   if(inPeriod)totals.overhead+=cents;
+   continue;
+  }
+  const kind=directExpenseKind(posting),figures=byId.get(posting.project);
+  if(inPeriod){figures[kind]+=cents;totals[kind]+=cents;}
+  if(kind==='designLabor'){
+   if(posting.designHours===undefined)figures[inPeriod?'missingPeriod':'missingOpening']=true;
+   else figures[inPeriod?'periodHours':'openingHours']+=posting.designHours;
+  }
+ }
+ for(const p of run.projects){
+  const f=byId.get(p.id);
+  const delivered=p.deliveredDay!==undefined,unfinished=p.accepted!==undefined&&!delivered;
+  const direct=f.designLabor+f.supplierCost+f.otherDirectCost;
+  totals[delivered?'deliveredCost':'unfinishedCost']+=direct;
+  let hours=f.periodHours;
+  if(!f.missingOpening)hours=p.designHours-f.openingHours;
+  else if(f.missingPeriod){
+   const opening=getOpening();
+   hours=opening?p.designHours-(opening.get(p.demandId)||0):null;
+  }
+  if(hours!==null)hours=hours>=-1e-6?Math.max(0,hours):null;
+  if(hours===null)totalHours=null;
+  else if(totalHours!==null)totalHours+=hours;
+  const side={id:p.id,client:p.client,service:p.service.name,cycle:p.cycle||1,stage:p.stage,
+   deliveredDay:p.deliveredDay??null,unfinished,designHours:hours,designLabor:f.designLabor/100,
+   supplierCost:f.supplierCost/100,otherDirectCost:f.otherDirectCost/100,cost:direct/100};
+  jobs.set(p.demandId,{side,lifetimeHours:p.designHours});
+ }
+ totals.cost=totals.overhead+totals.deliveredCost+totals.unfinishedCost;
+ for(const key of Object.keys(totals))totals[key]/=100;
+ totals.designHours=totalHours===null?null:round(totalHours);
+ return {jobs,totals};
+}
+function carryJobCosts(control,variant,firstDay,demandId){
+ let opening;
+ const getOpening=()=>{if(opening===undefined)opening=openingDesignerHours(control,firstDay-1);return opening;};
+ const original=jobExpenseBasis(control,firstDay,getOpening),changed=jobExpenseBasis(variant,firstDay,getOpening);
+ const baseline=original.totals,alternative=changed.totals;
+ const differences=(a,b,fields)=>Object.fromEntries(fields.map(k=>[k,round((b?.[k]||0)-(a?.[k]||0))]));
+ const delta=differences(baseline,alternative,Object.keys(baseline));
+ // The common opening cancels even when an old posting omitted its hours.
+ const hourDifference=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)?round(b-a)||0:null;
+ delta.designHours=hourDifference(control.designHours,variant.designHours);
+ const byChangedStatus={unfinished:0,delivered:0,absent:0,unaccepted:0},rows=[];
+ for(const id of new Set([...original.jobs.keys(),...changed.jobs.keys()])){
+  const left=original.jobs.get(id),right=changed.jobs.get(id);
+  const base=left?.side??null,alt=right?.side??null;
+  const change=differences(base,alt,['designLabor','supplierCost','otherDirectCost','cost']);
+  change.designHours=hourDifference(left?left.lifetimeHours:0,right?right.lifetimeHours:0);
+  const status=alt===null?'absent':alt.unfinished?'unfinished':alt.deliveredDay!==null?'delivered':'unaccepted';
+  byChangedStatus[status]+=Math.round(change.cost*100);
+  if(!base?.cost&&!alt?.cost&&!base?.designHours&&!alt?.designHours&&!change.designHours&&id!==demandId)continue;
+  for(const side of [base,alt])if(side&&side.designHours!==null)side.designHours=round(side.designHours);
+  rows.push({demandId:id,baseline:base,alternative:alt,delta:change});
+ }
+ for(const key of Object.keys(byChangedStatus))byChangedStatus[key]/=100;
+ rows.sort((a,b)=>Math.abs(b.delta.cost)-Math.abs(a.delta.cost)||Math.abs(b.delta.designHours)-Math.abs(a.delta.designHours)||a.demandId.localeCompare(b.demandId));
+ return {firstDay,endDay:control.day,baseline,alternative,delta,byChangedStatus,rows};
+}
+function capacityCarryPairResult(control,variant,descriptor){
+ const {month,key,before,sourceDay,demandId=null,projectFromClose=false}=descriptor,value=descriptor.after??descriptor.value;
+ const firstDay=(month-1)*30+1,endDay=control.config.months*30;
+ if(!Number.isInteger(month)||month<1||month*30>=endDay||!Number.isInteger(sourceDay)||sourceDay<(month===1?0:firstDay)||sourceDay>endDay)throw Error('The carry-forward period is invalid.');
+ const b=carryPeriods(control,month,demandId),a=carryPeriods(variant,month,demandId),baseline=b.totals,alternative=a.totals;
+ let reason='';
+ if(baseline.blocked||alternative.blocked)reason='At least one run paused for funding. The payoff through day '+endDay+' is unknown.';
+ else if(baseline.day!==endDay||alternative.day!==endDay)reason='Both runs must reach day '+endDay+' to compare the result.';
+ else if(!compareRuns(variant,control).flags.likeForLike)reason='Incoming demand did not match through the end of the run.';
+ else{
+  try{
+   verifyCapacityPair(control,variant,firstDay,key,before,value);
+   if(control.config[key]!==before||control.replayJournal.changes.some(r=>r.day>=firstDay&&r.config[key]!==before))throw Error('The original capacity setting changed during the experiment.');
+   if(demandId&&!baseline.job)throw Error('The selected job is missing from the original run.');
+  }catch(error){reason=error.message;}
+ }
+ const rows=[];
+ let cumulativeProfit=0,paybackMonth=null;
+ for(let i=0;i<Math.min(b.periods.length,a.periods.length);i++){
+  const base=b.periods[i],alt=a.periods[i];
+  if(base.day!==base.month*30||alt.day!==base.day)break;
+  const delta=reason?null:carryDelta(base,alt);
+  if(delta){
+   cumulativeProfit=round(cumulativeProfit+delta.profit);
+   if(cumulativeProfit<=0)paybackMonth=null;
+   else if(paybackMonth===null)paybackMonth=base.month;
+  }
+  rows.push({month:base.month,endDay:base.day,baseline:base,alternative:alt,delta,cumulativeProfit:delta?cumulativeProfit:null});
+ }
+ const delta=reason?null:carryDelta(baseline,alternative);
+ const baselineDay=baseline.job?.deliveredDay??null,alternativeDay=alternative.job?.deliveredDay??null;
+ const jobTiming=demandId&&!reason?{baselineDay,alternativeDay,daysEarlier:baselineDay!==null&&alternativeDay!==null?baselineDay-alternativeDay:null}:null;
+ const projectionFromDay=projectFromClose?month*30+1:sourceDay<endDay?Math.max(firstDay,sourceDay+1):null;
+ const costAttribution=reason?null:carryJobCosts(control,variant,firstDay,demandId);
+ const decision=reason?null:replayDecision(control,variant,firstDay,key,costAttribution);
+ return {comparable:!reason,reason,month,firstDay,endDay,sourceDay,projectionFromDay,projectFromClose,key,before,value,demandId,baseline,alternative,delta,rows,paybackMonth,jobTiming,costAttribution,decision};
+}
+function capacityCarryResult(session){
+ if(session.phase!=='done')throw Error('Finish both runs to see the carry-forward result.');
+ return capacityCarryPairResult(session.baseline,session.alternative,session);
+}
+const projectionSides=['baseline','alternative'];
+function acceptedBook(run){
+ const open=run.projects.filter(p=>p.accepted!==undefined&&!p.delivered);
+ const unpaid=run.projects.filter(p=>p.delivered&&round(p.price-p.paid)>0);
+ return {open,unpaid};
+}
+function projectionOpening(run){
+ const {open,unpaid}=acceptedBook(run);
+ return {openingJobs:open.length,openingUnpaidInvoices:unpaid.length,
+  bookedValue:round(open.reduce((n,p)=>n+p.price,0)),openingReceivable:round(unpaid.reduce((n,p)=>n+p.price-p.paid,0)),
+  cash:run.cash,revenue:run.revenue,expenses:run.expenses,cutoffProfit:round(run.revenue-run.expenses)};
+}
+function checkProjection(session){
+ const reasons=[];
+ for(const side of projectionSides){
+  const run=session[side],{open,unpaid}=acceptedBook(run),capacity=workCapacity(run.config);
+  if(!open.length&&!unpaid.length)session.settledDays[side]??=run.day;
+  let reason='';
+  if(run.blocked)reason='needs $'+run.blocked.gap.toFixed(2)+' in funding for '+run.blocked.note+' on day '+(run.day+1)+'.';
+  else{
+   const stuck=open.find(p=>p.work[p.stage]>0.00001&&(p.stage==='design'&&capacity.design===0||
+    ['review','delivery'].includes(p.stage)&&capacity.owner===0));
+   if(stuck)reason='cannot finish '+stuck.id+' with zero '+(stuck.stage==='design'?'designer':'available owner')+' hours for its remaining '+stuck.stage+' work.';
+  }
+  session.reasons[side]=reason;
+  if(reason)reasons.push((side==='baseline'?'Original schedule ':'Changed schedule ')+reason);
+ }
+ if(reasons.length)session.reason=reasons.join(' ');
+ else if(projectionSides.some(side=>session.settledDays[side]===null)){
+  if(session.baseline.day<session.endDay)return;
+  session.reason='The limit of 360 additional model days was reached with accepted work or invoices still open.';
+ }
+ session.phase='done';
+}
+function startAcceptedProjection(baseline,alternative){
+ if(!baseline||!alternative||baseline.day<1||baseline.day!==alternative.day||
+    [baseline,alternative].some(run=>run.blocked||run.day!==run.config.months*30)){
+  throw Error('Finish both runs through the same configured horizon before projecting accepted work.');
+ }
+ if(!compareRuns(alternative,baseline).flags.likeForLike)throw Error('The projection requires a completed comparison with matching incoming demand.');
+ const cutoffDay=baseline.day;
+ const session={phase:'running',reason:'',cutoffDay,endDay:cutoffDay+360,sourceBaseline:baseline,sourceAlternative:alternative,
+  baseline:clone(baseline),alternative:clone(alternative),opening:{baseline:projectionOpening(baseline),alternative:projectionOpening(alternative)},
+  settledDays:{baseline:null,alternative:null},reasons:{baseline:'',alternative:''}};
+ checkProjection(session);
+ return session;
+}
+function stepAcceptedProjection(session){
+ if(session.phase==='done')return false;
+ // Both schedules must pay through the same date. Never commit one side's day
+ // if the other cannot fund it, even after the first side settled its last job.
+ const base=nextDayDraft(session.baseline,true),alt=nextDayDraft(session.alternative,true);
+ if(base&&alt){session.baseline=base;session.alternative=alt;}
+ checkProjection(session);
+ return session.phase!=='done';
+}
+function acceptedProjectionResult(session){
+ if(session.phase!=='done')throw Error('Finish the accepted-work projection to see the result.');
+ const {cutoffDay}=session;
+ function summarize(side){
+  const run=session[side],opening=session.opening[side],c=run.config;
+  const {open,unpaid}=acceptedBook(run);
+  const receipts=run.ledger.filter(e=>e.day>cutoffDay&&e.type==='receipt'&&e.amount>0);
+  const lastDeliveryDay=run.projects.reduce((day,p)=>p.deliveredDay>cutoffDay?Math.max(day||0,p.deliveredDay):day,null);
+  return {openingJobs:opening.openingJobs,openingUnpaidInvoices:opening.openingUnpaidInvoices,bookedValue:opening.bookedValue,
+   openingReceivable:opening.openingReceivable,cutoffProfit:opening.cutoffProfit,openingCash:opening.cash,closingCash:run.cash,
+   settledDay:session.settledDays[side],lastDeliveryDay,lastCollectionDay:receipts.at(-1)?.day??null,
+   openJobs:open.length,unpaidInvoices:unpaid.length,subsequentRevenue:round(run.revenue-opening.revenue),
+   collections:round(receipts.reduce((n,e)=>n+e.amount,0)),furtherCosts:round(run.expenses-opening.expenses),
+   profit:round(run.revenue-run.expenses),designers:c.designers,designerHours:c.designerHours,designerRate:c.designerRate,
+   ownerHours:c.ownerHours,outreachHours:c.acquisition==='sales'?Math.min(c.ownerHours,c.outreachHours):0,overhead:c.overhead,
+   reason:session.reasons[side],blocked:run.blocked?clone(run.blocked):null};
+ }
+ const baseline=summarize('baseline'),alternative=summarize('alternative'),settled=!session.reason;
+ return {settled,reason:session.reason,cutoffDay,endDay:session.baseline.day,baseline,alternative,
+  profitDelta:settled?round(alternative.profit-baseline.profit):null};
+}
 function restore(input){return (root.MEIQQValidation||(typeof require==='function'?require('./validation.js'):null)).restore(input,api);}
-const api={MODEL_VERSION,DEFAULT,DISRUPTION_RULES,RECIPE_V2,CUSTOMER_TYPES,STAGES,LABELS,clone,round,random,demandDraw,recipeFingerprint,validServiceSpec,validServiceFulfillment,validServiceCampaign,fresh,step,metrics,analytics,estimate,compareRuns,projectDiagnostic,bottleneck,orderedProjects,fund,intervene,configIssues,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};root.QQ=api;if(typeof module!=='undefined')module.exports=api;
+const api={ASSUMPTION_FIELDS,assumptionRecordValue,validAssumptionRecords,withCurrentAssumptionRecords,MODEL_VERSION,DEFAULT,DISRUPTION_RULES,RECIPE_V2,CUSTOMER_TYPES,STAGES,LABELS,clone,round,random,demandDraw,recipeFingerprint,validServiceSpec,validServiceFulfillment,validServiceCampaign,fresh,step,metrics,analytics,monthResult,estimate,compareRuns,workCapacity,projectDiagnostic,bottleneck,orderedProjects,fund,intervene,configIssues,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};
+Object.assign(api,{recordedMonthClose,externalDemandSettings,visitExternalInquiries,validateReplayJournal,capacityReplaySetup,startCapacityReplay,stepCapacityReplay,capacityReplayResult,capacityPairResult,
+ startCapacityCarry,stepCapacityCarry:stepCapacityReplay,capacityCarryResult,capacityCarryPairResult,
+ startAcceptedProjection,stepAcceptedProjection,acceptedProjectionResult});
+root.QQ=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

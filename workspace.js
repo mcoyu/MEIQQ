@@ -16,6 +16,7 @@
     if (value === undefined) return q.clone(config);
     if (!object(value)) throw Error('Draft is not an object.');
     const d = {...q.clone(config),...q.clone(value)};
+    if(!Object.hasOwn(value,'assumptionRecords'))delete d.assumptionRecords;
     for (const [key, fallback] of Object.entries(q.DEFAULT)) {
       // New customer profiles are opt-in for older workspaces. Their absence
       // must not quarantine an otherwise valid unfinished draft.
@@ -24,6 +25,8 @@
       if (typeof fallback === 'string' && (typeof d[key] !== 'string' || d[key].length>1000)) throw Error('Draft text is malformed.');
       if (typeof fallback === 'boolean' && typeof d[key] !== 'boolean') throw Error('Draft switch is malformed.');
     }
+    if(d.fixedInquiriesEntered!==undefined&&typeof d.fixedInquiriesEntered!=='boolean')throw Error('Draft fixed inquiry preference is malformed.');
+    if(d.assumptionRecords!==undefined&&!q.validAssumptionRecords(d.assumptionRecords))throw Error('Draft assumption records are malformed.');
     if (d.customerMix !== undefined) {
       if (!object(d.customerMix) || Object.keys(d.customerMix).sort().join(',') !== 'food,retail,services' ||
           !Object.values(d.customerMix).every(numeric) || !numeric(d.profileStrength) ||
@@ -43,12 +46,23 @@
       if (!object(s) || !['id','name','deliverable'].every(k=>typeof s[k]==='string'&&s[k].length<=5000) ||
           !/^[a-zA-Z0-9_-]{1,60}$/.test(s.id) || !/^#[0-9a-f]{6}$/i.test(s.color) || typeof s.recurring!=='boolean' ||
           !['price','hours','review','print','weight'].every(k=>numeric(s[k])) ||
+          (s.customOffer!==undefined&&typeof s.customOffer!=='boolean') ||
+          (s.supplierMode!==undefined&&!['choose','none','print'].includes(s.supplierMode)) ||
+          (s.filesOnlyScope!==undefined&&(typeof s.filesOnlyScope!=='string'||s.filesOnlyScope.length>500)) ||
           (s.audience !== undefined && !['all','food','retail','services'].includes(s.audience)) ||
           (s.spec !== undefined && !q.validServiceSpec(s.spec)) ||
           (s.fulfillment !== undefined && !editableFulfillment(s.fulfillment)) ||
           (s.campaign !== undefined && !editableCampaign(s.campaign))) throw Error('Draft service fields are malformed.');
     }
     return d;
+  }
+  function replayFields(record) {
+    if(!object(record))return record;
+    const fields={};
+    for(const key of ['baselineId','month','key','before','after','demandId','sourceDay','firstDay','endDay','carriedThrough','finishAcceptedWork']){
+      if(Object.hasOwn(record,key))fields[key]=record[key];
+    }
+    return fields;
   }
   function workspace(raw, resolve = q.restore) {
     if (!object(raw) || !Array.isArray(raw.saved) || raw.saved.length>MAX_ITEMS) throw Error('Workspace checkpoints are invalid.');
@@ -64,10 +78,113 @@
       const info=infos?.[i]||{label:s.config.name+' · day '+s.day,kind:'manual'};
       if(!object(info)||typeof info.label!=='string'||info.label.length>200||!['manual','automatic'].includes(info.kind)||
           (info.baseline!==undefined&&typeof info.baseline!=='boolean'))throw Error('Checkpoint label is invalid.');
-      return {label:info.label,kind:info.kind,baseline:info.baseline===true};
+      const result={label:info.label,kind:info.kind,baseline:info.baseline===true};
+      if(info.replayId!==undefined){
+        if(info.kind!=='manual'||typeof info.replayId!=='string'||!/^replay-[1-9]\d{0,8}$/.test(info.replayId))throw Error('Replay checkpoint identity is invalid.');
+        result.replayId=info.replayId;
+      }
+      if(info.replays!==undefined){
+        if(info.kind!=='manual'||!Array.isArray(info.replays)||info.replays.length>MAX_ITEMS)throw Error('Saved replay list is invalid.');
+        // The mode and every projection figure are derived from the frozen
+        // source. Imports can retain only the request to finish the book.
+        result.replays=info.replays.map(record=>{
+          const fields=replayFields(record);
+          if(object(record)&&record.source!==undefined)fields.source=record.source;
+          return fields;
+        });
+      }
+      return result;
     });
     if(checkpointInfo.filter(info=>info.baseline).length>1)throw Error('Workspace has more than one comparison baseline.');
+    const indices=new Map();
+    for(const [i,info] of checkpointInfo.entries()){
+      if(!info.replayId)continue;
+      if(indices.has(info.replayId))throw Error('Replay checkpoint identity is duplicated.');
+      indices.set(info.replayId,i);
+    }
+    for(const [i,info] of checkpointInfo.entries()){
+      for(const replay of info.replays||[]){
+        const base=indices.get(replay?.baselineId);
+        if(base===undefined||base===i||!validReplayPair(saved[base],saved[i],replay))throw Error('Saved replay does not match its checkpoints.');
+        if(replay.source!==undefined){
+          if(resolve!==q.restore||!validReplaySource(replay.source,saved[base],replay))throw Error('Saved replay source is invalid.');
+          replay.source=resolve(replay.source);
+        }
+      }
+    }
+    if(raw.replaySources!==undefined){
+      if(!Array.isArray(raw.replaySources)||raw.replaySources.length>MAX_ITEMS)throw Error('Saved replay source links are invalid.');
+      for(const link of raw.replaySources){
+        if(!object(link)||!Number.isInteger(link.checkpoint)||!Number.isInteger(link.record))throw Error('Saved replay source link is invalid.');
+        const record=checkpointInfo[link.checkpoint]?.replays?.[link.record];
+        if(!record||record.source!==undefined)throw Error('Saved replay source link has no unique comparison.');
+        const source=resolve(link.run);
+        if(!validReplaySource(source,saved[indices.get(record.baselineId)],record))throw Error('Saved replay source does not match the original run.');
+        record.source=source;
+      }
+    }
     return {state,saved,draft,checkpointInfo,recoveryFiles};
+  }
+  function validReplayPair(base,alternative,replay){
+    if(!object(replay)||!['designerHours','designers','ownerHours'].includes(replay.key))return false;
+    return Number.isInteger(replay.month)&&replay.month>=1&&replay.month<=12&&
+      replay.firstDay===(replay.month-1)*30+1&&replay.endDay===replay.month*30&&
+      base.day===replay.endDay&&alternative.day===base.day&&base.config.seed===alternative.config.seed&&
+      Number.isInteger(replay.sourceDay)&&replay.sourceDay>=(replay.month===1?0:replay.firstDay)&&replay.sourceDay<=base.config.months*30&&
+      Number.isFinite(replay.before)&&Number.isFinite(replay.after)&&replay.before!==replay.after&&
+      base.config[replay.key]===replay.before&&alternative.config[replay.key]===replay.after&&
+      (replay.demandId==null||typeof replay.demandId==='string'&&base.projects.some(p=>p.demandId===replay.demandId))&&
+      (replay.carriedThrough===undefined||replay.carriedThrough===base.config.months*30&&replay.carriedThrough>replay.endDay)&&
+      (replay.finishAcceptedWork===undefined||replay.finishAcceptedWork===true&&
+        (replay.carriedThrough??replay.endDay)===base.config.months*30&&base.config.months===alternative.config.months);
+  }
+  function validReplaySource(source,base,record){
+    return source?.day===record.sourceDay&&source.config?.seed===base.config.seed&&
+      source.config.months===base.config.months&&source.initialCash===base.initialCash;
+  }
+  function saveReplayPair(current,base,alternative,descriptor,source=null){
+    if(!validReplayPair(base,alternative,descriptor))throw Error('Only a completed, matching replay pair can be saved.');
+    if(source!==null&&!validReplaySource(source,base,descriptor))throw Error('The original run does not match this saved replay.');
+    const saved=[...current.saved],checkpointInfo=current.checkpointInfo.map(info=>info.replays?
+      {...info,replays:info.replays.map(record=>({...record}))}:{...info});
+    const text=saved.map(run=>JSON.stringify(run));
+    const store=(run,label)=>{
+      const content=JSON.stringify(run),existing=text.indexOf(content);
+      if(existing>=0){checkpointInfo[existing].kind='manual';return existing;}
+      text.push(content);saved.push(q.clone(run));checkpointInfo.push({label,kind:'manual',baseline:false});return saved.length-1;
+    };
+    const label=({designers:'Designer count',designerHours:'Hours per designer',ownerHours:'Owner hours'})[descriptor.key];
+    const b=store(base,'Month '+descriptor.month+' baseline · '+base.config.name);
+    const a=store(alternative,'Month '+descriptor.month+' · '+label+' '+descriptor.before+' → '+descriptor.after);
+    if(!checkpointInfo[b].replayId){
+      const ids=new Set(checkpointInfo.map(v=>v.replayId));
+      let n=1;while(ids.has('replay-'+n))n++;
+      checkpointInfo[b].replayId='replay-'+n;
+    }
+    const {month,key,before,after,demandId=null,sourceDay,firstDay,endDay}=descriptor;
+    const record={baselineId:checkpointInfo[b].replayId,month,key,before,after,demandId,sourceDay,firstDay,endDay};
+    const list=checkpointInfo[a].replays??=[];
+    const sourceText=source&&JSON.stringify(source);
+    const duplicate=list.find(item=>Object.keys(record).every(k=>item[k]===record[k])&&
+      (source===null?!item.source:item.source===source||item.source&&JSON.stringify(item.source)===sourceText));
+    if(!duplicate){
+      if(source)record.source=q.clone(source);
+      list.push(record);
+    }
+    if(descriptor.carriedThrough)(duplicate||record).carriedThrough=descriptor.carriedThrough;
+    if(descriptor.finishAcceptedWork===true)(duplicate||record).finishAcceptedWork=true;
+    if(list.length>MAX_ITEMS)throw Error('Too many saved replays for this checkpoint.');
+    return {saved,checkpointInfo,baselineRun:saved[b],alternativeRun:saved[a],record:duplicate||record};
+  }
+  function removeCheckpoint(saved,info,index){
+    if(!Number.isInteger(index)||index<0||index>=saved.length)throw Error('Checkpoint not found.');
+    const id=info[index].replayId;
+    saved.splice(index,1);info.splice(index,1);
+    if(id)for(const item of info){
+      if(!item.replays)continue;
+      item.replays=item.replays.filter(r=>r.baselineId!==id);
+      if(!item.replays.length)delete item.replays;
+    }
   }
   function parse(data) {
     if (data?.format==='meiqq-workspace' && data.version===3) {
@@ -93,9 +210,32 @@
     throw Error('Choose a MEIQQ workspace, original browser save, or legacy setup JSON.');
   }
   function pack(current, archives=[]) {
-    const runs=[], indexes=new Map();
-    const add=s=>{const text=JSON.stringify(s);if(indexes.has(text))return indexes.get(text);const i=runs.length;indexes.set(text,i);runs.push(JSON.parse(text));return i;};
-    const encode=w=>({state:add(w.state),saved:w.saved.map(add),draft:q.clone(w.draft),checkpointInfo:(w.checkpointInfo?q.clone(w.checkpointInfo):null)||w.saved.map(s=>({label:s.config.name+' · day '+s.day,kind:'manual',baseline:false})),recoveryFiles:q.clone(w.recoveryFiles||[])});
+    const runs=[], indexes=new Map(),references=new WeakMap();
+    const add=s=>{
+      if(references.has(s))return references.get(s);
+      const text=JSON.stringify(s);
+      if(!indexes.has(text)){indexes.set(text,runs.length);runs.push(JSON.parse(text));}
+      const index=indexes.get(text);references.set(s,index);return index;
+    };
+    const encode=w=>{
+      const state=add(w.state),saved=w.saved.map(add),replaySources=[];
+      const infos=w.checkpointInfo||w.saved.map(s=>({label:s.config.name+' · day '+s.day,kind:'manual',baseline:false}));
+      // Keep sources in the deduplicated run table. Older workspace readers
+      // can still open the monthly pair when they ignore these optional links.
+      const checkpointInfo=infos.map((info,checkpoint)=>{
+        if(!info.replays)return {...info};
+        const replays=info.replays.map((item,record)=>{
+          const source=item.source;
+          if(source)replaySources.push({checkpoint,record,run:add(source)});
+          return replayFields(item);
+        });
+        return {...info,replays};
+      });
+      if(replaySources.length>MAX_ITEMS)throw Error('Too many replay source links. Export workspaces separately or remove unneeded checkpoints.');
+      const packed={state,saved,draft:q.clone(w.draft),checkpointInfo,recoveryFiles:q.clone(w.recoveryFiles||[])};
+      if(replaySources.length)packed.replaySources=replaySources;
+      return packed;
+    };
     const result={format:'meiqq-workspace',version:3,current:encode(current),archives:archives.map(a=>({label:a.label,workspace:encode(a.workspace)})),runs};
     if(runs.length>MAX_ITEMS||archives.length>MAX_ITEMS||[current,...archives.map(a=>a.workspace)].some(w=>w.saved.length>MAX_ITEMS))throw Error('Too many saved items. Export workspaces separately or remove unneeded checkpoints.');
     return result;
@@ -117,6 +257,6 @@
     const serialized=JSON.stringify(current);
     if(!archives.some(a=>JSON.stringify(a.workspace)===serialized))archives.push({label:label||current.state.config.name+' · day '+current.state.day,workspace:q.clone(current)});
   }
-  const api={MAX_BYTES,AUTO_LIMIT,editableDraft,workspace,parse,parseText,pack,serialize,checkSize,checkpoint,archive};
+  const api={MAX_BYTES,AUTO_LIMIT,editableDraft,workspace,parse,parseText,pack,serialize,checkSize,checkpoint,archive,saveReplayPair,removeCheckpoint};
   root.MEIQQWorkspace=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

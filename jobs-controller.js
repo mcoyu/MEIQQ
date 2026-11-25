@@ -6,7 +6,7 @@
  const PRACTICE={title:'One sales question',client:'Example retailer',scope:'One source, one reporting period, a short findings brief and one review call.',owner:'Studio owner',nextAction:'Confirm the source data and the question to answer',price:'600',estimatedDirectCost:'170',ownerHours:'3',ownerRate:'40',overhead:'30',paymentTerms:'Example: $200 deposit, $400 balance after delivery'};
  function today(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
  const UI_KEY='meiqq-jobs-view-v1';
- function create({session,render,toast,modal,closeModal,download,esc,btn,document,local}){
+ function create({session,findIdea,openWorkspace,render,toast,modal,closeModal,download,esc,btn,document,local}){
   const ui={selectedId:null,tab:'overview',form:'work',error:'',filter:'active',search:'',undo:null};let pendingImport=null;
   try{const saved=JSON.parse(local?.getItem(UI_KEY)||'null');if(saved&&typeof saved==='object'){
    if(typeof saved.selectedId==='string')ui.selectedId=saved.selectedId;
@@ -20,12 +20,19 @@
   function visible(){return View.visibleJobs(session.data,ui);}
   const job=id=>{const value=session.data.jobs.find(v=>v.id===(id||ui.selectedId));if(!value)throw Error('Select a job first.');return value;};
   function ready(){if(!session.ready)throw Error('Jobs are still opening. Wait before editing or downloading.');}
-  function content(){const available=visible();if(!available.some(v=>v.id===ui.selectedId))ui.selectedId=available[0]?.id||null;return View.render(session.data,ui);}
+  function startFromIdea(idea){
+   ready();
+   const created=Model.fromIdea(session.data,idea);
+   Object.assign(ui,{selectedId:created.id,tab:'overview',form:'work',filter:'active',search:'',error:'',undo:null});
+   session.changed();remember();
+   return created;
+  }
+  function content(){const available=visible();if(!available.some(v=>v.id===ui.selectedId))ui.selectedId=available[0]?.id||null;return View.render(session.data,ui,findIdea);}
   function reportError(message){ui.error=message;render();focus('#jobs-form-error');}
   function input(el){
    if(el.dataset?.jobsSearch!==undefined){ui.search=el.value.slice(0,200);ui.error='';render();remember();return true;}
    if(!el.dataset?.jobsField&&!el.dataset?.jobsDraft)return false;
-   try{ready();const id=el.dataset.jobId||ui.selectedId,current=job(id),field=el.dataset.jobsField||el.dataset.jobsDraft,old=el.dataset.jobsField?current.draft[field]:current.forms[el.dataset.entryType]?.[field];if(old===el.value)return true;if(el.dataset.jobsField)Model.updateDraft(session.data,id,{[field]:el.value});else Model.setForm(session.data,id,el.dataset.entryType,{[field]:el.value});if(el.dataset.jobsField&&ui.search&&!visible().some(v=>v.id===id))ui.search='';ui.error='';session.changed();render();remember();}catch(e){reportError(e.message);}
+   try{ready();const id=el.dataset.jobId||ui.selectedId,current=job(id),field=el.dataset.jobsField||el.dataset.jobsDraft,old=el.dataset.jobsField?current.draft[field]:current.forms[el.dataset.entryType]?.[field];const value=root.QQI18n?.inputValue(el)??el.value;if(old===value)return true;if(el.dataset.jobsField)Model.updateDraft(session.data,id,{[field]:value});else Model.setForm(session.data,id,el.dataset.entryType,{[field]:value});if(el.dataset.jobsField&&ui.search&&!visible().some(v=>v.id===id))ui.search='';ui.error='';session.changed();render();remember();}catch(e){reportError(e.message);}
    return true;
   }
   function previewImport(raw){ready();pendingImport=Model.parseText(raw);const count=pendingImport.jobs.length;modal(`<h2 id="dialog-title">Add these saved jobs?</h2><p>Add ${count} jobs as new copies, including accepted terms, recorded entries, corrections and unfinished drafts. Existing jobs stay in place. Real/practice labels, archived jobs and Trash are preserved.</p><p>Use this to restore a backup into an empty workspace or bring in separate work. Importing the same backup again creates duplicate copies.</p>${session.status==='error'?'<p class="banner warn">Browser saving is currently unavailable. Importing does not repair the saved original. These copies will be available in this tab; download a Jobs backup before closing. To restore a valid backup durably, open it in a fresh browser profile or another browser.</p>':''}<div class="actions">${btn('Cancel','close')}${btn('Add job copies','jobs-confirm-import','primary')}</div>`);}
@@ -48,7 +55,9 @@
     const created=existing||Model.create(session.data,{mode:name==='jobs-add'?'real':'practice',draft:name==='jobs-add'?{}:PRACTICE});ui.selectedId=created.id;ui.tab='overview';ui.form='work';ui.filter='active';ui.search='';
     if(existing)toast('Opened your existing practice job. Use New practice copy when you want another.');else session.changed();
     focusTarget=existing?'#jobs-selected-heading':'#jobs-'+created.id+'-draft-title';
-   }else if(name==='jobs-select'){const selected=job(id);ui.selectedId=id;ui.filter=selected.location;ui.tab='overview';ui.form='work';focusTarget='#jobs-selected-heading';}
+   }else if(name==='jobs-select'||name==='jobs-review'){
+    const selected=job(id);if(name==='jobs-review'){ui.search='';openWorkspace();}
+    ui.selectedId=id;ui.filter=selected.location;ui.tab='overview';ui.form='work';focusTarget='#jobs-selected-heading';}
    else if(name==='jobs-filter'){if(['active','archive','trash'].includes(data.filter)){ui.filter=data.filter;ui.search='';}focusTarget='#jobs-selected-heading';}
    else if(name==='jobs-trash'||name==='jobs-archive'){
     const current=job(id),list=visible(),index=list.findIndex(v=>v.id===id),location=name==='jobs-trash'?'trash':'archive';
@@ -67,7 +76,7 @@
    else if(name==='jobs-void-confirm'){const current=job(id),form=current.forms.void;Model.voidEntry(session.data,id,form.targetId,{date:form.date,reason:form.reason});clearForm(id,'void',form);session.changed();closeModal();toast('Entry voided. The original and your correction remain in History.');}
    render();remember();if(focusTarget)focus(focusTarget);
   }
-  return {ui,render:content,input,action,previewImport,reportError};
+  return {ui,render:content,input,action,previewImport,reportError,startFromIdea};
  }
- const api={create};root.QQJobsController=api;if(typeof module!=='undefined')module.exports=api;
+ const api={create,practiceDraft:Object.freeze(PRACTICE)};root.QQJobsController=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

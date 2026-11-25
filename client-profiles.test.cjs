@@ -20,15 +20,15 @@ test('customer mix and niche focus change the type of inquiry without changing i
  const s=run(c,30),tea=s.projects.filter(p=>p.clientType==='tea').length;
  assert.ok(tea>100&&tea<s.projects.length);
  assert.ok(s.projects.every(p=>q.CUSTOMER_TYPES.find(t=>t.id===p.clientType).group==='food'));
- assert.equal(q.estimate(c).orders,300*c.conversion);
+ assert.equal(q.estimate(c).orders,300*c.months*c.conversion);
 });
 
 test('targeted offerings leave unmatched inquiries unserved and the preview accounts for them',()=>{
  const c=q.clone(q.DEFAULT);c.months=3;c.inquiries=90;c.customerMix={food:0,retail:100,services:0};
  c.services=[{...c.services[0],weight:100,audience:'food'}];
- const s=run(c,30),e=q.estimate(c);
- assert.equal(s.projects.length,0);assert.equal(s.unserved,90);
- assert.equal(e.unserved,90);assert.equal(e.orders,0);assert.equal(e.revenue,0);
+ const s=run(c,90),e=q.estimate(c);
+ assert.equal(s.projects.length,0);assert.equal(s.unserved,270);
+ assert.equal(e.unserved,s.unserved);assert.equal(e.orders,0);assert.equal(e.revenue,0);
  assert.deepEqual(q.restore(s),s);
  const invalid=q.clone(s);invalid.unserved=-1;assert.throws(()=>q.restore(invalid),/Unserved inquiry/);
 });

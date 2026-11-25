@@ -2,13 +2,13 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const {setup}=require('./ui-test-host.cjs');
 const read=(ui,code)=>vm.runInContext(code,ui.ctx);
 
-test('invalid fulfillment values cannot produce authoritative unit or 30-day previews',()=>{
+test('invalid fulfillment values cannot produce authoritative unit or run previews',()=>{
  const ui=setup();
  for(const change of ['managedShare=1.01','managedShare=2','designOnlyPrice=999']){
   read(ui,'draft=QQ.clone(state.config);draft.services[1].fulfillment.'+change+';render()');
   assert.equal(read(ui,'serviceUnit(draft.services[1])'),null);
   assert.doesNotMatch(read(ui,'serviceFulfillment(draft.services[1],1)'),/Contribution per accepted project/);
-  assert.doesNotMatch(read(ui,'serviceInputs()'),/Expected first 30 days/);
+  assert.doesNotMatch(read(ui,'serviceInputs()'),/Expected over \d+ days/);
   if(change.startsWith('managedShare')){assert.match(read(ui,'draftError()'),/between 0% and 100%/);assert.match(ui.elements['#root'].innerHTML,/between 0% and 100%/);}
  }
 });

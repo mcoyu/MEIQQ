@@ -4,18 +4,28 @@
 
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dom=value=>encodeURIComponent(String(value??''));
-const money=value=>value===null||value===undefined?'—':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:2}).format(value/100);
+const money=value=>value===null||value===undefined?'—':root.QQI18n?.language==='zh-CN'?root.QQI18n.yuan(value/100):new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:2}).format(value/100);
 const hours=value=>value===null||value===undefined?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(value)+' h';
 const statusLabels={idea:'Idea',research:'Researching',ready:'Ready to test'};
-const sections=[['offer','Scope'],['numbers','Numbers'],['research','Research']];
 
 function model(){if(!root.QQStudio)throw Error('The Studio model must load before its view.');return root.QQStudio;}
 function button(label,action,extra='',cls=''){return `<button type="button" class="studio-button ${cls}" data-action="studio-${action}" ${extra}>${label}</button>`;}
 function issueFor(issues,path){return (issues||[]).find(item=>item.path===path&&item.kind==='invalid');}
+const examplesById=new Map();
+function ideaValue(idea,path,value){
+ if(root.QQI18n?.language!=='zh-CN'||!value||idea.origin?.kind!=='example')return value;
+ const id=idea.origin.ref;
+ if(!examplesById.has(id)){
+  if(!root.QQStudioSeeds?.EXAMPLES.some(example=>example.id===id))return value;
+  examplesById.set(id,root.QQStudioSeeds.create(id));
+ }
+ const original=path.split('.').reduce((record,key)=>record?.[key],examplesById.get(id));
+ return original===value && typeof value==='string' ? value.split('\n').map(line=>root.QQI18n.text(line)).join('\n') : value;
+}
 function field(idea,path,label,options={}){
- const id='studio-field-'+dom(idea.id)+'-'+dom(path),value=options.value??path.split('.').reduce((v,k)=>v?.[k],idea)??'',issue=issueFor(options.issues,path);
+ const id='studio-field-'+dom(idea.id)+'-'+dom(path),value=ideaValue(idea,path,options.value??path.split('.').reduce((v,k)=>v?.[k],idea)??''),issue=issueFor(options.issues,path);
  const help=options.help||'',description=[help?id+'-help':'',issue?id+'-error':''].filter(Boolean).join(' ');
- const attrs=`id="${id}" data-studio-field="${esc(path)}" data-idea-id="${esc(idea.id)}"${description?` aria-describedby="${description}"`:''}${issue?' aria-invalid="true"':''}`;
+ const attrs=`id="${id}"${options.numeric?(root.QQI18n?.moneyField(label)||''):''} data-studio-field="${esc(path)}" data-idea-id="${esc(idea.id)}"${description?` aria-describedby="${description}"`:''}${issue?' aria-invalid="true"':''}`;
  let control;
  if(options.options)control=`<select ${attrs}>${options.options.map(([key,text])=>`<option value="${esc(key)}"${key===value?' selected':''}>${esc(text)}</option>`).join('')}</select>`;
  else if(options.area)control=`<textarea ${attrs} rows="${options.rows||3}" maxlength="${options.maxLength||10000}"${options.placeholder?` placeholder="${esc(options.placeholder)}"`:''}>${esc(value)}</textarea>`;
@@ -29,35 +39,41 @@ function originNote(idea){
  if(idea.origin?.kind==='catalog')return 'Copied catalog details are starting assumptions. Check the scope and source dates before using them for your studio.';
  return 'A working idea for research and planning. Its status does not establish demand or record a customer agreement.';
 }
-function emptyValue(value,fallback){return String(value??'').trim()||fallback;}
+function ideaText(idea,path,fallback){
+ const value=ideaValue(idea,path,path.split('.').reduce((record,key)=>record?.[key],idea));
+ return value ? (root.QQI18n?.literal(value) ?? value) : fallback;
+}
 function examplesMenu(){
  const examples=root.QQStudioSeeds?.EXAMPLES||[];
  if(!examples.length)return '';
  return `<details class="studio-examples" data-disclosure="studio-examples"><summary>Add an example</summary><div class="studio-example-options">${examples.map(example=>button(`<strong>${esc(example.name)}</strong><span>${esc(example.summary||'Editable starting context')}</span>`,'example',`id="studio-example-${dom(example.id)}" data-id="${esc(example.id)}"`)).join('')}</div></details>`;
 }
-function toolbar(ui){
- return `<div class="studio-toolbar"><div class="studio-tabs" role="group" aria-label="Service ideas view">${[['idea','Explore ideas'],['compare','Compare ideas']].map(([tab,label])=>button(label,'tab',`id="studio-tab-${tab}" data-tab="${tab}" aria-pressed="${ui.tab===tab}"`)).join('')}</div><div class="studio-toolbar-actions">${button('+ Blank idea','add','id="studio-add"','primary')}${examplesMenu()}</div></div>`;
-}
-function library(studio,selected){
- return `<aside class="studio-library" aria-label="Saved service ideas"><div class="studio-library-heading"><h3>Your launchpad</h3><span class="studio-count">${studio.offerings.length} ${studio.offerings.length===1?'idea':'ideas'}</span></div><div class="studio-idea-list">${studio.offerings.map(idea=>button(`<strong>${esc(emptyValue(idea.name,'Untitled idea'))}</strong><span>${esc(emptyValue(idea.buyer,'Buyer still to explore'))}</span><span class="studio-idea-meta"><span class="studio-tag${idea.origin?.kind==='example'?' example':''}">${esc(originLabel(idea))}</span><span class="studio-tag">${esc(statusLabels[idea.status]||'Idea')}</span></span>`,'select',`id="studio-select-${dom(idea.id)}" data-id="${esc(idea.id)}" aria-pressed="${idea.id===selected}"`,'studio-idea')).join('')}</div></aside>`;
+function library(studio){
+ const rows=studio.offerings.map(idea=>{
+  const contents=`<span class="studio-row-name">${esc(ideaText(idea,'name','Untitled idea'))}</span><span class="studio-row-family">${esc(ideaText(idea,'family',''))}</span><span class="studio-row-arrow" aria-hidden="true">→</span>`;
+  return `<li>${button(contents,'select',`id="studio-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-idea-row')}</li>`;
+ }).join('');
+ return `<section aria-labelledby="studio-heading"><div class="studio-home-heading"><h1 id="studio-heading" tabindex="-1">Your ideas</h1>${button('<span aria-hidden="true">＋</span> New idea','add','id="studio-add"','studio-new')}</div>
+ ${rows?`<ul class="studio-ideas">${rows}</ul>`:'<p class="studio-empty">Start with an idea of your own, or choose an example below.</p>'}
+ <div class="studio-work-links">${rows?button('Compare ideas','tab','id="studio-compare" data-tab="compare"','studio-link'):''}${examplesMenu()}</div></section>`;
 }
 function offer(idea){
- return `<div class="studio-section-heading"><div><h3>Who could buy this, and why?</h3><p>Define a useful outcome and a bounded piece of work. Leave unanswered questions visible.</p></div></div>
- <div class="studio-fields">
- ${field(idea,'name','Idea name',{placeholder:'A working title',maxLength:200})}
- ${field(idea,'family','Service family',{placeholder:'Your own grouping',help:'Free text; use any family that fits this idea.'})}
+ return `<div class="studio-fields">
+ ${field(idea,'name','Idea name',{placeholder:'A working title',maxLength:200,wide:true})}
  ${field(idea,'buyer','Possible buyer',{area:true,placeholder:'Who has the problem and could pay for help?'})}
+ ${field(idea,'deliverables','What the buyer receives',{area:true,placeholder:'Outputs the buyer can inspect and use'})}
+ </div>
+ <details class="studio-more" data-disclosure="studio-scope-${esc(idea.id)}"><summary>Scope and pricing unit</summary><div class="studio-fields">
+ ${field(idea,'unit','One priced engagement means…',{placeholder:'For example: one brief, one batch, or one review',help:'Defines the unit compared in Numbers. A possible repeat does not guarantee another sale.',wide:true})}
  ${field(idea,'problem','Problem or decision to help with',{area:true,placeholder:'What would become easier or clearer?'})}
  ${field(idea,'scope','Scope and exclusions',{area:true,placeholder:'What is included, and where does this job stop?'})}
- ${field(idea,'deliverables','What the buyer receives',{area:true,placeholder:'Outputs the buyer can inspect and use'})}
- ${field(idea,'unit','One priced engagement means…',{placeholder:'For example: one brief, one batch, or one review',help:'Defines the unit compared in Numbers. A possible repeat does not guarantee another sale.',wide:true})}
- </div>
+ ${field(idea,'family','Service family',{placeholder:'Your own grouping',help:'Free text; use any family that fits this idea.'})}
+ </div></details>
  <details class="studio-more" data-disclosure="studio-delivery-${esc(idea.id)}"><summary>Inputs, handoffs and completion checks</summary><div class="studio-fields">
  ${field(idea,'inputs','Required files, data or materials',{area:true,help:'Include access, quality and permissions that need checking.'})}
  ${field(idea,'handoffs','Who does what, and in what order?',{area:true,help:'A planning checklist. These notes do not create new simulator stages.'})}
  ${field(idea,'acceptance','How would you know the work is done?',{area:true,wide:true,placeholder:'Review, approval and quality checks'})}
- </div></details>
- <p class="studio-footer-note">Use Numbers to estimate effort and costs, and Research to keep evidence and the next thing to check.</p>`;
+ </div></details>`;
 }
 function phases(ui){return `<div class="studio-phases" role="group" aria-label="Engagement cost basis">${[['first','First engagement'],['repeat','Later engagement']].map(([phase,label])=>button(label,'phase',`id="studio-phase-${phase}" data-phase="${phase}" aria-pressed="${ui.phase===phase}"`)).join('')}</div>`;}
 function phaseResults(idea,c,phase){
@@ -76,13 +92,13 @@ function economicsSummary(idea,c,ui){
 function roleFields(idea,c,setup=false){
  const roles=idea.roles||[];
  if(!roles.length)return '<p class="studio-muted">No paid delivery roles are included. Add one if a partner or specialist will do work.</p>';
- return roles.map((role,index)=>`<div class="studio-role" data-render-key="studio-role-${esc(idea.id)}-${esc(role.id||index)}"><div class="studio-role-heading"><strong>${setup?esc(emptyValue(role.name,'Delivery role '+(index+1))):'Delivery role '+(index+1)}</strong>${setup?'':button('Remove','role-remove',`id="studio-role-remove-${dom(idea.id)}-${index}" data-id="${esc(idea.id)}" data-index="${index}" aria-label="Remove delivery role ${index+1}"`,'small')}</div><div class="studio-fields">${setup?numeric(idea,`roles.${index}.setupHours`,'Setup hours once',c.issues,'Enter 0 only if no separate preparation is needed.',true):field(idea,`roles.${index}.name`,'Role / partner',{placeholder:'For example: analyst, designer or researcher',wide:true})+numeric(idea,`roles.${index}.hours`,'Hours per engagement',c.issues)+numeric(idea,`roles.${index}.rate`,'Cost per hour · $',c.issues)}</div></div>`).join('');
+ return roles.map((role,index)=>`<div class="studio-role" data-render-key="studio-role-${esc(idea.id)}-${esc(role.id||index)}"><div class="studio-role-heading"><strong>${setup?esc(ideaText(idea,`roles.${index}.name`,'Delivery role '+(index+1))):'Delivery role '+(index+1)}</strong>${setup?'':button('Remove','role-remove',`id="studio-role-remove-${dom(idea.id)}-${index}" data-id="${esc(idea.id)}" data-index="${index}" aria-label="Remove delivery role ${index+1}"`,'small')}</div><div class="studio-fields">${setup?numeric(idea,`roles.${index}.setupHours`,'Setup hours once',c.issues,'Enter 0 only if no separate preparation is needed.',true):field(idea,`roles.${index}.name`,'Role / partner',{placeholder:'For example: analyst, designer or researcher',wide:true})+numeric(idea,`roles.${index}.hours`,'Hours per engagement',c.issues)+numeric(idea,`roles.${index}.rate`,'Cost per hour · $',c.issues)}</div></div>`).join('');
 }
 function numbers(idea,ui){
  const c=model().economics(idea);
  return `<div class="studio-section-heading"><div><h3>What could one engagement leave?</h3><p>Editable estimates in USD. Blank stays unknown; enter zero only when you mean no cost or effort.</p></div>${phases(ui)}</div>
  <div class="studio-numbers-layout"><div><div class="studio-fields">
- ${numeric(idea,'price','Proposed price per engagement · $',c.issues,'For the engagement defined in the Scope section.',true)}
+ ${numeric(idea,'price','Proposed price per engagement · $',c.issues,'For one unit as defined in Idea details.',true)}
  ${numeric(idea,'directCost','Other direct costs · $',c.issues,'Supplier, materials, software, shipping or other job costs. Excludes the paid roles below.',true)}
  ${numeric(idea,'ownerHours','Your hours per engagement',c.issues,'Include scoping, coordination, review and delivery.')}
  ${numeric(idea,'ownerRate','Your time target · $/hour',c.issues,'What you want your time to earn; not a cash payment.')}
@@ -107,25 +123,36 @@ function research(idea){
  </div>${links.length?`<div class="studio-source-links"><h3>Open referenced sources</h3><ul>${links.map((link,index)=>`<li><a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label)}${links.filter(other=>other.label===link.label).length>1?' · source '+(index+1):''} <span class="studio-muted">(opens a new tab)</span></a></li>`).join('')}</ul></div>`:''}
  <div class="studio-callout unknown">Keep an observation separate from a prediction. A possible repeat service does not establish demand, renewal or monthly earnings.</div>`;
 }
+function ideaOptions(idea){
+ return `<details class="studio-more" data-disclosure="studio-idea-options-${esc(idea.id)}"><summary>Idea options</summary><div class="studio-identity"><p class="studio-muted"><strong>${esc(originLabel(idea))}</strong><br>${esc(originNote(idea))}</p>${field(idea,'status','Working status',{options:Object.entries(statusLabels),help:'Your organization label; not a verified outcome.'})}</div>
+ <div class="studio-editor-actions">${button('Duplicate','duplicate',`id="studio-duplicate-${dom(idea.id)}" data-id="${esc(idea.id)}"`)}${button('Delete','delete',`id="studio-delete-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'ghost')}</div></details>`;
+}
+function backToIdeas(){
+ return button('← Your ideas','tab','id="studio-back" data-tab="ideas"','studio-link studio-back');
+}
 function editor(idea,ui){
- return `<section class="studio-editor panel" aria-label="Selected service idea"><div class="studio-editor-heading"><div><h2>${esc(emptyValue(idea.name,'Untitled idea'))}</h2><p><span class="studio-tag${idea.origin?.kind==='example'?' example':''}">${esc(originLabel(idea))}</span></p></div><div class="studio-editor-actions">${button('Plan this idea','plan',`id="studio-plan-${dom(idea.id)}" data-id="${esc(idea.id)}"`)}${button('Duplicate','duplicate',`id="studio-duplicate-${dom(idea.id)}" data-id="${esc(idea.id)}"`)}${button('Delete','delete',`id="studio-delete-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'ghost')}</div></div>
- <div class="studio-identity"><p class="studio-muted">${esc(originNote(idea))}</p>${field(idea,'status','Working status',{options:Object.entries(statusLabels),help:'Your organization label; not a verified outcome.'})}</div>
- <div class="studio-sections" role="group" aria-label="Idea sections">${sections.map(([section,label])=>button(label,'section',`id="studio-section-${section}" data-section="${section}" aria-pressed="${ui.section===section}"`)).join('')}</div>
- <div id="studio-editor-content">${ui.section==='numbers'?numbers(idea,ui):ui.section==='research'?research(idea):offer(idea)}</div></section>`;
+ const work=ui.section==='offer';
+ const back=work?backToIdeas():button('← Back to idea','section','id="studio-back" data-section="offer"','studio-link studio-back');
+ const next=field(idea,'nextAction','Next action',{area:true,rows:3,placeholder:'What’s the next thing to do?'});
+ const detailKey='studio-details-'+idea.id;
+ const surface=work?`<div class="studio-next">${next}</div>
+ <details class="studio-details" data-disclosure="${esc(detailKey)}"${!idea.name?' open':''}><summary>Idea details</summary>${offer(idea)}${ideaOptions(idea)}</details>
+ <div class="studio-work-links">${button('Numbers','section','id="studio-go-numbers" data-section="numbers"','studio-link')}${button('Research','section','id="studio-go-research" data-section="research"','studio-link')}${button('Plan this idea','plan',`id="studio-plan-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-link')}${button('Start a job from this idea','job',`id="studio-job-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-link')}</div>`:
+ ui.section==='numbers'?numbers(idea,ui):research(idea);
+ return `<section class="studio-editor" aria-label="Selected service idea" data-render-key="studio-editor-${esc(idea.id)}">${back}<h1 id="studio-heading" tabindex="-1">${esc(ideaText(idea,'name','Untitled idea'))}</h1>${!work&&idea.origin?.kind==='example'?'<p class="studio-origin">Editable example</p>':''}<div id="studio-editor-content">${surface}</div></section>`;
 }
 function compare(studio,ui){
- return `<section class="studio-compare panel" aria-labelledby="studio-compare-heading"><div class="studio-section-heading"><div><h2 id="studio-compare-heading">Compare ideas on the same basis</h2><p>Different scopes and evidence still matter. These figures use your estimates, without assuming sales volume.</p></div>${phases(ui)}</div>
+ return `<section class="studio-compare" aria-labelledby="studio-heading">${backToIdeas()}<div class="studio-section-heading"><div><h1 id="studio-heading" tabindex="-1">Compare ideas</h1><p>Different scopes and evidence still matter. These figures use your estimates, without assuming sales volume.</p></div>${phases(ui)}</div>
  <div class="tablewrap" tabindex="0" role="region" aria-label="Scrollable service idea comparison"><table><caption>${ui.phase==='first'?'First engagement includes preparation once.':'Later engagement assumes the same preparation can be reused.'} USD · — means unknown or unavailable</caption><thead><tr><th scope="col">Idea / buyer / priced unit</th><th scope="col">Price</th><th scope="col">Direct costs</th><th scope="col">Total work hours</th><th scope="col">Your time value</th><th scope="col">All costs + time</th><th scope="col">Left after allowances</th><th scope="col">Available / owner hour</th><th scope="col">Next validation</th></tr></thead><tbody>${studio.offerings.map(idea=>{
  const c=model().economics(idea),r=phaseResults(idea,c,ui.phase);
- return `<tr data-render-key="studio-compare-${esc(idea.id)}"><td>${button(esc(emptyValue(idea.name,'Untitled idea')),'select',`id="studio-compare-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'table-link')}<small>${esc(emptyValue(idea.buyer,'Buyer unknown'))}</small><small>Priced unit: ${esc(emptyValue(idea.unit,'Not defined yet'))}</small><small>${esc(statusLabels[idea.status]||'Idea')} · ${esc(originLabel(idea))}</small></td><td>${money(r.price)}</td><td>${money(r.direct)}</td><td>${hours(r.workHours)}<small>Your hours: ${hours(r.ownerHours)}</small></td><td>${money(r.ownerAllowance)}</td><td>${money(r.total)}</td><td class="${r.remainder<0?'studio-negative':''}">${money(r.remainder)}</td><td>${r.ownerHourly===null||r.ownerHourly===undefined?'—':money(r.ownerHourly)+'/h'}</td><td class="studio-next-validation">${esc(emptyValue(idea.nextAction,'Choose a next check'))}</td></tr>`;
+ return `<tr data-render-key="studio-compare-${esc(idea.id)}"><td>${button(esc(ideaText(idea,'name','Untitled idea')),'select',`id="studio-compare-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'table-link')}<small>${esc(ideaText(idea,'buyer','Buyer unknown'))}</small><small>Priced unit: ${esc(ideaText(idea,'unit','Not defined yet'))}</small><small>${esc(statusLabels[idea.status]||'Idea')} · ${esc(originLabel(idea))}</small></td><td>${money(r.price)}</td><td>${money(r.direct)}</td><td>${hours(r.workHours)}<small>Your hours: ${hours(r.ownerHours)}</small></td><td>${money(r.ownerAllowance)}</td><td>${money(r.total)}</td><td class="${r.remainder<0?'studio-negative':''}">${money(r.remainder)}</td><td>${r.ownerHourly===null||r.ownerHourly===undefined?'—':money(r.ownerHourly)+'/h'}</td><td class="studio-next-validation">${esc(ideaText(idea,'nextAction','Choose a next check'))}</td></tr>`;
  }).join('')}</tbody></table></div><p class="studio-footer-note">Total work hours sum your time and paid-role time${ui.phase==='first'?', including setup':''}; they do not estimate elapsed turnaround. All costs include direct costs, allocated overhead and your time allowance. Available per owner hour is before valuing your time, after direct costs and overhead; it is unavailable for zero owner hours. Results exclude tax and unlisted costs. A higher price does not imply a buyer will accept it.</p></section>`;
 }
 function render(studio,options={}){
- const offerings=Array.isArray(studio?.offerings)?studio.offerings:[],safe={...studio,offerings},selected=offerings.find(idea=>idea.id===options.selectedId)||offerings[0];
- const ui={tab:options.tab==='compare'?'compare':'idea',section:sections.some(([id])=>id===options.section)?options.section:'offer',phase:options.phase==='repeat'?'repeat':'first'};
- const intro=`<div class="studio-intro"><div><div class="studio-eyebrow">Studio · Ideas</div><h2>A launchpad for services worth exploring</h2><p>Shape an idea, research the buyer and delivery needs, then compare the numbers. Everything here is editable planning context; no clients, jobs or payments are created.</p></div></div>`;
- const content=!offerings.length?`<div class="studio-empty"><h2>Start with an idea of your own</h2><p>A buyer, a problem or a capability is enough. You can leave prices and effort unknown while you research.</p>${button('+ Blank idea','add','id="studio-empty-add"','primary')}</div>`:ui.tab==='compare'?compare(safe,ui):`<div class="studio-layout">${library(safe,selected.id)}${editor(selected,ui)}</div>`;
- return `<div class="studio-launchpad">${intro}${toolbar(ui)}${content}<p class="studio-footer-note">Studio ideas are saved separately from simulator runs. Research notes and descriptive handoffs do not change the simulation engine.</p></div>`;
+ const offerings=Array.isArray(studio?.offerings)?studio.offerings:[],selected=offerings.find(idea=>idea.id===options.selectedId);
+ const ui={section:['numbers','research'].includes(options.section)?options.section:'offer',phase:options.phase==='repeat'?'repeat':'first'};
+ const content=options.tab==='compare'&&offerings.length?compare({offerings},ui):selected?editor(selected,ui):library({offerings});
+ return `<div class="studio-workbench">${content}</div>`;
 }
 
 const api={render,sourceLinks};

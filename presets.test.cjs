@@ -12,13 +12,13 @@ test('every local scenario recipe produces a valid transparent configuration',()
   count++;
  }
  assert.equal(count,6*4*6*5);
- assert.equal(distinct.size,count,'every recipe must produce a distinct full assumption set, not just a distinct name');
+ assert.equal(distinct.size,4*6*5,'location supplies context without changing the operational assumptions');
 });
 
 test('market, operation, shop mix and conditions vary independent assumptions',()=>{
  const base={market:'metro',operation:'solo',mix:'balanced',condition:'steady'};
  const detroit=presets.compose({...base,market:'detroit'},q.DEFAULT),royalOak=presets.compose({...base,market:'royaloak'},q.DEFAULT);
- assert.ok(detroit.leadsPerHour<royalOak.leadsPerHour);assert.ok(detroit.paymentDays>royalOak.paymentDays);assert.deepEqual(detroit.services,q.DEFAULT.services);
+ assert.equal(detroit.leadsPerHour,royalOak.leadsPerHour);assert.equal(detroit.paymentDays,royalOak.paymentDays);assert.equal(detroit.conversion,royalOak.conversion);assert.deepEqual(detroit.services,q.DEFAULT.services);
  const side=presets.compose({...base,operation:'side'},q.DEFAULT),growth=presets.compose({...base,operation:'growth'},q.DEFAULT);
  assert.ok(side.ownerHours<growth.ownerHours);assert.ok(side.designers<growth.designers);assert.equal(side.startingCash,growth.startingCash);assert.ok(side.outreachHours<growth.outreachHours);
  const food=presets.compose({...base,mix:'food'},q.DEFAULT),services=presets.compose({...base,mix:'services'},q.DEFAULT);
@@ -81,10 +81,10 @@ test('using a recipe changes only the saved draft until explicit apply',()=>{
  assert.equal(vm.runInContext('state.config.inquiries',ctx),45);
  assert.equal(vm.runInContext('draft.inquiries',ctx),expected.inquiries);
  assert.equal(vm.runInContext('draft.customerMix.food',ctx),expected.customerMix.food);
- assert.match(elements['#root'].innerHTML,/Per-project economics first/);
+ assert.match(elements['#root'].innerHTML,/90-day estimate/);
  assert.match(elements['#root'].innerHTML,/Undo recipe/);
  assert.ok(storage.get('qq-studio-lab-v1'));
- vm.runInContext('review()',ctx);assert.match(elements['#modal'].innerHTML,/EXACT CHANGES/);
+ vm.runInContext('review()',ctx);assert.match(elements['#modal'].innerHTML,/Apply your business setup/);
 });
 test('recipe UI preserves a custom catalog before replacing only scoped settings',()=>{
  const {ctx,elements,click}=setup();
@@ -102,12 +102,17 @@ test('recipe loading preserves seed and horizon and can restore the prior draft'
  assert.equal(vm.runInContext('draft.ownerHours',ctx),17);assert.equal(vm.runInContext('draft.seed',ctx),9981);assert.equal(vm.runInContext('draft.months',ctx),6);
 });
 
-test('guided recipes are decision-first while analyst recipes stay compact',()=>{
- const guided=setup();
- assert.match(guided.elements['#root'].innerHTML,/expected (?:30-day )?orders/);assert.match(guided.elements['#root'].innerHTML,/potential (?:30-day )?result/);assert.match(guided.elements['#root'].innerHTML,/(?:Load recipe into draft|Recipe loaded)/);
- guided.click('setup-density',{mode:'analyst'});
- assert.match(guided.elements['#root'].innerHTML,/<details class="panel preset-workbench preset-compact"/);
- assert.match(guided.elements['#root'].innerHTML,/Market<\/b>/);assert.match(guided.elements['#root'].innerHTML,/Research basis and preset limits/);
+test('both detail modes keep one draft preview and open a separate scenario comparison on request',()=>{
+ const ui=setup();ui.click('start-restaurant');
+ const html=()=>ui.elements['#root'].innerHTML;
+ for(const mode of ['guided','analyst']){
+  ui.click('setup-density',{mode});
+  assert.match(html(),/After owner time/);assert.match(html(),/Try a scenario/);
+  assert.doesNotMatch(html(),/id="preset-market"/);
+  ui.click('toggle-recipe');assert.match(html(),/id="preset-market"/);assert.match(html(),/Inspect recipe sources/);
+  assert.equal((html().match(/Assumes delivery of all expected new orders/g)||[]).length,1);
+  ui.click('toggle-recipe');
+ }
 });
 
 test('preset selection persists independently from the workspace',()=>{
@@ -123,7 +128,7 @@ test('unknown browser recipe preferences fall back without breaking setup',()=>{
  assert.equal(vm.runInContext('presetSelection.operation',ui.ctx),'growth');
  assert.equal(vm.runInContext('presetSelection.mix',ui.ctx),'balanced');
  assert.equal(vm.runInContext('presetSelection.condition',ui.ctx),'steady');
- assert.match(ui.elements['#root'].innerHTML,/Build a plausible local starting point/);
+ assert.match(ui.elements['#root'].innerHTML,/Try the restaurant example/);
 });
 
 test('source register is explicit, official and safe to embed offline',()=>{
@@ -185,17 +190,17 @@ test('recipe values survive browser reopen, apply and workspace export',()=>{
  assert.equal(vm.runInContext('presetSelection.market',reopened.ctx),'royaloak');
  assert.equal(vm.runInContext('presetSelection.condition',reopened.ctx),'campaign');
  vm.runInContext('review()',reopened.ctx);reopened.click('apply',{mode:'future'});
- assert.equal(vm.runInContext('state.config.name',reopened.ctx),'Studio baseline');
+ assert.equal(vm.runInContext('state.config.name',reopened.ctx),'Restaurant studio example');
  assert.equal(vm.runInContext('state.config.seed',reopened.ctx),987654);
  const exported=vm.runInContext('MEIQQWorkspace.parseText(MEIQQWorkspace.serialize(currentWorkspace(),archives))',reopened.ctx);
  assert.equal(JSON.stringify(exported.state.config),JSON.stringify(exported.draft));
- assert.equal(exported.state.config.name,'Studio baseline');assert.equal(exported.state.config.recipe.catalog,'metro-detroit-2026-v2');assert.equal(exported.state.config.recipe.version,2);assert.equal(presets.audit(exported.state.config).coverage,1);
+ assert.equal(exported.state.config.name,'Restaurant studio example');assert.equal(exported.state.config.recipe.catalog,'metro-detroit-2026-v2');assert.equal(exported.state.config.recipe.version,2);assert.equal(presets.audit(exported.state.config).coverage,1);
  assert.equal(Object.hasOwn(exported,'presetSelection'),false,'backup schema stores composed values, not the browser recipe preference');
 });
 
 test('workspace import retains composed draft values without importing recipe preference',()=>{
- const expected=presets.compose({market:'detroit',operation:'side',mix:'balanced',condition:'stress'},q.DEFAULT);
  const source=setup();
+ const expected=presets.compose({market:'detroit',operation:'side',mix:'balanced',condition:'stress'},JSON.parse(vm.runInContext('JSON.stringify(draft)',source.ctx)));
  source.handlers.change({target:{id:'preset-market',value:'detroit',dataset:{}}});
  source.handlers.change({target:{id:'preset-operation',value:'side',dataset:{}}});
  source.handlers.change({target:{id:'preset-condition',value:'stress',dataset:{}}});
@@ -204,7 +209,7 @@ test('workspace import retains composed draft values without importing recipe pr
  const target=setup();
  target.ctx.payload=payload;
  vm.runInContext('pendingImport=parseBackup(payload)',target.ctx);target.click('confirm-import');
- assert.equal(vm.runInContext('draft.name',target.ctx),'Studio baseline');
+ assert.equal(vm.runInContext('draft.name',target.ctx),'Restaurant studio example');
  assert.equal(vm.runInContext('draft.inquiries',target.ctx),expected.inquiries);
  assert.equal(vm.runInContext('JSON.stringify(draft.customerMix)',target.ctx),JSON.stringify(expected.customerMix));
  assert.equal(vm.runInContext('JSON.stringify(draft.recipe)',target.ctx),JSON.stringify(expected.recipe));

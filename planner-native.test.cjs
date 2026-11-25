@@ -37,7 +37,7 @@ test('trying a price option creates an independent baseline-preserving alternati
 
 test('Studio ideas flow directly into the studio mix without duplicating repeated clicks or rewriting their sources',async()=>{
  const h=await open();const ideas=run(h,'JSON.stringify(studioSession.data)'),id=run(h,'studioSession.data.offerings[0].id');
- h.click('view',{view:'studio'});assert.match(h.elements['#root'].innerHTML,/Plan this idea/);h.click('studio-plan',{id});
+ h.click('view',{view:'studio'});h.click('studio-select',{id});assert.match(h.elements['#root'].innerHTML,/Plan this idea/);h.click('studio-plan',{id});
  assert.equal(run(h,'view'),'planner');assert.equal(run(h,'plannerController.ui.tab'),'mix');assert.equal(run(h,'plannerSession.data.plans[0].services.length'),2);
  assert.equal(run(h,'plannerSession.data.plans[0].services[1].quantity'),'');assert.equal(run(h,'plannerSession.data.plans[0].services[1].allocations[0].poolId'),'');
  h.click('studio-plan',{id});assert.equal(run(h,'plannerSession.data.plans[0].services.length'),2);assert.equal(run(h,'JSON.stringify(studioSession.data)'),ideas);

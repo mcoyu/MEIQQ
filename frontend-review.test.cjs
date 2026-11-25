@@ -47,7 +47,7 @@ test('analytics tabs and paging controls have distinct render identities',()=>{
 test('comparison rows use financial totals without re-aggregating full contract analytics',()=>{
  const {ctx}=setup();
  vm.runInContext("for(let i=0;i<20;i++)QQ.step(state);saved=[QQ.clone(state),QQ.clone(state)];var a=QQ.analytics(state),m=QQ.metrics(state);QQ.analytics=()=>{throw Error('Unexpected expensive contract aggregation for comparison row')}",ctx);
- const html=vm.runInContext('simulationAnalyticsView(a,m)',ctx);
- assert.match(html,/Simulation comparison/);assert.ok(!/NaN|Infinity/.test(html));
- assert.match(html,/Same day/);
+ const html=vm.runInContext('scenariosTableView()',ctx);
+ assert.match(html,/Choose a baseline/);assert.ok(!/NaN|Infinity/.test(html));
+ assert.match(html,/Pin baseline/);
 });

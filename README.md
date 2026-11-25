@@ -2,27 +2,31 @@
 
 ## Open
 
-Extract the ZIP and double-click **MEIQQ.html**. Choose a modern browser if prompted. It runs offline on Windows and Mac, with no installation or server. A native desktop installer is not included.
+Double-click **MEIQQ.html** in this directory. If you received a ZIP, extract it first. Choose a modern browser if prompted. It runs offline on Windows and Mac, with no installation or server. A native desktop installer is not included.
 
-## Studio ideas launch pad
+## Studio workbench
 
-Open **Studio ideas** in the sidebar to explore what the studio could offer. This is an independent offline workspace for unfinished ideas; it does not create customers, jobs, payments or simulator assumptions.
+Open **Studio → Ideas** in the sidebar to see **Your ideas**. Select an idea to work on its **Next action**, or choose **New idea** to start one. **← Your ideas** takes you back to the list.
 
-- Start with five editable examples covering analytics, creative work, product content, supplier coordination and Chinese-market discovery, or add a **Blank idea**. Example context is not a chosen service menu or evidence of demand. Prices and effort start unknown.
-- Use **Scope** to describe the buyer, outcome, priced unit, inputs, handoffs and completion checks. **Research** keeps notes, references and the next thing to validate. Opening an external source link is optional and needs connectivity; the saved notes work offline.
+Choose **Plan this idea** to try its price and effort in a service mix. When a client wants the work, choose **Start a job from this idea**. The draft includes the idea’s name, scope, deliverables and proposed price. Enter the client and review the terms before recording an agreement. The job keeps the source idea’s name and revision.
+
+In **Planner → Service mix**, open the linked service. Beside **Your hours per unit**, you can see recorded owner hours from up to three recent real jobs with an agreement, a delivery and posted owner time. Expand the figures to see delivery dates and open each job. Archived jobs count. Check the scope and setup of each job when deciding whether to edit your estimate.
+
+- Start with five editable examples covering analytics, creative work, product content, supplier coordination and Chinese-market discovery, or add a **New idea**. Example context is not a chosen service menu or evidence of demand. Prices and effort start unknown.
+- Expand **Idea details** to describe the buyer, outcome, priced unit, inputs, handoffs and completion checks. **Research** keeps notes, references and the next thing to validate. Opening an external source link is optional and needs connectivity; the saved notes work offline.
 - Use **Numbers** for USD price, direct costs, paid roles, your hours, your time target and allocated overhead. **First engagement** includes preparation once; **Later engagement** excludes it and assumes that preparation can be reused. Both use the same proposed price. No sales volume is assumed.
 - **Compare ideas** shows the available estimates together, including total work hours and your share of that effort. Hours are summed work, not elapsed turnaround. Blank or invalid inputs stay unknown, and negative remainders remain visible. “Left after allowances” deducts direct costs, your time allowance and overhead. “Available / owner hour” is before valuing your time. Neither is recorded cash or guaranteed income.
-- Edits save in this browser using a separate Studio record, with IndexedDB and a localStorage fallback. **Studio backup** downloads a portable copy of ideas and research. **Import ideas** validates a Studio backup and adds independent copies, preserving existing ideas. Studio backups have an 8 MiB limit and are separate from simulator backups.
+- Edits save in this browser using a separate Studio record, with IndexedDB and a localStorage fallback. Under **Workspace options**, **Studio backup** downloads a portable copy of ideas and research. **Import ideas** validates a Studio backup and adds independent copies, preserving existing ideas. Studio backups have an 8 MiB limit and are separate from simulator backups.
 
-Keep browser backups before clearing site data, changing browsers or moving the HTML file. If saving fails or another window changes the same Studio record, the app shows the problem; download your session before closing it. Research links are manually supplied references, not an automated research service. Copy an idea into Planner to test a provisional mix; Jobs manages separately entered real client work.
+Keep browser backups before clearing site data, changing browsers or moving the HTML file. Ideas, Planner and Jobs each have a backup. To move a connected workflow, export and restore all three. If saving fails or another window changes the same Studio record, the app shows the problem. Download your session before closing it.
 
 ## Task 2 — Studio capacity and earnings
 
 Open **Planner → Earnings lab** to edit the app directly. Its **Studio plan** starts with a $2,000 combined owner-income target and eight weekly hours for each partner. Sliders and exact-value fields update price, volume, costs, effort, capacity and the target shortfall immediately. These controls work with any service mix; no import is needed. Existing plans and frozen baselines are preserved when the app adds the Studio plan once.
 
-1. **Earnings lab:** explore prices and workload against shared studio targets. **Try this price & volume** saves an independent alternative using the calculated required price; it preserves the starting baseline and never silently reduces effort. **Studio ideas → Plan this idea** copies a researched idea into the Studio plan, leaving its source intact and unfinished assumptions unknown.
+1. **Earnings lab:** explore prices and workload against shared studio targets. **Try this price & volume** saves an independent alternative using the calculated required price; it preserves the starting baseline and never silently reduces effort. **Ideas → Plan this idea** copies a researched idea into the Studio plan, leaving its source intact and unfinished assumptions unknown.
 2. **Baseline:** enter your total hours, non-project time, reserve buffer, each paid role's delivery capacity and rate, recurring studio costs, owner income target and extra retained-money target. Unknown estimates stay blank until you can supply them.
-3. **Service mix:** add any provisional service or copy a Studio idea. Define its priced unit, whole-unit quantity, price, direct costs and your effort. Map paid work to a role pool. Enter how many units need extra setup; setup work is counted only that many times. Copied ideas remain independent, and their per-idea overhead and hourly owner allowances are not deducted again.
+3. **Service mix:** enter monthly quantities directly in the list. Open a service to edit its priced unit, price, direct costs and your effort. Use **Add blank service** or **Copy a Studio idea** to expand the mix. Map paid work to a role pool. Enter how many units need extra setup; setup work is counted only that many times. Copied ideas remain independent, and their per-idea overhead and hourly owner allowances are not deducted again.
 4. **Results:** inspect role-by-role shortages, used-hour labor costs, money available for your income, the remainder after that target, and the shortfall against both targets. These are before-tax planning calculations, not demand forecasts or recorded cash. The proportional capacity ceiling may imply fractional units; the entered whole-unit workload receives its own capacity check.
 5. **Capture dated baseline**, then **New alternative:** change volume, prices, effort or capacity and use **Compare** to see the frozen starting assumptions beside an alternative. Every alternative keeps its own baseline snapshot. Later edits and new baseline captures do not rewrite existing alternatives.
 
@@ -38,7 +42,7 @@ See **TASK2-REVIEW.md** for the worked example and verification record.
 
 ## S1 — One job end to end
 
-Open **Jobs** to manage an ad hoc client job without choosing a fixed service menu. Start with **Blank real job** or explicitly add the fictional **practice example**. Practice records remain visibly marked and cannot be silently converted to real ones.
+Open **Jobs** to manage client work. Start from an idea, choose **Blank real job** for a one-off, or add the fictional **practice example**. Practice records remain visibly marked and cannot be silently converted to real ones.
 
 Use **Delete draft** to move an unrecorded job to **Trash**. **Undo** or **Trash → Restore draft** brings it back with all unfinished inputs. Jobs with an agreement or any posted history instead offer **Archive job**; restore them from **Archived** to resume editing. Cleanup is recoverable, and recorded history is retained. Search works within Active, Archived or Trash; each card shows its stable job ID so identical examples can be distinguished. Editing a searched job clears the search if the edit would otherwise hide that job mid-typing.
 
@@ -57,19 +61,32 @@ S1 is manual, single-operator recordkeeping in USD. It does not send quotes/invo
 
 ## A clearer first experiment
 
-1. Open **1. Set up**. Choose a Metro Detroit scenario recipe, or work through **Services → Customers → Team & time → Cash & timing**.
-2. Change the numbers you want. Prices and hours show their units; percentages use values such as **70**, not **0.7**.
-3. Read the draft preview. It shows potential monthly economics and the hours required versus hours available.
-4. Select **Review & apply changes**. Apply to future work, or save the current run and start a new one.
-5. Open **2. Run scenario**. Advance **1 day**, press **Run**, or select **Finish month**.
-6. Click a project to see what must happen next, its agreed price, costs, deadline and timeline.
-7. Open **3. Review results**. Inspect cash, operating result, owner time and overdue balances separately.
+1. Open **1. Set up**. Choose **Set up my business** to enter a service, or **Try the restaurant example** to explore a populated menu. Work through **Offers → Demand → People → Cash & timing**. In Offers, **Setup options** contains the run length and **All assumptions** view.
+2. Open a service and enter its price and deliverable. Expand **Delivery time and costs** for work hours and printing. Open **Inquiry mix** to adjust the weights together and see how much of all new demand each service receives.
+3. Choose **Run length** from 1 to 12 model months. New scenarios start at 3 months (90 days). The estimate uses the selected period’s working days, inquiry rate, staffing and monthly overhead. It assumes delivery of every expected new order. Use **Sources for these estimates** to attach a reference, date and sample to an assumption.
+4. Select **Simulate 90 days**, or the duration you chose. Confirm any setup changes. The simulator opens Results when the run finishes and pauses for a decision if cash runs short.
+5. On **2. Run scenario**, step one day, play, finish the month, or select **Controls → Finish run**. Open a project to see the next action, agreed scope, price, deadline and payments.
+6. In **3. Review results**, choose a reporting month for earnings, deliveries and cash. Longer runs also show whole-run totals. Use **New scenario** in Setup to preserve the current run, unfinished draft and checkpoints before starting another scenario.
 
-New users start on day 0 with the Metro Detroit / solo / steady recipe: 15 owner hours per week, four outreach hours at 0.30 qualified inquiries per hour, 30% qualified-quote acceptance and $18 per designer hour. These are low-confidence modeled starting assumptions, not measured benchmarks. Existing readable browser saves are resumed unchanged; use the recipe loader if you want to merge the newer assumptions into an older saved draft. **Open worked example** loads a hypothetical studio on day 12 after preserving the complete current workspace in **Runs & backups → Preserved workspaces**.
+### Replay a bottleneck
+
+Choose **Test one change** on a job waiting for design or owner time. It also appears in **Review results → Compare runs** for a studio-wide experiment. Pick a month, change the weekly hours per designer, designer count or owner hours, and choose **Replay both runs**. The copies start with the same opening work, funding and recorded decisions. The original must reproduce the recorded month through the last observed day. Replaying a partial month labels the remaining days as simulated.
+
+The result shows the selected job’s status or delivery day, the accepted jobs still waiting, deliveries, operating profit, earnings after owner time and closing cash. **Save comparison** keeps both copies together under **Compare runs → Saved replays**. Your active run and setup draft stay in place. Older saves with incomplete history or a replay that stops for funding explain what prevented a matched result.
+
+Choose **Carry this change forward** when the replay month ends before the end of the configured run. Both copies continue from their month-end workloads, with the tested capacity setting held in the changed copy. The result shows the delivery date for the same job and the operating-profit difference at each month-end. **Since day** accumulates gains and losses from the start of the tested month. A lasting gain starts at the first positive month-end that stays positive through the selected horizon. Designer cost follows the hours actually worked at the modeled rate.
+
+Expand **Compare both runs in detail** for side-by-side earnings, costs, cash, deliveries and ending backlog. Save the result to reopen it directly from **Saved replays** or download it in the comparison report. New saves retain the settings, funding and decisions recorded in the original scenario. For an older pair that lacks the original’s later decisions, **Project from saved month-end** continues the two saved schedules and labels the projected dates.
+
+Monthly replays and carry-forward results show what each schedule spent on the jobs still awaiting delivery at the cutoff. Open the cost breakdown for individual orders and repeat cycles, including jobs with different project numbers across schedules. **Why did cash change?** reconciles receipts, spending, funding and closing cash. The backlog detail identifies shared open jobs, deliveries and work accepted in just one schedule. The downloaded comparison includes the same period and figures.
+
+At the configured horizon, choose **Finish the accepted work** to close intake on two copies and follow the orders already accepted and the invoices still outstanding. Each schedule keeps its staffing, reserved outreach, supplier commitments, payment timing and overhead. Both pay costs through the later settlement date. The result shows the original cutoff, each schedule’s delivery and collection dates, and the cumulative operating-profit difference at their common close. A funding stop, unreachable work or the 360-additional-day limit shows the outstanding work and the stopping reason. A saved, settled projection reopens with its comparison and appears in its offline HTML report.
+
+The restaurant example assumes 15 weekly owner hours, four outreach hours at 0.30 qualified inquiries per hour, 30% quote acceptance and $18 per designer hour. Replace these estimates from your own records. A resumed workspace uses its saved numbers. The separate **Open worked example** action loads a hypothetical day-12 studio after preserving the current workspace.
 
 ## Local scenario recipes
 
-Setup asks four understandable questions: **where is the studio**, **how large is the operation**, **who does it serve**, and **what kind of month is being tested**. Six local-market narratives, four operating models, six shop mixes and five conditions can be combined in 720 ways; that count is combinatorics, not 720 observed or researched markets. Applying a recipe changes only the draft; review its exact values before applying it to a run. Recipe loading merges market, team, customer and condition assumptions while preserving your service catalog, prices and mix, starting cash, seed and horizon.
+Select **Try a scenario** to compare proposed draft values. The six market labels describe location. Four operating models, six customer mixes and five business conditions produce 120 operating combinations. These conditions apply across the selected run. Earlier saved recipes retain their original geography-dependent values and provenance. Loading a recipe preserves the service menu, prices, starting cash, seed and horizon. Review the proposed changes, merge them into the draft, then apply or use **Undo recipe**.
 
 Public context supplies vocabulary and qualitative setting through U.S. Census QuickFacts, the May 2025 BLS Detroit-area wage release, Michigan wage rules and selected city economic-development pages. It does not establish the ordering of recipe values and does not publish design-service conversion, demand or price forecasts. The app therefore treats prices, inquiries, conversion and operating behavior as transparent modeled scenarios—not market quotes or predictions.
 
@@ -77,7 +94,7 @@ The evidence supplies broad context, not a numeric calibration formula. `preset-
 
 Composed recipe values and their versioned recipe origin survive browser saves, checkpoints, backups, preserved workspaces and import. The selector's current UI position is still a separate browser preference, so it may show another combination after import; use the recipe origin shown on the saved run, and treat the saved exact assumptions as authoritative.
 
-**Steady month** is the neutral demand multiplier, not a guarantee of spare capacity. The recipe preview warns when expected work exceeds the selected team. Ordinary uncertainty uses the master switch; higher-impact rush deadlines, supplier reprints, repeated revision rounds and extended late payments are separately opt-in modeled disruptions with editable inferred frequencies.
+**Steady month** is the neutral demand multiplier, not a guarantee of spare capacity. The draft preview shows the expected work against owner and designer capacity. Ordinary uncertainty uses the master switch; higher-impact rush deadlines, supplier reprints, repeated revision rounds and extended late payments are separately opt-in modeled disruptions with editable inferred frequencies.
 
 - [U.S. Census QuickFacts](https://www.census.gov/quickfacts/)
 - [BLS Detroit-Warren-Dearborn occupational wages](https://www.bls.gov/regions/midwest/news-release/2026/occupationalemploymentandwages_detroit_20260715.htm)
@@ -94,22 +111,24 @@ Inputs belong to a **draft**. Typing does not change the running simulation. The
 - **Apply & start new run:** saves a checkpoint and starts on day 0 with the new assumptions.
 - **Cancel all draft changes:** returns to applied settings.
 - Changing the starting cash or random seed after day 0 requires a new run. To fund the current business, use **Add owner funding**.
-- Service inquiry shares must total 100%. **Balance shares equally** fixes the total immediately. Shares are relative among offerings suitable for each business group, so actual project mix can differ from the overall shares. A newly added or duplicated service starts at 0% so it cannot silently change the workload.
+- Service inquiry shares must total 100%. **Balance shares equally** fixes the total immediately. Shares are relative among offerings suitable for each business group, so actual project mix can differ from the overall shares. The first service in an empty menu starts at 100%. Additional or duplicated services start at 0% and can stay unfinished in the draft.
 - Empty or invalid values are flagged; they are not silently treated as zero.
 
 ## Businesses and offerings
 
 New workspaces draw inquiries from **22 business types**: bakeries, bubble tea shops, noodle and dumpling shops, cafés, pizzerias, fast-casual and sit-down restaurants, food trucks, dessert shops, retailers and local services. Names are hypothetical and distinct within a run. Returning clients keep their business type and identity.
 
-In **Customers**, set the share of inquiries from food, retail and local services, choose an optional niche focus, and select no, moderate or stronger workflow variation. The focus type receives half of its group's inquiries. Business types can change illustrative work hours, approval waits and repeat frequency; the overall conversion, service prices, print costs and capacity still come from your inputs. Older saved runs keep their original generic customer behavior until you enable business types in the draft and apply it.
+In **Demand → Repeat business and customer mix**, set the share of inquiries from food, retail and local services, choose an optional niche focus, and select no, moderate or stronger workflow variation. The focus type receives half of its group's inquiries. Business types can change illustrative work hours, approval waits and repeat frequency; the overall conversion, service prices, print costs and capacity still come from your inputs. Older saved runs keep their original generic customer behavior until you enable business types in the draft and apply it.
 
-In **Services**, add an editable starter offering for menus, window promotions, flyers, social graphics, loyalty cards, digital menu boards or a seasonal campaign. Starter prices and costs are examples, not vendor quotes; [SERVICE-EVIDENCE.md](SERVICE-EVIDENCE.md) records their frozen observations, modeled derivations and exclusions. New offerings start at **0% inquiry share** until you assign a share. Set each offering's suitable business group. A new inquiry with no matching offering is counted as unserved; the preview includes expected unserved inquiries and the workflow shows the actual count. Existing accepted project terms remain locked.
+In **Offers**, enter a service of your own or browse the example menus, window promotions, flyers, social graphics, loyalty cards, digital menu boards and seasonal campaigns. Set each offer’s eligible business group and inquiry weight. The offer card shows its resulting share of all new inquiries. Setup estimates how many inquiries will find no match, and the run counts the actual misses. Example prices, costs, source observations and exclusions are documented in the [service evidence register](SERVICE-EVIDENCE.md).
 
-For print-bearing work, customers choose agency-managed printing or design-only files at quote acceptance. The setup share is an unvalidated modeling assumption used only for expected unit economics; accepted projects record the realized route and locked price/cost terms. Monthly and seasonal packages model a year-long relationship with separately quoted 30- or 90-day campaigns, not guaranteed revenue or a prepaid annual subscription. Declining one campaign skips that cycle without ending the relationship; another quote can be offered at the next cadence through the one-year cutoff. The chosen product policy is pay per campaign. Monthly invoicing and annual prepayment are unsupported alternatives, not unresolved setup choices.
+For print-bearing work, customers choose agency-managed printing or design-only files at quote acceptance. The share choosing managed printing drives the weighted setup estimate and the route sampled at acceptance. Each accepted project keeps its agreed deliverable, price and supplier allowance. Monthly and seasonal packages model a year-long relationship with separately quoted 30- or 90-day campaigns, not guaranteed revenue or a prepaid annual subscription. Declining one campaign skips that cycle without ending the relationship; another quote can be offered at the next cadence through the one-year cutoff. The chosen product policy is pay per campaign. Monthly invoicing and annual prepayment are unsupported alternatives, not unresolved setup choices.
 
 ## Find and understand projects
 
-The workflow uses numbered steps and responsibility lanes for Clients, You, China team and Suppliers. Digital services skip printing. The layout no longer requires a wide horizontal canvas.
+**Jobs to watch** shows up to three open jobs, who acts next, and the reason for the wait. A funding pause, missing capacity or missed deadline gets priority over routine work. Select a job for its next action, agreed scope, controls and timeline. **View all open jobs** opens the searchable project list.
+
+Use **Next project event** to skip quiet days or **1 day** to advance one day. Expand **Work queues by responsibility** or **Full project handoff map** for the detailed workflow. **Controls** holds speed, run length and restart.
 
 Select a stage to inspect its queue, or a project to see its next action. **Projects** provides client/project search and filters for active, late, payment, completed and declined work.
 
@@ -117,14 +136,15 @@ Project controls support prioritization, extending the agreed delivery deadline,
 
 ## Analyst results workspace
 
-Open **3. Review results**. Four focused views share the current scenario and elapsed-day context:
+Open **3. Review results** to inspect five views for the current scenario and elapsed day.
 
-- **Profit overview:** delivered revenue, contribution margin, operating margin and the result after owner time. The bridge reconciles delivered direct costs, unfinished-work costs and overhead. Services are ranked by contribution dollars.
-- **Contracts:** search by client or ID, filter open deliveries or outstanding balances, and rank contracts by revenue, contribution, margin, receivables or result after owner time. Twenty rows per page keep long simulations manageable. Expand a client for booked value, collections, hours and project links.
-- **Simulation stats:** decided-quote conversion, returning-cycle share, delivery performance, monthly trends and a table comparing the current run with saved checkpoints. Partial months and different elapsed days are labeled.
-- **Cash & ledger:** cash reconciliation, cash history and the latest 100 transactions.
+- **Profit overview** opens on the latest simulated month. Choose an earlier month to see its deliveries, costs, deposits and open balances. Open the unfinished jobs to see their status at that cutoff and replay a capacity wait for the same job. Older saves with incomplete history show the facts supported by dated records. **Run-to-date financial details** contains cumulative margins and the service table.
+- **Contracts** supports search by client or ID and filters for open deliveries and outstanding balances. Expand a client for booked value, collections, hours and project links.
+- **Simulation stats** shows quote acceptance, returning work, delivery performance and monthly trends. **Run 20 sample months** replays the applied setup at different seeds on independent copies. It reports ranges for completed months and counts funding pauses separately.
+- **Cash & ledger** reconciles cash and charts its history for one month or the whole run. **See cash movements** opens the month shown in the overview. Transactions appear newest first in pages of 100. Select a linked job for its current project details.
+- **Compare runs** opens one-change experiments and saved pairs. You can also pin a checkpoint and compare it with the active run or another checkpoint. The offline report includes the selected pair’s monthly result, plus run totals, the exact changed assumptions and available evidence.
 
-Contribution compares delivered revenue with direct costs of delivered work. Operating margin also deducts unfinished-work costs and shared overhead. Owner-time results value all recorded hours at the currently applied target; this is not a cash expense. Ratios display **—** when their denominator is zero. Contract results exclude shared overhead, outreach and unsuccessful new-business quoting. Recurring cycles are grouped under one contract. A matching simulation seed does not guarantee matching demand settings.
+Contribution compares delivered revenue with direct costs of delivered work. Operating margin also deducts unfinished-work costs and shared overhead. The historical after-owner-time measure values each model month’s hours at its closing hourly target and sums the selected months. Run-to-date detail also shows all hours valued at today’s target. Ratios display **—** when their denominator is zero. Contract results exclude shared overhead, outreach and unsuccessful new-business quoting. Recurring cycles are grouped under one contract. Comparison also checks the incoming demand history.
 
 ## Runs and backups
 
@@ -146,23 +166,27 @@ Backups do not contain browser theme preferences.
 
 Browser storage remains specific to browser and file location. Download a backup before moving or replacing the HTML. Saves from the older prototype use the same storage key when the browser makes them available. Migration keeps the exact older browser save available under **Runs & backups → Original files** before writing the updated format. Successful migration does not leave a persistent warning on the main screen. Older checkpoints missing delivery dates are repaired only when their delivery history identifies the date; a known completed-payment date error also requires matching completion and receipt records. When importing an old snapshot that did not record project terms, migration retains recorded values and uses that snapshot's saved settings only for missing terms. Unrecoverable or inconsistent histories are left intact for manual recovery.
 
+## Language
+
+Choose **Language / 语言 → 简体中文** in the header to use the app in Simplified Chinese. Choose **English** to switch back. The translations work offline, and this browser remembers the language. English uses US dollars. Simplified Chinese displays and accepts renminbi (CNY). The **人民币 ¥** disclosure beside the language menu shows the fixed offline reference rate of **1 USD ≈ 6.6645 CNY**, derived from the European Central Bank’s 24 November 2026 rates. Records are stored to the nearest US cent, so an amount entered in yuan can round by a few fen. Switching languages preserves your saved records and backup data.
+
 ## Appearance
 
-The top-bar **Appearance** selector offers:
+Terminal is the default theme. Its Bloomberg-inspired appearance uses black surfaces, amber monospace text and cyan project labels. This is independent software, with no Bloomberg connection or data. Dark uses slate surfaces, light text and blue accents.
 
-- **Light:** off-white surfaces and green accents.
-- **Dark:** dark slate surfaces, light text and teal accents.
-- **Terminal:** Bloomberg-inspired black, amber, monospace typography and cyan project text. This is independent software, with no Bloomberg connection or data.
+Choose a theme under **Workspace options → Appearance** in Simulator or **Appearance** in Studio ideas, Jobs and Planner. The app remembers your choice in this browser.
+
+Three cloud banks cross the sky at different speeds. Dry air splits the banks into billows and opens gaps onto the stars. Loose copper curls around the edges and gathers in rising air to form new clouds downwind. Each bank can follow **Evolving weather** or hold one of the ten cloud genera in the [WMO International Cloud Atlas](https://cloudatlas.wmo.int/en/cloud-classification-summary.html). The Galaxy star field turns around the crescent moon, and occasional shooting stars pass behind the clouds. Choose **Edit sky** beside Appearance to move, resize or hide individual layers, adjust the light and wind, and save the composition in this browser. Drag the selected layer in the preview or use the position sliders. **Background motion** follows your device’s motion preference by default. Choose **Animate** or **Still** beside Appearance to override it. Motion pauses in hidden tabs.
 
 ## Economics and uncertainty
 
 Client names and exact outcomes are hypothetical. Local preset ranges use the public evidence listed above, but they are scenario inputs rather than researched market forecasts or vendor quotes.
 
-The preview and simulation now both use the first **30 calendar days / 22 working days**. Preview totals assume full fulfillment of new converted inquiries; they exclude returning clients, delays and uncertainty. Outreach estimates respect the same available-owner-hours cap as the running engine.
+The preview uses the full selected horizon. A 90-day run has 65 working days. The five-day workweek continues across 30-day reporting boundaries. Monthly overhead and fixed-demand assumptions keep their monthly rates. The preview assumes full fulfillment of new converted inquiries and excludes returning clients, delays and uncertainty. Outreach estimates use the same available-owner-hours cap as the running engine.
 
 One tick is a day. Work is available five days in seven. When work or a wait has zero remaining duration, a project can cross multiple stages on the same day. Owner capacity is shared by quoting, review, delivery and outreach. Design capacity is shared across projects, but one project can use at most one designer's daily availability; separate projects can run in parallel across designers. Designers are paid for hours actually worked.
 
-The owner's time is valued separately rather than deducted from cash. **After owner-time target** is a decision aid: all recorded owner hours are multiplied by the currently applied hourly target, so changing that target revalues the full run rather than preserving a historical rate per hour.
+Owner time is an economic valuation. It has no cash posting. A target edited after closing day 30 applies from day 31. Partial periods use the rate in effect on their last simulated day. A legacy run without rate history labels the available current-rate valuation.
 
 Deposits enter cash on quote acceptance. Fully prepaid delivered projects complete immediately and are never counted as overdue payments. Funding appears immediately in the cash chart and current-day cash observation. Revenue is recognized on delivery. Costs are expensed when incurred, including costs on unfinished work. This is an operating simulation, not full accrual accounting. Owner funding changes cash but never revenue or profit.
 
