@@ -108,17 +108,17 @@ function serviceEditor(plan,service,index,editing,recentHours){
  const key=dom(plan.id)+'-'+dom(service.id),path='services.'+index+'.',attrs=`data-plan-id="${esc(plan.id)}" data-service-id="${esc(service.id)}"`;
  const isOpen=editing?.planId===plan.id&&editing.serviceId===service.id;
  const title=named(service,'name','Untitled service'),unit=named(service,'unit','engagement');
- const rowToggle=button(`<span><strong>${title}</strong><small>${unit}</small></span><span class="disclosure-chevron" aria-hidden="true"></span>`,'edit-service',`${attrs} id="edit-${key}" aria-controls="details-${key}" aria-expanded="${isOpen}"`,'planner-mix-toggle');
+ const rowToggle=button(`<span><strong>${title}</strong><small>${unit}</small></span><span class="planner-edit-caption">${isOpen?'Close':'Edit'}</span><span class="disclosure-chevron" aria-hidden="true"></span>`,'edit-service',`${attrs} id="edit-${key}" aria-controls="details-${key}" aria-expanded="${isOpen}"`,'planner-mix-toggle');
  const unmapped=service.allocations.some(a=>!a.poolId);
  return `<section class="planner-mix-item" aria-labelledby="edit-${key}" data-render-key="mix-${key}">
-  <div class="planner-mix-row">${rowToggle}${numeric(plan,path+'quantity','Units per 30 days')}</div>
+  <div class="planner-mix-row">${rowToggle}${numeric(plan,path+'quantity','Units per 30 days')}${button('Remove','service-remove',`${attrs} aria-label="Remove ${title} from plan"`,'planner-remove-service')}</div>
   <div class="planner-service-body" id="details-${key}"${isOpen?'':' hidden'}>
    <div class="planner-fields">${field(plan,path+'name','Service name')}${field(plan,path+'unit','One priced unit means…',{help:'For example: one brief, one batch or one review.'})}
    ${numeric(plan,path+'price','Price per unit · $')}${ownerEstimate(plan,path+'ownerHours',isOpen&&service.source?.ideaKey?recentHours(service.source.ideaKey):[],key)}
    ${numeric(plan,path+'directCost','Other direct cost per unit · $','Excludes paid-role labor and recurring studio costs.')}</div>
    <details class="planner-disclosure" data-disclosure="planner-roles-${key}"><summary>Paid-role work${unmapped?' · Choose a delivery pool':''}</summary>${allocations(plan,service,index)}</details>
    <details class="planner-disclosure" data-disclosure="planner-setup-${key}"><summary>Setup needed for some or all units</summary><p class="planner-muted">Setup is additional to each unit’s normal work. Use zero only when preparation can be reused or none is needed.</p><div class="planner-fields">${numeric(plan,path+'setupCount','Units needing setup this period','Between zero and the total units planned.')}${numeric(plan,path+'setupCost','Other cost per setup · $','Excludes role setup labor.')}${numeric(plan,path+'setupOwnerHours','Your extra hours per setup')}</div></details>
-   <div class="planner-service-end">${service.source?`<small>Copied from ${text(service.source.name)} (idea revision ${text(service.source.ideaVersion)}) on ${text(service.source.copiedAt)}</small>`:''}${button('Remove service','service-remove',`${attrs} data-index="${index}"`,'small ghost')}</div>
+   ${service.source?`<div class="planner-service-end"><small>Copied from ${text(service.source.name)} (idea revision ${text(service.source.ideaVersion)}) on ${text(service.source.copiedAt)}</small></div>`:''}
   </div></section>`;
 }
 function serviceMix(plan,ui,available,recentHours){
@@ -132,9 +132,15 @@ function serviceMix(plan,ui,available,recentHours){
    button('Edit estimate','edit-service',`data-plan-id="${esc(plan.id)}" data-service-id="${esc(service.id)}" data-field="${esc(parts.join('.'))}"`,'primary');
   nextStep=`<div><small>Next estimate</small><strong>${esc(issueLabel(plan,next.path))}</strong>${next.kind==='invalid'?`<small>${esc(next.message)}</small>`:''}</div>${action}`;
  }
- const copy=available.length?`<details class="planner-copy-idea" data-disclosure="planner-copy-${esc(plan.id)}"><summary>Copy a Studio idea</summary><div class="planner-idea-picker"><label for="planner-idea"><span>Copy an existing Studio idea</span><select id="planner-idea" data-planner-idea data-plan-id="${esc(plan.id)}"><option value="">Choose an idea</option>${available.map(idea=>`<option value="${esc(idea.id)}"${idea.id===ui.ideaId?' selected':''}>${text(idea.name,'Untitled idea')}</option>`).join('')}</select></label>${button('Copy idea','idea-add',`data-plan-id="${esc(plan.id)}" data-idea-id="${esc(ui.ideaId||'')}"${available.some(idea=>idea.id===ui.ideaId)?'':' disabled'}`)}</div></details>`:'';
+ const copy=available.length?`<details class="planner-copy-idea" data-disclosure="planner-copy-${esc(plan.id)}"><summary>Copy a Studio idea</summary><div class="planner-idea-picker"><label for="planner-idea"><span>Copy an existing Studio idea</span><select id="planner-idea" data-planner-idea data-plan-id="${esc(plan.id)}"><option value="">Choose an idea</option>${available.map(idea=>`<option value="${esc(idea.id)}"${idea.id===ui.ideaId?' selected':''}>${esc(root.QQStudioView?.ideaTitle(idea)??(idea.name.trim()||'Untitled draft '+idea.id.slice(5)))}</option>`).join('')}</select></label>${button('Copy idea','idea-add',`data-plan-id="${esc(plan.id)}" data-idea-id="${esc(ui.ideaId||'')}"${available.some(idea=>idea.id===ui.ideaId)?'':' disabled'}`)}</div></details>`:'';
+ const cards=plan.services.map((s,i)=>serviceEditor(plan,s,i,ui.editingService,recentHours));
+ const removed=ui.removedService;
+ if(removed?.planId===plan.id){
+  const undo=button('Undo','service-restore',`id="planner-undo-service" data-service-id="${esc(removed.row.id)}" data-plan-id="${esc(plan.id)}"`);
+  cards.splice(removed.index,0,`<div class="offer-recovery"><span role="status">Removed from plan · <b>${named(removed.row,'name','Untitled service')}</b></span>${undo}</div>`);
+ }
  return `<div class="planner-mix"><h3>Plan your monthly workload</h3><p class="planner-muted">${plan.services.length?'Set the quantity you want to try for each service. Open its name to edit price, effort and costs.':'Add your first service and choose how many units to try in 30 days.'}</p>
-  ${plan.services.map((s,i)=>serviceEditor(plan,s,i,ui.editingService,recentHours)).join('')}
+  ${cards.join('')}
   <div class="menu-tools">${button('Add blank service','service-add',`data-plan-id="${esc(plan.id)}"`,plan.services.length?'soft':'primary')}${copy}</div>
   ${plan.services.length?`<div class="planner-mix-footer">${nextStep}</div>`:''}</div>`;
 }

@@ -165,3 +165,14 @@
 .planner-job-hours li {display:flex;justify-content:space-between;gap:12px}
 .planner-job-hours li strong {white-space:nowrap}
 .planner-job-hours p {color:var(--muted)}
+
+.planner-mix-row {grid-template-columns:minmax(0,1fr) minmax(98px,124px) auto}
+.planner-edit-caption {margin-inline-start:auto;color:var(--accent);font-size:12px}
+.planner-remove-service {min-height:40px;color:var(--muted);background:transparent;border-color:transparent}
+.planner-remove-service:hover {color:var(--negative);text-decoration:underline;text-underline-offset:3px}
+@media(max-width:600px){
+ .planner-mix-row {grid-template-columns:minmax(0,1fr) auto;padding-block:8px}
+ .planner-mix-row .planner-mix-toggle {grid-column:1/-1}
+ .planner-mix-row .planner-field {max-width:125px}
+ .planner-remove-service {min-height:44px}
+}

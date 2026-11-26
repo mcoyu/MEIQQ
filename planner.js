@@ -86,6 +86,14 @@
  function addService(book,id,draft={}){const next=clone(find(book,id)),row=service(draft,'service-'+next.nextServiceId++,true);next.services.push(row);commit(book,id,next);return row;}
  function removeRow(book,id,section,rowId){const next=clone(find(book,id)),index=next[section].findIndex(v=>v.id===rowId);if(index<0)return false;next[section].splice(index,1);if(section==='pools')for(const s of next.services)for(const a of s.allocations)if(a.poolId===rowId)a.poolId='';if(section==='pools'&&book.studio?.planId===id&&book.studio.partnerPoolId===rowId){const candidate=clone(book);candidate.studio.partnerPoolId=null;commit(candidate,id,next);Object.assign(book,candidate);}else commit(book,id,next);return true;}
  const removePool=(book,id,rowId)=>removeRow(book,id,'pools',rowId),removeExpense=(book,id,rowId)=>removeRow(book,id,'expenses',rowId),removeService=(book,id,rowId)=>removeRow(book,id,'services',rowId);
+ function restoreService(book,planId,removed,index){
+  const next=clone(find(book,planId)),restored=clone(removed);
+  const pools=new Set(next.pools.map(pool=>pool.id));
+  // Removing a pool normally unmaps its hours. Apply the same rule to a returning service.
+  for(const allocation of restored.allocations)if(!pools.has(allocation.poolId))allocation.poolId='';
+  next.services.splice(index,0,restored);
+  commit(book,planId,next);
+ }
  function setAllocation(book,id,serviceId,poolId,patch={}){shape(patch,['name','hours','setupHours'],'Allocation changes',[]);const next=clone(find(book,id)),s=next.services.find(v=>v.id===serviceId);if(!s)throw Error('Planned service not found.');const index=poolId?s.allocations.findIndex(v=>v.poolId===poolId):-1,row=allocation({...(index<0?{name:'',hours:'',setupHours:''}:s.allocations[index]),...patch,poolId},false);if(index<0)s.allocations.push(row);else s.allocations[index]=row;commit(book,id,next);return row;}
  function removeAllocation(book,id,serviceId,index){const next=clone(find(book,id)),s=next.services.find(v=>v.id===serviceId);if(!s||!Number.isInteger(index)||!s.allocations[index])throw Error('Role allocation not found.');s.allocations.splice(index,1);commit(book,id,next);return true;}
  function fromIdea(book,id,idea,when){
@@ -166,6 +174,6 @@
   const ownerTotal=sum([ownerUsed,nonProject],'ownerTotal'),externalHours=sum(pools.map(pool=>pool.usedHours===null?null:Math.round(pool.usedHours*100)),'externalHours');
   return {revenue,directCosts,externalLaborCosts,externalCosts,recurringCosts,contribution,availableForOwner,ownerTarget,profitTarget,afterOwnerTarget,targetGap,quantityTotal:sum(services.map(s=>s.quantity),'quantityTotal'),ownerTotalHours:ownerTotal===null?null:ownerTotal/100,totalTeamHours:unmapped?null:sum([ownerTotal,externalHours],'totalTeamHours')===null?null:(ownerTotal+externalHours)/100,owner,pools,services,capacityStatus,feasibleAtCurrentVolume:capacityStatus==='overloaded'||targetGap!==null&&targetGap<0?false:capacityStatus==='unknown'||targetGap===null?null:true,maxScale,scaleStatus,requiredScale,goalFeasible,ceilingRevenue,ceilingContribution,ceilingAvailableForOwner,ceilingAfterOwnerTarget,issues};
  }
- const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_PLANS,PERIOD_DAYS,WORK_DAYS,EDIT_FIELDS:Object.freeze([...EDIT_FIELDS]),fresh,create,update,addPool,removePool,addService,removeService,addExpense,removeExpense,setAllocation,removeAllocation,fromIdea,captureBaseline,duplicate,remove,merge,validate,serialize,parse,parseText,metrics};
+ const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_PLANS,PERIOD_DAYS,WORK_DAYS,EDIT_FIELDS:Object.freeze([...EDIT_FIELDS]),fresh,create,update,addPool,removePool,addService,removeService,restoreService,addExpense,removeExpense,setAllocation,removeAllocation,fromIdea,captureBaseline,duplicate,remove,merge,validate,serialize,parse,parseText,metrics};
  root.QQPlanner=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

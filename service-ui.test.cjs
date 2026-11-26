@@ -150,3 +150,31 @@ test('guided setup keeps weights together and takes an inactive offer directly t
  ui.elements['#mix-recipient']={value:'2'};ui.click('assign-remainder');
  assert.equal(read(ui,'JSON.stringify(draft.services.map(s=>s.weight))'),'[35,30,35,0]');
 });
+
+test('removing and restoring draft offers keeps their identity, evidence and newer edits',()=>{
+ const ui=setup();ui.click('start-restaurant');
+ read(ui,`var original=JSON.stringify(state.config),offer=draft.services[1],path='services.'+offer.id+'.price';
+   draft.assumptionRecords={[path]:{source:'Supplier quote',sample:'One order',date:'2026-11-01',value:offer.price}};`);
+ const id=read(ui,'offer.id');
+ ui.click('remove-service',{id});
+ assert.equal(read(ui,'draft.assumptionRecords'),undefined);
+ assert.match(ui.elements['#root'].innerHTML,/30% left to assign/);
+ assert.equal(read(ui,'JSON.stringify(state.config)'),read(ui,'original'));
+ input(ui,'services.0.price',410);
+ const nextId=read(ui,'draft.services[1].id');
+ ui.click('remove-service',{id:nextId});
+ assert.match(ui.elements['#root'].innerHTML,/Keep one service/);
+ ui.click('remove-service',{id:read(ui,'draft.services[0].id')});
+ assert.equal(read(ui,'draft.services.length'),1);
+ ui.click('restore-service');ui.click('restore-service');
+ assert.equal(read(ui,'draft.services[1]===offer'),true);
+ assert.equal(read(ui,'draft.services[0].price'),410);
+ assert.equal(read(ui,'draft.assumptionRecords[path].source'),'Supplier quote');
+ assert.equal(read(ui,'JSON.stringify(state.config)'),read(ui,'original'));
+ const reopened=setup([...ui.storage]);
+ assert.equal(read(reopened,'draft.services[1].id'),id);
+ assert.equal(read(reopened,'draft.services[0].price'),410);
+ assert.equal(read(reopened,'draftError()'),'');
+ ui.click('remove-service',{id});ui.click('discard');
+ assert.doesNotMatch(ui.elements['#root'].innerHTML,/id="undo-service-removal"/);
+});

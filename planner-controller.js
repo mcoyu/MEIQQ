@@ -73,7 +73,22 @@
    }
    else if(name==='planner-show-ideas'){ui.tab='mix';render();remember();const picker=document.querySelector('#planner-idea');if(picker){const section=picker.closest?.('details');if(section)section.open=true;picker.focus();}return;}
    else if(name==='planner-service-add'){const row=Model.addService(session.data,id);editService(id,row.id);changed=true;}
-   else if(['planner-pool-remove','planner-expense-remove','planner-service-remove'].includes(name)){const type=name.split('-')[1],rows=plan(id)[type==='pool'?'pools':type==='expense'?'expenses':'services'],row=rows[Number(data.index)];if(!row)throw Error('Choose a row first.');Model['remove'+type[0].toUpperCase()+type.slice(1)](session.data,id,row.id);changed=true;}
+   else if(name==='planner-service-remove'){
+    const services=plan(id).services,index=data.serviceId?services.findIndex(s=>s.id===data.serviceId):Number(data.index);
+    const row=services[index];
+    if(!row)throw Error('Choose a row first.');
+    Model.removeService(session.data,id,row.id);
+    ui.removedService={planId:id,row,index};
+    if(ui.editingService?.planId===id&&ui.editingService.serviceId===row.id)ui.editingService=null;
+    changed=true;
+   }
+   else if(name==='planner-service-restore'){
+    const removed=ui.removedService;
+    if(removed?.planId!==id)return;
+    Model.restoreService(session.data,id,removed.row,removed.index);
+    ui.removedService=null;changed=true;
+   }
+   else if(['planner-pool-remove','planner-expense-remove'].includes(name)){const type=name.split('-')[1],rows=plan(id)[type==='pool'?'pools':'expenses'],row=rows[Number(data.index)];if(!row)throw Error('Choose a row first.');Model['remove'+type[0].toUpperCase()+type.slice(1)](session.data,id,row.id);changed=true;}
    else if(name==='planner-allocation-add'){Model.setAllocation(session.data,id,data.serviceId,'',{hours:'',setupHours:''});changed=true;}
    else if(name==='planner-allocation-remove'){Model.removeAllocation(session.data,id,data.serviceId,Number(data.index));changed=true;}
    else if(name==='planner-idea-add'){const idea=ideas().find(v=>v.id===(data.ideaId||ui.ideaId));if(!idea)throw Error('Choose a saved Studio idea to copy.');const row=Model.fromIdea(session.data,id,linkIdea(idea),today());editService(id,row.id);changed=true;toast('Idea copied. Map its role hours to your capacity pools and confirm setup counts.');}
@@ -81,6 +96,8 @@
    else if(name==='planner-confirm-bridge'){if(!bridgePlan)throw Error('Review a plan first.');const prepared=Bridge.prepare(bridgePlan,bridgeInputs,today());copyToSimulator(prepared);bridgePlan=null;return;}
    if(changed)session.changed();render();remember();if(['planner-select','planner-add','planner-example','planner-duplicate','planner-undo-delete'].includes(name))focus('#planner-selected-heading');
    if(name==='planner-service-add'||name==='planner-edit-service')focusService(data.field);
+   if(name==='planner-service-remove')focus('#planner-undo-service');
+   if(name==='planner-service-restore')focus('#edit-'+id+'-'+data.serviceId);
    if(name==='planner-idea-add')focusService('quantity');
    if(name==='planner-tab')document.querySelector('#planner-tab-'+ui.tab)?.focus();
   }

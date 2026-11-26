@@ -372,6 +372,34 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
  .sidebar nav [role="group"] + [role="group"] {border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
 }
 
+/* Each offer has one disclosure for its scope and a separate set of draft actions. */
+.offer-card {margin:12px 0;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}
+.offer-card:focus-within,.offer-card:has(.service-editor[open]) {border-color:var(--accent)}
+.offer-card .service-editor {margin:0;border:0;border-radius:0}
+.offer-card .service-editor>summary {min-height:58px;gap:12px;padding:14px 16px}
+.offer-card .service-editor>summary:hover {background:var(--raised)}
+.offer-card .offer-edit-label {color:var(--accent);font-size:12px}
+.service-editor:not([open]) .when-open,.service-editor[open] .when-closed {display:none}
+.offer-card-tools {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2px 16px;padding:0 9px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--surface) 94%,var(--accent))}
+.offer-card-tools button,.idea-row-tools button {border:0;background:transparent;padding:6px 8px;min-height:35px;font-size:12px;font-weight:500}
+.offer-card-tools button:hover,.idea-row-tools button:hover {background:var(--raised);text-decoration:underline;text-underline-offset:3px}
+.offer-card-tools small {font-size:11px;color:var(--muted);padding:6px 8px}
+.offer-card-tools .offer-weight {color:var(--ink);gap:9px;font-variant-numeric:tabular-nums}
+.offer-weight-track {width:38px;height:4px;overflow:hidden;border-radius:4px;background:var(--line)}
+.offer-weight-track i {display:block;height:100%;background:var(--accent)}
+.offer-remove,.idea-row-tools button {color:var(--muted)}
+.offer-remove:hover,.idea-row-tools [data-action="studio-delete"]:hover {color:var(--negative)}
+.offer-recovery {display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin-block:12px;padding:8px 12px;border-inline-start:2px solid var(--accent);background:var(--raised);font-size:13px}
+.offer-recovery span {flex:1 1 16ch;overflow-wrap:anywhere}
+.offer-recovery button {min-height:36px;color:var(--accent)}
+@media(max-width:600px){
+ .offer-card .service-editor>summary {display:grid;grid-template-columns:minmax(0,1fr) auto 10px;gap:5px 8px;padding:12px}
+ .offer-card .offer-heading {grid-column:1 / -1}
+ .offer-card .service-editor>summary .offer-rate {text-align:start}
+ .offer-card-tools {padding-inline:4px}
+}
+@media(pointer:coarse){.offer-card-tools button,.offer-recovery button {min-height:44px}}
+
 /* The idea list and the selected work share one open surface. */
 .studio-app { --bench-paper:var(--paper); --bench-ink:var(--ink); --bench-copper:var(--accent); --bench-rule:var(--line); }
 :root[data-theme="terminal"] .studio-app { --bench-paper:#15110f; --bench-ink:#f4e8d6; --bench-copper:#e6ae84; --bench-rule:#42332c; }
@@ -479,6 +507,36 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
 @media (pointer:coarse) {
  .studio-workbench :is(button,select,summary) {min-height:44px}
  .studio-field :is(input,textarea,select),.studio-next .studio-field textarea {font-size:16px}
+}
+
+.idea-library-tools {display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:12px}
+.idea-search {display:grid;gap:5px;width:min(100%,350px);min-width:0;font-size:12px;color:var(--muted)}
+.idea-search input {width:100%;min-width:0;min-height:40px;border:1px solid var(--line);padding:8px 11px;font:inherit;font-size:14px}
+.idea-count {flex:none;font-size:12px;color:var(--muted);padding-bottom:11px;font-variant-numeric:tabular-nums}
+.studio-ideas li {display:flex;align-items:center;gap:12px}
+.studio-ideas li:last-child {border-bottom:0}
+.studio-workbench .studio-idea-row {flex:1;min-width:0;grid-template-columns:minmax(0,1fr) minmax(100px,22%);gap:16px;padding:14px 6px;min-height:78px}
+.studio-row-copy,.studio-row-meta {display:grid;gap:4px;min-width:0}
+.studio-row-next {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px;line-height:1.5;font-weight:400}
+.studio-row-status {display:flex;align-items:center;gap:6px;font-size:12px;color:var(--bench-ink);font-weight:500}
+.studio-row-status::before {content:"";width:7px;height:7px;border-radius:50%;border:1px solid var(--muted)}
+.studio-row-status[data-status="research"]::before {background:var(--accent);border-color:var(--accent)}
+.studio-row-status[data-status="ready"]::before {background:var(--positive);border-color:var(--positive)}
+.idea-row-tools {display:flex;gap:3px;align-items:center}
+.studio-workbench .idea-row-tools button {color:var(--muted);font-size:12px}
+.studio-workbench .idea-row-tools button:hover {color:var(--bench-copper)}
+.studio-workbench .idea-row-tools [data-action="studio-delete"]:hover {color:var(--negative)}
+.modal:has(#studio-name-form) {width:min(100%,430px)}
+#studio-name-form input {width:100%;margin-top:7px}
+@media(max-width:800px){
+ .studio-ideas li {flex-wrap:wrap;gap:0}
+ .studio-workbench .studio-idea-row {flex-basis:100%;padding:12px 4px 3px;min-height:54px}
+ .idea-row-tools {margin-inline-start:auto;padding-bottom:5px}
+}
+@media(max-width:540px){
+ .studio-workbench .studio-idea-row {grid-template-columns:minmax(0,1fr);gap:6px}
+ .studio-row-meta {display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+ .idea-search input,#studio-name-form input {font-size:16px}
 }
 
 /* Manual job records are separate from ideas and simulated events. */
@@ -761,6 +819,17 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
 .planner-job-hours li {display:flex;justify-content:space-between;gap:12px}
 .planner-job-hours li strong {white-space:nowrap}
 .planner-job-hours p {color:var(--muted)}
+
+.planner-mix-row {grid-template-columns:minmax(0,1fr) minmax(98px,124px) auto}
+.planner-edit-caption {margin-inline-start:auto;color:var(--accent);font-size:12px}
+.planner-remove-service {min-height:40px;color:var(--muted);background:transparent;border-color:transparent}
+.planner-remove-service:hover {color:var(--negative);text-decoration:underline;text-underline-offset:3px}
+@media(max-width:600px){
+ .planner-mix-row {grid-template-columns:minmax(0,1fr) auto;padding-block:8px}
+ .planner-mix-row .planner-mix-toggle {grid-column:1/-1}
+ .planner-mix-row .planner-field {max-width:125px}
+ .planner-remove-service {min-height:44px}
+}
 /* Sunset glass, oxidized copper and cream lettering share an incidence of
    warm light from the upper left. The cool appearance deepens the same dusk. */
 :root[data-theme] {
@@ -1093,6 +1162,34 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
   <button type="button" data-sky-exit>Back to workspace</button>
 </nav><script>/* Simplified Chinese interface copy. Numbered slots preserve runtime values. */
 globalThis.QQChinese = {
+  "Edit": "编辑",
+  "Rename": "重命名",
+  "Create idea": "创建构想",
+  "Find an idea": "查找构想",
+  "Name, family or next action": "名称、服务类别或下一步行动",
+  "Clear search": "清除搜索",
+  "No ideas match your search.": "没有找到匹配的构想。",
+  "Open {0}": "打开“{0}”",
+  "Rename {0}": "重命名“{0}”",
+  "Delete {0}": "删除“{0}”",
+  "Rename idea": "重命名构想",
+  "Name your idea": "为构想命名",
+  "Untitled draft {0}": "未命名草稿 {0}",
+  "Deleted from library": "已从构想库删除",
+  "Give this idea a working title.": "请为构想填写一个暂定名称。",
+  "This removes the idea and its research from this library. Existing plans, jobs and downloaded backups keep their copies.": "这会从构想库中删除该构想及其研究记录。已有的计划、项目和下载的备份仍保留各自的副本。",
+  "There is no room for the restored assumption records.": "草稿中的假设记录数量已达上限，无法恢复这些记录。",
+  "Choose a service first.": "请先选择一项服务。",
+  "No removed service to restore.": "没有可以恢复的已移除服务。",
+  "This draft already contains 20 services.": "这份草稿已包含 20 项服务。",
+  "{0}% inquiry weight": "询盘权重 {0}%",
+  "Edit inquiry weight for {0}": "调整“{0}”的询盘权重",
+  "Keep one service in the draft.": "草稿至少需要一项服务。",
+  "Remove {0} from draft": "从草稿移除“{0}”",
+  "Removed from plan": "已从计划移除",
+  "Remove {0} from plan": "从计划移除“{0}”",
+  "Removed from draft": "已从草稿移除",
+  "Edit your offers here. Review the draft to apply changes to the run.": "在此编辑服务。核对草稿后，即可将更改应用到模拟。",
   "Try a 30-day service mix to see how much time it takes and what you could earn.": "试算 30 天的服务组合，查看所需工时和预期收入。",
   "Track what you agreed with each client, what happens next and what they’ve paid.": "跟踪与每位客户约定的事项、下一步行动和已付金额。",
   "STUDIO": "工作室",
@@ -8552,23 +8649,42 @@ function ideaText(idea,path,fallback){
  const value=ideaValue(idea,path,path.split('.').reduce((record,key)=>record?.[key],idea));
  return value ? (root.QQI18n?.literal(value) ?? value) : fallback;
 }
+function ideaTitle(idea){
+ return idea.name.trim()?ideaText(idea,'name',''):'Untitled draft '+idea.id.slice(5);
+}
 function examplesMenu(){
  const examples=root.QQStudioSeeds?.EXAMPLES||[];
  if(!examples.length)return '';
  return `<details class="studio-examples" data-disclosure="studio-examples"><summary>Add an example</summary><div class="studio-example-options">${examples.map(example=>button(`<strong>${esc(example.name)}</strong><span>${esc(example.summary||'Editable starting context')}</span>`,'example',`id="studio-example-${dom(example.id)}" data-id="${esc(example.id)}"`)).join('')}</div></details>`;
 }
-function library(studio){
- const rows=studio.offerings.map(idea=>{
-  const contents=`<span class="studio-row-name">${esc(ideaText(idea,'name','Untitled idea'))}</span><span class="studio-row-family">${esc(ideaText(idea,'family',''))}</span><span class="studio-row-arrow" aria-hidden="true">→</span>`;
-  return `<li>${button(contents,'select',`id="studio-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-idea-row')}</li>`;
+function library(studio,ui){
+ const query=ui.query||'';
+ const translated=value=>root.QQI18n?.text(value)??value;
+ const rowStatus=idea=>idea.status==='idea'?(idea.origin.kind==='example'?'Editable example':'Draft'):statusLabels[idea.status];
+ const terms=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+ const matching=studio.offerings.filter(idea=>{
+  if(!terms.length)return true;
+  const text=[ideaTitle(idea),ideaText(idea,'family',''),ideaText(idea,'nextAction',''),ideaText(idea,'buyer',''),rowStatus(idea)].map(translated).join(' ').toLocaleLowerCase();
+  return terms.every(term=>text.includes(term));
+ });
+ const rows=matching.reverse().map(idea=>{
+  const title=esc(ideaTitle(idea)),family=ideaText(idea,'family','');
+  const detailKey=idea.nextAction.trim()?'nextAction':'buyer';
+  const detail=ideaValue(idea,detailKey,idea[detailKey]).trim().replace(/\s+/g,' ');
+  const excerpt=detail.length>180?detail.slice(0,180).trimEnd()+'…':detail;
+  const next=root.QQI18n?.literal(excerpt)??excerpt;
+  const contents=`<span class="studio-row-copy"><span class="studio-row-name">${title}</span>${next?`<span class="studio-row-next">${esc(next)}</span>`:''}</span><span class="studio-row-meta"><span class="studio-row-status" data-status="${idea.status}">${rowStatus(idea)}</span>${family?`<span class="studio-row-family">${esc(family)}</span>`:''}</span>`;
+  return `<li data-render-key="library-${idea.id}">${button(contents,'select',`id="studio-select-${dom(idea.id)}" data-id="${idea.id}" aria-label="Open ${title}"`,'studio-idea-row')}<div class="idea-row-tools">${button('Rename','rename',`id="studio-rename-${idea.id}" data-id="${idea.id}" aria-label="Rename ${title}"`)}${button('Delete','delete',`id="studio-delete-${idea.id}" data-id="${idea.id}" aria-label="Delete ${title}"`)}</div></li>`;
  }).join('');
+ const search=studio.offerings.length?`<div class="idea-library-tools"><label class="idea-search"><span>Find an idea</span><input type="search" id="studio-find" value="${esc(query)}" placeholder="Name, family or next action"></label><span class="idea-count" role="status">${matching.length===1?'1 idea':matching.length+' ideas'}</span></div>`:'';
  return `<section aria-labelledby="studio-heading"><div class="studio-home-heading"><h1 id="studio-heading" tabindex="-1">Your ideas</h1>${button('<span aria-hidden="true">＋</span> New idea','add','id="studio-add"','studio-new')}</div>
- ${rows?`<ul class="studio-ideas">${rows}</ul>`:'<p class="studio-empty">Start with an idea of your own, or choose an example below.</p>'}
- <div class="studio-work-links">${rows?button('Compare ideas','tab','id="studio-compare" data-tab="compare"','studio-link'):''}${examplesMenu()}</div></section>`;
+ ${ui.removal?`<div class="offer-recovery"><span role="status">Deleted from library · <b>${esc(ideaTitle(ui.removal.idea))}</b></span>${button('Undo','undo-delete','id="studio-undo-delete"')}</div>`:''}
+ ${search}${rows?`<ul class="studio-ideas">${rows}</ul>`:studio.offerings.length?`<div class="studio-empty">No ideas match your search. ${button('Clear search','clear-search','','studio-link')}</div>`:'<p class="studio-empty">Start with an idea of your own, or choose an example below.</p>'}
+ <div class="studio-work-links">${studio.offerings.length?button('Compare ideas','tab','id="studio-compare" data-tab="compare"','studio-link'):''}${examplesMenu()}</div></section>`;
 }
 function offer(idea){
  return `<div class="studio-fields">
- ${field(idea,'name','Idea name',{placeholder:'A working title',maxLength:200,wide:true})}
+ ${field(idea,'name','Idea name',{placeholder:'A working title',maxLength:300,wide:true})}
  ${field(idea,'buyer','Possible buyer',{area:true,placeholder:'Who has the problem and could pay for help?'})}
  ${field(idea,'deliverables','What the buyer receives',{area:true,placeholder:'Outputs the buyer can inspect and use'})}
  </div>
@@ -8648,23 +8764,23 @@ function editor(idea,ui){
  <details class="studio-details" data-disclosure="${esc(detailKey)}"${!idea.name?' open':''}><summary>Idea details</summary>${offer(idea)}${ideaOptions(idea)}</details>
  <div class="studio-work-links">${button('Numbers','section','id="studio-go-numbers" data-section="numbers"','studio-link')}${button('Research','section','id="studio-go-research" data-section="research"','studio-link')}${button('Plan this idea','plan',`id="studio-plan-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-link')}${button('Start a job from this idea','job',`id="studio-job-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-link')}</div>`:
  ui.section==='numbers'?numbers(idea,ui):research(idea);
- return `<section class="studio-editor" aria-label="Selected service idea" data-render-key="studio-editor-${esc(idea.id)}">${back}<h1 id="studio-heading" tabindex="-1">${esc(ideaText(idea,'name','Untitled idea'))}</h1>${!work&&idea.origin?.kind==='example'?'<p class="studio-origin">Editable example</p>':''}<div id="studio-editor-content">${surface}</div></section>`;
+ return `<section class="studio-editor" aria-label="Selected service idea" data-render-key="studio-editor-${esc(idea.id)}">${back}<h1 id="studio-heading" tabindex="-1">${esc(ideaTitle(idea))}</h1>${!work&&idea.origin?.kind==='example'?'<p class="studio-origin">Editable example</p>':''}<div id="studio-editor-content">${surface}</div></section>`;
 }
 function compare(studio,ui){
  return `<section class="studio-compare" aria-labelledby="studio-heading">${backToIdeas()}<div class="studio-section-heading"><div><h1 id="studio-heading" tabindex="-1">Compare ideas</h1><p>Different scopes and evidence still matter. These figures use your estimates, without assuming sales volume.</p></div>${phases(ui)}</div>
  <div class="tablewrap" tabindex="0" role="region" aria-label="Scrollable service idea comparison"><table><caption>${ui.phase==='first'?'First engagement includes preparation once.':'Later engagement assumes the same preparation can be reused.'} USD · — means unknown or unavailable</caption><thead><tr><th scope="col">Idea / buyer / priced unit</th><th scope="col">Price</th><th scope="col">Direct costs</th><th scope="col">Total work hours</th><th scope="col">Your time value</th><th scope="col">All costs + time</th><th scope="col">Left after allowances</th><th scope="col">Available / owner hour</th><th scope="col">Next validation</th></tr></thead><tbody>${studio.offerings.map(idea=>{
  const c=model().economics(idea),r=phaseResults(idea,c,ui.phase);
- return `<tr data-render-key="studio-compare-${esc(idea.id)}"><td>${button(esc(ideaText(idea,'name','Untitled idea')),'select',`id="studio-compare-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'table-link')}<small>${esc(ideaText(idea,'buyer','Buyer unknown'))}</small><small>Priced unit: ${esc(ideaText(idea,'unit','Not defined yet'))}</small><small>${esc(statusLabels[idea.status]||'Idea')} · ${esc(originLabel(idea))}</small></td><td>${money(r.price)}</td><td>${money(r.direct)}</td><td>${hours(r.workHours)}<small>Your hours: ${hours(r.ownerHours)}</small></td><td>${money(r.ownerAllowance)}</td><td>${money(r.total)}</td><td class="${r.remainder<0?'studio-negative':''}">${money(r.remainder)}</td><td>${r.ownerHourly===null||r.ownerHourly===undefined?'—':money(r.ownerHourly)+'/h'}</td><td class="studio-next-validation">${esc(ideaText(idea,'nextAction','Choose a next check'))}</td></tr>`;
+ return `<tr data-render-key="studio-compare-${esc(idea.id)}"><td>${button(esc(ideaTitle(idea)),'select',`id="studio-compare-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'table-link')}<small>${esc(ideaText(idea,'buyer','Buyer unknown'))}</small><small>Priced unit: ${esc(ideaText(idea,'unit','Not defined yet'))}</small><small>${esc(statusLabels[idea.status]||'Idea')} · ${esc(originLabel(idea))}</small></td><td>${money(r.price)}</td><td>${money(r.direct)}</td><td>${hours(r.workHours)}<small>Your hours: ${hours(r.ownerHours)}</small></td><td>${money(r.ownerAllowance)}</td><td>${money(r.total)}</td><td class="${r.remainder<0?'studio-negative':''}">${money(r.remainder)}</td><td>${r.ownerHourly===null||r.ownerHourly===undefined?'—':money(r.ownerHourly)+'/h'}</td><td class="studio-next-validation">${esc(ideaText(idea,'nextAction','Choose a next check'))}</td></tr>`;
  }).join('')}</tbody></table></div><p class="studio-footer-note">Total work hours sum your time and paid-role time${ui.phase==='first'?', including setup':''}; they do not estimate elapsed turnaround. All costs include direct costs, allocated overhead and your time allowance. Available per owner hour is before valuing your time, after direct costs and overhead; it is unavailable for zero owner hours. Results exclude tax and unlisted costs. A higher price does not imply a buyer will accept it.</p></section>`;
 }
 function render(studio,options={}){
  const offerings=Array.isArray(studio?.offerings)?studio.offerings:[],selected=offerings.find(idea=>idea.id===options.selectedId);
  const ui={section:['numbers','research'].includes(options.section)?options.section:'offer',phase:options.phase==='repeat'?'repeat':'first'};
- const content=options.tab==='compare'&&offerings.length?compare({offerings},ui):selected?editor(selected,ui):library({offerings});
+ const content=options.tab==='compare'&&offerings.length?compare({offerings},ui):selected?editor(selected,ui):library({offerings},options);
  return `<div class="studio-workbench">${content}</div>`;
 }
 
-const api={render,sourceLinks};
+const api={render,sourceLinks,ideaTitle};
 root.QQStudioView=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
@@ -9174,6 +9290,14 @@ const api={render,visibleJobs};root.QQJobsView=api;if(typeof module!=='undefined
  function addService(book,id,draft={}){const next=clone(find(book,id)),row=service(draft,'service-'+next.nextServiceId++,true);next.services.push(row);commit(book,id,next);return row;}
  function removeRow(book,id,section,rowId){const next=clone(find(book,id)),index=next[section].findIndex(v=>v.id===rowId);if(index<0)return false;next[section].splice(index,1);if(section==='pools')for(const s of next.services)for(const a of s.allocations)if(a.poolId===rowId)a.poolId='';if(section==='pools'&&book.studio?.planId===id&&book.studio.partnerPoolId===rowId){const candidate=clone(book);candidate.studio.partnerPoolId=null;commit(candidate,id,next);Object.assign(book,candidate);}else commit(book,id,next);return true;}
  const removePool=(book,id,rowId)=>removeRow(book,id,'pools',rowId),removeExpense=(book,id,rowId)=>removeRow(book,id,'expenses',rowId),removeService=(book,id,rowId)=>removeRow(book,id,'services',rowId);
+ function restoreService(book,planId,removed,index){
+  const next=clone(find(book,planId)),restored=clone(removed);
+  const pools=new Set(next.pools.map(pool=>pool.id));
+  // Removing a pool normally unmaps its hours. Apply the same rule to a returning service.
+  for(const allocation of restored.allocations)if(!pools.has(allocation.poolId))allocation.poolId='';
+  next.services.splice(index,0,restored);
+  commit(book,planId,next);
+ }
  function setAllocation(book,id,serviceId,poolId,patch={}){shape(patch,['name','hours','setupHours'],'Allocation changes',[]);const next=clone(find(book,id)),s=next.services.find(v=>v.id===serviceId);if(!s)throw Error('Planned service not found.');const index=poolId?s.allocations.findIndex(v=>v.poolId===poolId):-1,row=allocation({...(index<0?{name:'',hours:'',setupHours:''}:s.allocations[index]),...patch,poolId},false);if(index<0)s.allocations.push(row);else s.allocations[index]=row;commit(book,id,next);return row;}
  function removeAllocation(book,id,serviceId,index){const next=clone(find(book,id)),s=next.services.find(v=>v.id===serviceId);if(!s||!Number.isInteger(index)||!s.allocations[index])throw Error('Role allocation not found.');s.allocations.splice(index,1);commit(book,id,next);return true;}
  function fromIdea(book,id,idea,when){
@@ -9254,7 +9378,7 @@ const api={render,visibleJobs};root.QQJobsView=api;if(typeof module!=='undefined
   const ownerTotal=sum([ownerUsed,nonProject],'ownerTotal'),externalHours=sum(pools.map(pool=>pool.usedHours===null?null:Math.round(pool.usedHours*100)),'externalHours');
   return {revenue,directCosts,externalLaborCosts,externalCosts,recurringCosts,contribution,availableForOwner,ownerTarget,profitTarget,afterOwnerTarget,targetGap,quantityTotal:sum(services.map(s=>s.quantity),'quantityTotal'),ownerTotalHours:ownerTotal===null?null:ownerTotal/100,totalTeamHours:unmapped?null:sum([ownerTotal,externalHours],'totalTeamHours')===null?null:(ownerTotal+externalHours)/100,owner,pools,services,capacityStatus,feasibleAtCurrentVolume:capacityStatus==='overloaded'||targetGap!==null&&targetGap<0?false:capacityStatus==='unknown'||targetGap===null?null:true,maxScale,scaleStatus,requiredScale,goalFeasible,ceilingRevenue,ceilingContribution,ceilingAvailableForOwner,ceilingAfterOwnerTarget,issues};
  }
- const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_PLANS,PERIOD_DAYS,WORK_DAYS,EDIT_FIELDS:Object.freeze([...EDIT_FIELDS]),fresh,create,update,addPool,removePool,addService,removeService,addExpense,removeExpense,setAllocation,removeAllocation,fromIdea,captureBaseline,duplicate,remove,merge,validate,serialize,parse,parseText,metrics};
+ const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_PLANS,PERIOD_DAYS,WORK_DAYS,EDIT_FIELDS:Object.freeze([...EDIT_FIELDS]),fresh,create,update,addPool,removePool,addService,removeService,restoreService,addExpense,removeExpense,setAllocation,removeAllocation,fromIdea,captureBaseline,duplicate,remove,merge,validate,serialize,parse,parseText,metrics};
  root.QQPlanner=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);
 </script><script>/* Pure, whole-studio what-if calculations. No plan or baseline is modified. */
@@ -9571,17 +9695,17 @@ function serviceEditor(plan,service,index,editing,recentHours){
  const key=dom(plan.id)+'-'+dom(service.id),path='services.'+index+'.',attrs=`data-plan-id="${esc(plan.id)}" data-service-id="${esc(service.id)}"`;
  const isOpen=editing?.planId===plan.id&&editing.serviceId===service.id;
  const title=named(service,'name','Untitled service'),unit=named(service,'unit','engagement');
- const rowToggle=button(`<span><strong>${title}</strong><small>${unit}</small></span><span class="disclosure-chevron" aria-hidden="true"></span>`,'edit-service',`${attrs} id="edit-${key}" aria-controls="details-${key}" aria-expanded="${isOpen}"`,'planner-mix-toggle');
+ const rowToggle=button(`<span><strong>${title}</strong><small>${unit}</small></span><span class="planner-edit-caption">${isOpen?'Close':'Edit'}</span><span class="disclosure-chevron" aria-hidden="true"></span>`,'edit-service',`${attrs} id="edit-${key}" aria-controls="details-${key}" aria-expanded="${isOpen}"`,'planner-mix-toggle');
  const unmapped=service.allocations.some(a=>!a.poolId);
  return `<section class="planner-mix-item" aria-labelledby="edit-${key}" data-render-key="mix-${key}">
-  <div class="planner-mix-row">${rowToggle}${numeric(plan,path+'quantity','Units per 30 days')}</div>
+  <div class="planner-mix-row">${rowToggle}${numeric(plan,path+'quantity','Units per 30 days')}${button('Remove','service-remove',`${attrs} aria-label="Remove ${title} from plan"`,'planner-remove-service')}</div>
   <div class="planner-service-body" id="details-${key}"${isOpen?'':' hidden'}>
    <div class="planner-fields">${field(plan,path+'name','Service name')}${field(plan,path+'unit','One priced unit means…',{help:'For example: one brief, one batch or one review.'})}
    ${numeric(plan,path+'price','Price per unit · $')}${ownerEstimate(plan,path+'ownerHours',isOpen&&service.source?.ideaKey?recentHours(service.source.ideaKey):[],key)}
    ${numeric(plan,path+'directCost','Other direct cost per unit · $','Excludes paid-role labor and recurring studio costs.')}</div>
    <details class="planner-disclosure" data-disclosure="planner-roles-${key}"><summary>Paid-role work${unmapped?' · Choose a delivery pool':''}</summary>${allocations(plan,service,index)}</details>
    <details class="planner-disclosure" data-disclosure="planner-setup-${key}"><summary>Setup needed for some or all units</summary><p class="planner-muted">Setup is additional to each unit’s normal work. Use zero only when preparation can be reused or none is needed.</p><div class="planner-fields">${numeric(plan,path+'setupCount','Units needing setup this period','Between zero and the total units planned.')}${numeric(plan,path+'setupCost','Other cost per setup · $','Excludes role setup labor.')}${numeric(plan,path+'setupOwnerHours','Your extra hours per setup')}</div></details>
-   <div class="planner-service-end">${service.source?`<small>Copied from ${text(service.source.name)} (idea revision ${text(service.source.ideaVersion)}) on ${text(service.source.copiedAt)}</small>`:''}${button('Remove service','service-remove',`${attrs} data-index="${index}"`,'small ghost')}</div>
+   ${service.source?`<div class="planner-service-end"><small>Copied from ${text(service.source.name)} (idea revision ${text(service.source.ideaVersion)}) on ${text(service.source.copiedAt)}</small></div>`:''}
   </div></section>`;
 }
 function serviceMix(plan,ui,available,recentHours){
@@ -9595,9 +9719,15 @@ function serviceMix(plan,ui,available,recentHours){
    button('Edit estimate','edit-service',`data-plan-id="${esc(plan.id)}" data-service-id="${esc(service.id)}" data-field="${esc(parts.join('.'))}"`,'primary');
   nextStep=`<div><small>Next estimate</small><strong>${esc(issueLabel(plan,next.path))}</strong>${next.kind==='invalid'?`<small>${esc(next.message)}</small>`:''}</div>${action}`;
  }
- const copy=available.length?`<details class="planner-copy-idea" data-disclosure="planner-copy-${esc(plan.id)}"><summary>Copy a Studio idea</summary><div class="planner-idea-picker"><label for="planner-idea"><span>Copy an existing Studio idea</span><select id="planner-idea" data-planner-idea data-plan-id="${esc(plan.id)}"><option value="">Choose an idea</option>${available.map(idea=>`<option value="${esc(idea.id)}"${idea.id===ui.ideaId?' selected':''}>${text(idea.name,'Untitled idea')}</option>`).join('')}</select></label>${button('Copy idea','idea-add',`data-plan-id="${esc(plan.id)}" data-idea-id="${esc(ui.ideaId||'')}"${available.some(idea=>idea.id===ui.ideaId)?'':' disabled'}`)}</div></details>`:'';
+ const copy=available.length?`<details class="planner-copy-idea" data-disclosure="planner-copy-${esc(plan.id)}"><summary>Copy a Studio idea</summary><div class="planner-idea-picker"><label for="planner-idea"><span>Copy an existing Studio idea</span><select id="planner-idea" data-planner-idea data-plan-id="${esc(plan.id)}"><option value="">Choose an idea</option>${available.map(idea=>`<option value="${esc(idea.id)}"${idea.id===ui.ideaId?' selected':''}>${esc(root.QQStudioView?.ideaTitle(idea)??(idea.name.trim()||'Untitled draft '+idea.id.slice(5)))}</option>`).join('')}</select></label>${button('Copy idea','idea-add',`data-plan-id="${esc(plan.id)}" data-idea-id="${esc(ui.ideaId||'')}"${available.some(idea=>idea.id===ui.ideaId)?'':' disabled'}`)}</div></details>`:'';
+ const cards=plan.services.map((s,i)=>serviceEditor(plan,s,i,ui.editingService,recentHours));
+ const removed=ui.removedService;
+ if(removed?.planId===plan.id){
+  const undo=button('Undo','service-restore',`id="planner-undo-service" data-service-id="${esc(removed.row.id)}" data-plan-id="${esc(plan.id)}"`);
+  cards.splice(removed.index,0,`<div class="offer-recovery"><span role="status">Removed from plan · <b>${named(removed.row,'name','Untitled service')}</b></span>${undo}</div>`);
+ }
  return `<div class="planner-mix"><h3>Plan your monthly workload</h3><p class="planner-muted">${plan.services.length?'Set the quantity you want to try for each service. Open its name to edit price, effort and costs.':'Add your first service and choose how many units to try in 30 days.'}</p>
-  ${plan.services.map((s,i)=>serviceEditor(plan,s,i,ui.editingService,recentHours)).join('')}
+  ${cards.join('')}
   <div class="menu-tools">${button('Add blank service','service-add',`data-plan-id="${esc(plan.id)}"`,plan.services.length?'soft':'primary')}${copy}</div>
   ${plan.services.length?`<div class="planner-mix-footer">${nextStep}</div>`:''}</div>`;
 }
@@ -9750,7 +9880,22 @@ const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module
    }
    else if(name==='planner-show-ideas'){ui.tab='mix';render();remember();const picker=document.querySelector('#planner-idea');if(picker){const section=picker.closest?.('details');if(section)section.open=true;picker.focus();}return;}
    else if(name==='planner-service-add'){const row=Model.addService(session.data,id);editService(id,row.id);changed=true;}
-   else if(['planner-pool-remove','planner-expense-remove','planner-service-remove'].includes(name)){const type=name.split('-')[1],rows=plan(id)[type==='pool'?'pools':type==='expense'?'expenses':'services'],row=rows[Number(data.index)];if(!row)throw Error('Choose a row first.');Model['remove'+type[0].toUpperCase()+type.slice(1)](session.data,id,row.id);changed=true;}
+   else if(name==='planner-service-remove'){
+    const services=plan(id).services,index=data.serviceId?services.findIndex(s=>s.id===data.serviceId):Number(data.index);
+    const row=services[index];
+    if(!row)throw Error('Choose a row first.');
+    Model.removeService(session.data,id,row.id);
+    ui.removedService={planId:id,row,index};
+    if(ui.editingService?.planId===id&&ui.editingService.serviceId===row.id)ui.editingService=null;
+    changed=true;
+   }
+   else if(name==='planner-service-restore'){
+    const removed=ui.removedService;
+    if(removed?.planId!==id)return;
+    Model.restoreService(session.data,id,removed.row,removed.index);
+    ui.removedService=null;changed=true;
+   }
+   else if(['planner-pool-remove','planner-expense-remove'].includes(name)){const type=name.split('-')[1],rows=plan(id)[type==='pool'?'pools':'expenses'],row=rows[Number(data.index)];if(!row)throw Error('Choose a row first.');Model['remove'+type[0].toUpperCase()+type.slice(1)](session.data,id,row.id);changed=true;}
    else if(name==='planner-allocation-add'){Model.setAllocation(session.data,id,data.serviceId,'',{hours:'',setupHours:''});changed=true;}
    else if(name==='planner-allocation-remove'){Model.removeAllocation(session.data,id,data.serviceId,Number(data.index));changed=true;}
    else if(name==='planner-idea-add'){const idea=ideas().find(v=>v.id===(data.ideaId||ui.ideaId));if(!idea)throw Error('Choose a saved Studio idea to copy.');const row=Model.fromIdea(session.data,id,linkIdea(idea),today());editService(id,row.id);changed=true;toast('Idea copied. Map its role hours to your capacity pools and confirm setup counts.');}
@@ -9758,6 +9903,8 @@ const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module
    else if(name==='planner-confirm-bridge'){if(!bridgePlan)throw Error('Review a plan first.');const prepared=Bridge.prepare(bridgePlan,bridgeInputs,today());copyToSimulator(prepared);bridgePlan=null;return;}
    if(changed)session.changed();render();remember();if(['planner-select','planner-add','planner-example','planner-duplicate','planner-undo-delete'].includes(name))focus('#planner-selected-heading');
    if(name==='planner-service-add'||name==='planner-edit-service')focusService(data.field);
+   if(name==='planner-service-remove')focus('#planner-undo-service');
+   if(name==='planner-service-restore')focus('#edit-'+id+'-'+data.serviceId);
    if(name==='planner-idea-add')focusService('quantity');
    if(name==='planner-tab')document.querySelector('#planner-tab-'+ui.tab)?.focus();
   }
@@ -9820,6 +9967,8 @@ let filter='active',search='',toastTimer,modalFocus=null,actionFocus=null,expand
 let presetSelection={market:'metro',operation:'solo',mix:'balanced',condition:'steady'},pendingPreset=null,presetUndoDraft=null,pendingEvidence=null;
 let catalogGoal='all',catalogAudience='all',pendingCatalogId=null,pendingStarterId=null,serviceUndoDraft=null;
 const disclosureState=new Map(),catalogPrices=new Map();
+// History belongs to this draft menu. Replacing a workspace or mix naturally drops it.
+const removedServices=new WeakMap();
 let studioUI={selectedId:null,tab:'idea',section:'offer',phase:'first'},pendingStudioImport=null;
 let studioLocal;try{studioLocal=localStorage;}catch(e){}
 const studioSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,seed:()=>{const studio=QQStudio.fresh();for(const item of QQStudioSeeds.EXAMPLES)QQStudio.create(studio,QQStudioSeeds.create(item.id));return studio;},onStatus:()=>updateStudioStatus()});
@@ -10046,11 +10195,43 @@ function importStudioFile(){
  const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
  input.onchange=async()=>{try{const file=input.files?.[0];if(!file)return;if(file.size>QQStudio.MAX_BYTES)throw Error('Choose a Studio backup smaller than 8 MiB.');pendingStudioImport=QQStudio.parseText(await file.text());modal(`<h2 id="dialog-title">Add these saved ideas?</h2><p>Add ${pendingStudioImport.offerings.length} ideas from this Studio backup as new copies. Your current ideas stay in place. Simulator backups open from the simulator workspace.</p><div class="actions">${btn('Cancel','close')}${btn('Add ideas','studio-confirm-import','primary')}</div>`);}catch(e){toast(e.message||'The Studio backup could not be opened.');}};input.click();
 }
+function studioNameDialog(idea){
+ const label=idea?'Rename idea':'Name your idea';
+ const value=idea?.name.trim()?QQI18n.text(QQStudioView.ideaTitle(idea)):'';
+ modal(`<form id="studio-name-form" data-id="${idea?.id||''}"><h2 id="dialog-title">${label}</h2>
+  <label class="input-field" for="studio-name-entry">Idea name<input type="text" id="studio-name-entry" maxlength="300" required value="${esc(value)}" placeholder="A working title" aria-describedby="modal-error"></label>
+  <div class="actions">${btn('Cancel','close','','type="button"')}<button type="submit" class="primary">${idea?'Save name':'Create idea'}</button></div></form>`,'studio-name-entry');
+ if(idea)document.querySelector('#studio-name-entry')?.select?.();
+}
+document.addEventListener('submit',e=>{
+ if(e.target.id!=='studio-name-form')return;
+ e.preventDefault();
+ const input=$('#studio-name-entry'),name=input.value.trim(),id=e.target.dataset.id;
+ try{
+  if(!name){input.focus();throw Error('Give this idea a working title.');}
+  if(id){
+   const idea=studioSession.data.offerings.find(v=>v.id===id);
+   if(!idea)throw Error('Studio idea not found.');
+   if(!idea.name.trim()||name!==QQI18n.text(QQStudioView.ideaTitle(idea))){
+    QQStudio.update(studioSession.data,id,{name});studioSession.changed();
+   }
+  }else{
+   const created=QQStudio.create(studioSession.data,{name});
+   studioUI={...studioUI,query:'',selectedId:created.id,tab:'idea',section:'offer'};
+   disclosureState.set('studio-details-'+created.id,true);
+   studioSession.changed();
+  }
+  closeModal();render();
+  if(id)(document.querySelector('#studio-rename-'+id)||document.querySelector('#studio-find'))?.focus();
+  else document.querySelector('[data-studio-field="buyer"]')?.focus();
+ }catch(err){showError(err.message);}
+});
 function handleStudioAction(a,el){
  if(!studioSession.ready)throw Error('Studio ideas are still opening. Wait for the saved ideas before downloading or editing.');
  if(a==='studio-backup'){download('MEIQQ-Studio-Ideas.json',QQStudio.serialize(studioSession.data));toast('Studio backup download requested. This contains ideas and research; simulator runs have their own backup.');return;}
  if(a==='studio-original'){const file=studioSession.originals[Number(el.dataset.index)];if(file)download('MEIQQ-Studio-Preserved-'+el.dataset.index+'.json',file.text);return;}
  let changed=false,focusAfter=null;const id=el.dataset.id||studioUI.selectedId,idea=studioSession.data.offerings.find(v=>v.id===id);
+ const libraryChange=!studioUI.selectedId&&(a==='studio-confirm-delete'||a==='studio-undo-delete');
  if(a==='studio-job'){
   if(!idea)throw Error('Select an idea first.');
   const job=jobsController.startFromIdea(linkStudioIdea(idea));
@@ -10071,20 +10252,38 @@ function handleStudioAction(a,el){
   focusAfter=studioUI.section==='offer'?'#studio-go-'+previous:'#studio-heading';
  }
  else if(a==='studio-phase')studioUI.phase=el.dataset.phase==='repeat'?'repeat':'first';
- else if(a==='studio-add'||a==='studio-example'||a==='studio-duplicate'){
-  const created=a==='studio-duplicate'?QQStudio.duplicate(studioSession.data,id):QQStudio.create(studioSession.data,a==='studio-example'?QQStudioSeeds.create(el.dataset.id):{});
+ else if(a==='studio-add'||a==='studio-rename'){
+  if(a==='studio-rename'&&!idea)throw Error('Studio idea not found.');
+  if(a==='studio-add'&&studioSession.data.offerings.length>=QQStudio.MAX_OFFERINGS)throw Error('Studio has reached its idea limit.');
+  studioNameDialog(a==='studio-add'?null:idea);return;
+ }else if(a==='studio-clear-search'){studioUI.query='';$('#studio-find').value='';focusAfter='#studio-find';}
+ else if(a==='studio-example'||a==='studio-duplicate'){
+  const created=a==='studio-duplicate'?QQStudio.duplicate(studioSession.data,id):QQStudio.create(studioSession.data,QQStudioSeeds.create(el.dataset.id));
   studioUI={...studioUI,selectedId:created.id,tab:'idea',section:'offer'};changed=true;
-  focusAfter=a==='studio-add'?'[data-studio-field="name"]':'#studio-heading';
+  focusAfter='#studio-heading';
  }else if(a==='studio-delete'){
   if(!idea)throw Error('Select an idea first.');
-  modal(`<h2 id="dialog-title">Delete this idea?</h2><p>Remove ${esc(idea.name||'Untitled idea')} from this browser. Existing downloaded backups keep their copy.</p><div class="actions">${btn('Cancel','close')}${btn('Delete idea','studio-confirm-delete','primary',`data-id="${esc(id)}"`)}</div>`);return;
- }else if(a==='studio-confirm-delete'){QQStudio.remove(studioSession.data,id);studioUI.selectedId=null;changed=true;closeModal();focusAfter='#studio-heading';}
+  modal(`<h2 id="dialog-title">Delete this idea?</h2><p><b>${esc(QQStudioView.ideaTitle(idea))}</b></p><p>This removes the idea and its research from this library. Existing plans, jobs and downloaded backups keep their copies.</p><div class="actions">${btn('Cancel','close')}${btn('Delete idea','studio-confirm-delete','primary',`data-id="${esc(id)}"`)}</div>`);return;
+ }else if(a==='studio-confirm-delete'){
+  if(!idea)throw Error('Studio idea not found.');
+  studioUI.removal={idea,index:studioSession.data.offerings.indexOf(idea)};
+  QQStudio.remove(studioSession.data,id);studioUI.selectedId=null;changed=true;closeModal();focusAfter='#studio-undo-delete';
+ }else if(a==='studio-undo-delete'){
+  const removal=studioUI.removal;
+  if(!removal)return;
+  const offerings=studioSession.data.offerings.slice();
+  offerings.splice(removal.index,0,removal.idea);
+  QQStudio.serialize({...studioSession.data,offerings});
+  studioSession.data.offerings=offerings;studioUI.removal=null;changed=true;
+  focusAfter='#studio-select-'+removal.idea.id;
+ }
  else if(a==='studio-role-add'){if(!idea)throw Error('Select an idea first.');QQStudio.update(studioSession.data,id,{roles:[...idea.roles,{name:'',hours:'',setupHours:'',rate:''}]});changed=true;}
  else if(a==='studio-role-remove'){if(!idea)throw Error('Select an idea first.');QQStudio.update(studioSession.data,id,{roles:idea.roles.filter((v,i)=>i!==Number(el.dataset.index))});changed=true;}
  else if(a==='studio-import'){importStudioFile();return;}
  else if(a==='studio-confirm-import'){if(!pendingStudioImport)throw Error('Choose a Studio backup first.');const count=studioSession.merge(pendingStudioImport);pendingStudioImport=null;closeModal();toast(count+' saved ideas added as new copies.');}
- if(changed)studioSession.changed();render();
- if(focusAfter)document.querySelector(focusAfter)?.focus();
+ if(changed)studioSession.changed();
+ if(libraryChange)renderListChange('.studio-ideas li');else render();
+ if(focusAfter)(document.querySelector(focusAfter)||document.querySelector('#studio-find')||document.querySelector('#studio-heading'))?.focus();
 }
 function renderKey(node){
  if(node?.nodeType!==1)return null;
@@ -10131,6 +10330,20 @@ function presentationKey(){
  }
  return view==='setup'?[view,setupNeedsChoice(),stepIndex,setupMode].join('/'):view;
 }
+// Take layout measurements only for a deliberate list change, never while typing.
+function renderListChange(selector){
+ if(document.documentElement.dataset.uiMotion!=='on'){render();return;}
+ const tops=new Map([...document.querySelectorAll(selector)].map(el=>[el.dataset.renderKey,el.getBoundingClientRect().top+window.scrollY]));
+ render();
+ for(const el of document.querySelectorAll(selector)){
+  if(!el.animate)continue;
+  const before=tops.get(el.dataset.renderKey),dy=before-el.getBoundingClientRect().top-window.scrollY;
+  if(before===undefined)el.animate([{opacity:.6},{opacity:1}],{id:'workspace-motion',duration:180});
+  else if(Math.abs(dy)>1&&Math.abs(dy)<window.innerHeight)el.animate(
+   [{transform:'translateY('+dy+'px)'},{transform:'translateY(0)'}],
+   {id:'workspace-motion',duration:220,easing:'cubic-bezier(.22,.7,.2,1)'});
+ }
+}
 // Measure the outgoing selection before reconciliation. Keep the live form
 // elements in place so typing, scrolling and autosaves do not replay entrances.
 function workspaceTransition(root){
@@ -10157,8 +10370,8 @@ function workspaceTransition(root){
    const within=previous.split('/')[0]===view;
    const rows=workspace.querySelector('.studio-ideas');
    const panels=within&&detail?[detail]:opening?[...opening.children]:rows?[...rows.children].slice(0,5):[...workspace.querySelectorAll(':scope > :not(.workspace-heading)')].slice(0,4);
-   if(!within||!detail)animate(title,[{opacity:.22,translate:'0 13px'},{opacity:1,translate:'0 0'}],440);
-   panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.28,translate:'0 19px'},{opacity:1,translate:'0 0'}],490,45+i*52);});
+   if(!within||!detail)animate(title,[{opacity:.76,translate:'0 7px'},{opacity:1,translate:'0 0'}],290);
+   panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.78,translate:'0 8px'},{opacity:1,translate:'0 0'}],300,i*22);});
    const rail=root.querySelector('.nav-rail');
    if(rail&&oldRail){
      const delta=oldRail.top-rail.getBoundingClientRect().top;
@@ -10420,6 +10633,38 @@ function clearServiceRecords(id){
  for(const path of Object.keys(draft.assumptionRecords))if(path.startsWith(prefix))delete draft.assumptionRecords[path];
  if(!Object.keys(draft.assumptionRecords).length)delete draft.assumptionRecords;
 }
+function removeDraftService(index){
+ const offers=draft.services, service=offers[index];
+ if(!service)throw Error('Choose a service first.');
+ if(offers.length===1)throw Error('Keep at least one service.');
+ const records=Object.entries(draft.assumptionRecords||{}).filter(([path])=>path.startsWith('services.'+service.id+'.'));
+ const history=removedServices.get(offers)||[];
+ history.push({service,index,records});
+ removedServices.set(offers,history);
+ clearServiceRecords(service.id);
+ offers.splice(index,1);
+ if(expandedService===index)expandedService=-1;
+ else if(expandedService>index)expandedService--;
+ renderListChange('.offer-card,.offer-recovery[data-render-key]');
+ document.querySelector('#undo-service-removal')?.focus();
+}
+function restoreDraftService(){
+ const offers=draft.services,history=removedServices.get(offers),entry=history?.at(-1);
+ if(!entry)throw Error('No removed service to restore.');
+ if(offers.length>=20)throw Error('This draft already contains 20 services.');
+ const {index,service,records}=entry;
+ if(records.length){
+  const combined={...draft.assumptionRecords,...Object.fromEntries(records)};
+  if(!QQ.validAssumptionRecords(combined))throw Error('There is no room for the restored assumption records.');
+  draft.assumptionRecords=combined;
+ }
+ offers.splice(index,0,service);
+ history.pop();
+ presetUndoDraft=null;serviceUndoDraft=null;
+ if(expandedService>=index)expandedService++;
+ renderListChange('.offer-card,.offer-recovery[data-render-key]');
+ document.querySelector('#offer-edit-'+service.id)?.focus();
+}
 function addCatalogService(id,price){
  if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');
  const s=id?QQServiceCatalog.createService(id):{customOffer:true,name:'',deliverable:'',price:null,hours:null,review:null,print:null,supplierMode:'choose',recurring:false,audience:'all',color:'#647f9a'};
@@ -10449,7 +10694,7 @@ function serviceEditor(s,i,row){
  const basis=key=>serviceInputBasis(s,key);
  const priceLabel=s.fulfillment?'Managed-print price':'Client price';
  const title=s.name.trim()?serviceName(s):'New service';
- const summary=`<summary><span class="offer-heading"><strong>${title}</strong>${s.deliverable?`<span>${esc(QQI18n.literal(serviceCopy(s,'deliverable')))}</span>`:''}</span>${s.weight===0?'<span class="offer-inactive">Outside mix</span>':''}<span class="offer-rate">${s.price==null?'Set price':offerAmount(s.price)}${s.fulfillment?' managed':''}</span><span class="disclosure-chevron" aria-hidden="true"></span></summary>`;
+ const summary=`<summary id="offer-edit-${s.id}"><span class="offer-heading"><strong>${title}</strong>${s.deliverable?`<span>${esc(QQI18n.literal(serviceCopy(s,'deliverable')))}</span>`:''}</span><span class="offer-rate">${s.price==null?'Set price':offerAmount(s.price)}${s.fulfillment?' managed':''}</span><span class="offer-edit-label"><span class="when-closed">Edit</span><span class="when-open">Close</span></span><span class="disclosure-chevron" aria-hidden="true"></span></summary>`;
  const supplierMode=s.supplierMode||(s.print>0?'print':'none');
  const supplier=s.fulfillment?'':field('Print supplier','supplierMode',supplierMode,{path:path('supplierMode'),options:[...(s.supplierMode==='choose'?[['choose','Choose a route…']]:[]),['none','No supplier purchase'],['print','We arrange printing']]});
  const costField=s.fulfillment||supplierMode==='print'?input('Printing + shipping cost','print',{step:0.01,suffix:'$ / batch',help:basis('print')+' · total for one project, including any freight.'}):'';
@@ -10477,11 +10722,15 @@ function serviceEditor(s,i,row){
   <div><span>Orders</span><b>${num(row.orders)}</b></div><div><span>Potential revenue</span><b>${offerAmount(row.revenue)}</b></div><div><span>Direct cost</span><b>${offerAmount(row.directCost)}</b></div><div><span>Contribution</span><b>${offerAmount(row.contribution)}</b></div>
   <div><span>Design capacity</span><b>${pct(row.designCapacityShare)}</b></div><div><span>Your service capacity</span><b>${pct(row.ownerCapacityShare)}</b></div></div></details>`:'';
  const more=`${advanced}${economics}${totals}${evidenceControls('service',s.id)}
-  <div class="service-actions">${btn('Compare prices','price-experiment','soft',`data-index="${i}" ${unit?'':'disabled'}`)}${btn('Duplicate','duplicate','small',`data-index="${i}"`)}${draft.services.length>1?btn('Remove from draft','remove-service','small ghost',`data-index="${i}"`):''}</div>`;
- return `<details class="service-editor" ${setupMode==='guided'?'name="offer-editors"':''} data-disclosure="service-${s.id}" ${i===expandedService?'open':''}>${summary}<div class="service-fields">${fields}
+  <div class="service-actions">${btn('Compare prices','price-experiment','soft',`data-index="${i}" ${unit?'':'disabled'}`)}${btn('Duplicate','duplicate','small',`data-index="${i}"`)}</div>`;
+ const weight=s.weight==null?'Set inquiry weight':s.weight===0?'Outside mix':QQ.round(s.weight)+'% inquiry weight';
+ const meter=`<span class="offer-weight-track" aria-hidden="true"><i style="width:${Math.max(0,Math.min(100,s.weight||0))}%"></i></span>`;
+ const tools=`<div class="offer-card-tools">${btn(meter+'<span>'+weight+'</span>','edit-inquiry-weight','offer-weight',`data-index="${i}" aria-label="Edit inquiry weight for ${title}"`)}
+  ${draft.services.length>1?btn('Remove','remove-service','offer-remove',`data-id="${s.id}" aria-label="Remove ${title} from draft"`):'<small>Keep one service in the draft.</small>'}</div>`;
+ return `<article class="offer-card" data-render-key="offer-${s.id}"><details class="service-editor" ${setupMode==='guided'?'name="offer-editors"':''} data-disclosure="service-${s.id}" ${i===expandedService?'open':''}>${summary}<div class="service-fields">${fields}
   ${advancedBlock('delivery-'+s.id,'Delivery time and costs',delivery)}
   ${advancedBlock('service-'+s.id,'Service options and estimates',more)}
-  ${s.weight===0?btn('Set inquiry weight','edit-inquiry-weight','soft',`data-index="${i}"`):''}</div></details>`;
+  </div></details>${tools}</article>`;
 }
 
 function inquiryMix(rows,estimate){
@@ -10513,10 +10762,19 @@ function serviceInputs(){
   const row=rows.get(s.id),u=row?.perProject||serviceUnit(s);
   return `<tr><th>${btn((s.name?serviceName(s):'New service'),'inspect-service','table-link',`data-index="${i}"`)}</th><td>${offerAmount(u?.price)}</td><td>${offerAmount(u?.designerCost)}</td><td>${offerAmount(u?.printCost)}</td><td>${offerAmount(u?.contribution)}</td><td>${offerAmount(u?.afterOwnerTime)}</td><td>${row?inquiryShare(row.effectiveShare):'—'}</td></tr>`;
  }).join('')}</tbody></table></div>`:'';
- return `<div class="section-heading menu-heading"><div><h2>Build your service menu</h2><p>${draft.services.length===1&&!draft.services[0].name?'Start with the name, price and deliverable for one service.':'Open a service to set its price and delivery details.'}</p></div></div>
+ const cards=draft.services.map((service,index)=>serviceEditor(service,index,rows.get(service.id)));
+ const removed=removedServices.get(draft.services)?.at(-1);
+ if(removed){
+  const service=removed.service;
+  const gap=QQ.round(100-draft.services.reduce((sum,s)=>sum+(s.weight||0),0));
+  const fix=gap?btn(gap>0?gap+'% left to assign':Math.abs(gap)+'% over allocation','inspect-mix','small'):'';
+  const undo=btn('Undo','restore-service','small','id="undo-service-removal"'+(draft.services.length>=20?' disabled title="This draft already contains 20 services."':''));
+  cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}</div>`);
+ }
+ return `<div class="section-heading menu-heading"><div><h2>Build your service menu</h2><p>${draft.services.length===1&&!draft.services[0].name?'Start with the name, price and deliverable for one service.':'Edit your offers here. Review the draft to apply changes to the run.'}</p></div></div>
   ${serviceUndoDraft?`<div class="preset-undo"><span>Previous service mix available.</span>${btn('Undo service mix','undo-services','small')}</div>`:''}${analyst}
-  ${draft.services.map((s,i)=>serviceEditor(s,i,rows.get(s.id))).join('')}
-  <div class="menu-tools">${btn(icon('plus')+'Add my service','add-blank-service','soft')}
+  ${cards.join('')}
+  <div class="menu-tools">${btn(icon('plus')+'Add my service','add-blank-service','soft',draft.services.length>=20?'disabled':'')}${draft.services.length>=20?'<small>This draft already contains 20 services.</small>':''}
   <details data-disclosure="offer-examples"><summary>Use an example</summary><div class="actions">${btn('Browse examples','service-library','small')}${btn('Choose a starter mix','service-starters','small')}</div></details></div>
   ${inquiryMix(rows,estimate)}`;
 }
@@ -11432,6 +11690,7 @@ function saveCapacityReplay(){
 
 function newServiceId(){
  const used=new Set([...draft.services,...state.config.services].map(s=>s.id));
+ for(const entry of removedServices.get(draft.services)||[])used.add(entry.service.id);
  for(const project of state.projects)used.add(project.serviceId);
  const base='service'+Date.now();let id=base,index=1;
  while(used.has(id))id=base+'_'+index++;
@@ -11524,6 +11783,7 @@ function applyDraft(mode,intent=''){
  const i=checkpoint();
  if(pin&&i>=0){checkpointInfo[i].baseline=true;checkpointInfo[i].kind='manual';}
  state=updated;selection=null;inspectorTrail=[];view='map';
+ removedServices.delete(draft.services);
  closeModal();
  if(intent==='play')play();
  else if(intent==='step'){if(beginRun('step'))tick();}
@@ -11590,7 +11850,9 @@ function handleInput(el){
  updatePreview();
  if(view==='setup')render();
 }
-document.addEventListener('input',e=>{if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
+document.addEventListener('input',e=>{
+ if(e.target.id==='studio-find'){studioUI.query=e.target.value;render();return;}
+ if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
 document.addEventListener('change',e=>{
  const el=e.target;
  if(el.id==='language'){if(QQI18n.choose(el.value)){render();$('#toast').textContent='';$('#toast').className='';}return;}
@@ -11679,6 +11941,10 @@ document.addEventListener('click',e=>{
   else if(a==='setup-step'){stop();setupRepairPath=null;stepIndex=Number(el.dataset.step);render();document.querySelector('#setup-tab-'+stepIndex)?.focus();}
   else if(a==='fix-setup-issue')fixSetupIssue();
   else if(a==='edit-inquiry-weight')revealSetupField({path:'services.'+Number(el.dataset.index)+'.weight'});
+  else if(a==='inspect-mix'){
+   const mix=document.querySelector('.inquiry-mix');
+   if(mix){mix.open=true;mix.querySelector('summary')?.focus();}
+  }
   else if(a==='service-library')serviceLibrary();
   else if(a==='catalog-package')catalogPackage(el.dataset.id);
   else if(a==='confirm-catalog-service'){const value=QQI18n.inputValue($('#catalog-price'));if(value.trim()==='')throw Error('Enter a customer price.');const amount=Number(value),s=QQServiceCatalog.createService(pendingCatalogId);if(s.fulfillment&&amount<s.fulfillment.designOnlyPrice)throw Error('The managed-print price must cover at least the design-only price.');addCatalogService(pendingCatalogId,amount);catalogPrices.delete(pendingCatalogId);pendingCatalogId=null;}
@@ -11712,7 +11978,8 @@ document.addEventListener('click',e=>{
   else if(a==='enable-profiles'){draft.customerMix=QQ.clone(QQ.DEFAULT.customerMix);draft.profileStrength=QQ.DEFAULT.profileStrength;draft.focusType='none';render();}
   else if(a==='add-service'){const id=$('#service-template').value;addCatalogService(QQServiceCatalog.SERVICES.some(s=>s.id===id)?id:id==='menu'?'menu-refresh':null);}
   else if(a==='duplicate'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id=newServiceId();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
-  else if(a==='remove-service'){if(draft.services.length<=1)throw Error('Keep at least one service.');clearServiceRecords(draft.services[Number(el.dataset.index)].id);draft.services.splice(Number(el.dataset.index),1);expandedService=Math.min(expandedService,draft.services.length-1);render();}
+  else if(a==='remove-service')removeDraftService(el.dataset.id?draft.services.findIndex(s=>s.id===el.dataset.id):Number(el.dataset.index));
+  else if(a==='restore-service')restoreDraftService();
   else if(a==='assign-remainder'){
    const service=draft.services[Number(el.dataset.index??$('#mix-recipient').value)],total=draft.services.reduce((sum,s)=>sum+(s.weight||0),0),weight=QQ.round((service?.weight||0)+100-total);
    if(!service||weight<0||weight>100)throw Error('Choose an offer that can take the remaining weight.');
@@ -11772,7 +12039,7 @@ else if(a==='open-archive'){
   else if(['delete-checkpoint','delete-archive'].includes(a)){const kind=a==='delete-checkpoint'?'checkpoint':'workspace';modal(`<h2 id="dialog-title">Delete this ${kind}?</h2><p>This removes the saved copy from this browser. Existing downloaded backups keep their copy.</p><div class="actions">${btn('Cancel','close')}${btn('Delete saved copy','confirm-delete','primary',`data-kind="${kind}" data-index="${Number(el.dataset.index)}"`)}</div>`);}
   else if(a==='confirm-delete'){const i=Number(el.dataset.index);if(el.dataset.kind==='checkpoint'){MEIQQWorkspace.removeCheckpoint(saved,checkpointInfo,i);comparisonSelection=null;}else archives.splice(i,1);closeModal();render();}
   else if(a==='close'){closeModal();render();}
-  if(['confirm-catalog-service','add-blank-service','add-starter','confirm-starter','undo-services','use-service-price','apply','confirm-preset','undo-preset','discard','enable-profiles','add-service','duplicate','remove-service','balance','assign-remainder','priority','deadline','approve','checkpoint','pin-baseline','confirm-branch','load','confirm-restart','confirm-example','confirm-fund','confirm-import','open-archive','confirm-restore-draft','confirm-rename','confirm-delete'].includes(a))save();
+  if(['confirm-catalog-service','add-blank-service','add-starter','confirm-starter','undo-services','restore-service','use-service-price','apply','confirm-preset','undo-preset','discard','enable-profiles','add-service','duplicate','remove-service','balance','assign-remainder','priority','deadline','approve','checkpoint','pin-baseline','confirm-branch','load','confirm-restart','confirm-example','confirm-fund','confirm-import','open-archive','confirm-restore-draft','confirm-rename','confirm-delete'].includes(a))save();
  }catch(err){showError(err.message||'The action could not be completed.');}finally{actionFocus=null;}
 });
 document.addEventListener('keydown',e=>{

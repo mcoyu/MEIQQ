@@ -1,5 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const {setup}=require('./ui-test-host.cjs');
+function submitIdeaName(h,name,id=''){
+ h.elements['#studio-name-entry'].value=name;
+ h.handlers.submit({target:{id:'studio-name-form',dataset:{id}},preventDefault(){}});
+}
 test('Studio dialogs retain their opener when a click does not focus the button',async()=>{
  const h=setup();await vm.runInContext('studioReady',h.ctx);h.click('view',{view:'studio'});
  h.ctx.document.activeElement={id:'body'};
@@ -13,7 +17,7 @@ test('Studio ideas can be edited, compared and reopened without changing simulat
  const before=vm.runInContext('JSON.stringify(currentWorkspace())',h.ctx);h.click('view',{view:'studio'});
  assert.match(h.elements['#root'].innerHTML,/Studio workbench/);assert.doesNotMatch(h.elements['#root'].innerHTML,/data-action="play"|Branch scenario/);
  assert.equal(vm.runInContext('studioSession.data.offerings.length',h.ctx),5);
- h.click('studio-add');const id=vm.runInContext('studioUI.selectedId',h.ctx);
+ h.click('studio-add');submitIdeaName(h,'Working title');const id=vm.runInContext('studioUI.selectedId',h.ctx);
  const edit=(field,value)=>h.handlers.input({target:{id:'test-studio-'+field,dataset:{studioField:field,ideaId:id},value,tagName:'INPUT'}});
  edit('name','Flexible client idea');edit('price','750.50');edit('researchNotes','Ask which business question matters.');edit('directCost','unknown');
  h.click('studio-tab',{tab:'compare'});assert.match(h.elements['#root'].innerHTML,/Flexible client idea/);
@@ -29,7 +33,7 @@ test('Studio backup round-trips research and imports additional copies without t
  assert.throws(()=>vm.runInContext('MEIQQWorkspace.parseText(studioDownloaded)',h.ctx));
 });
 test('Studio role editing and confirmed deletion are functional and persist intentionally empty collections',async()=>{
- const h=setup();await vm.runInContext('studioReady',h.ctx);h.click('view',{view:'studio'});h.click('studio-add');
+ const h=setup();await vm.runInContext('studioReady',h.ctx);h.click('view',{view:'studio'});h.click('studio-add');submitIdeaName(h,'Role study');
  const id=vm.runInContext('studioUI.selectedId',h.ctx);const before=vm.runInContext('studioSession.data.offerings.at(-1).roles.length',h.ctx);h.click('studio-role-add');assert.equal(vm.runInContext('studioSession.data.offerings.at(-1).roles.length',h.ctx),before+1);h.click('studio-role-remove',{index:0});assert.equal(vm.runInContext('studioSession.data.offerings.at(-1).roles.length',h.ctx),before);
  h.click('studio-delete',{id});assert.match(h.elements['#modal'].innerHTML,/Delete this idea/);assert.equal(vm.runInContext('studioSession.data.offerings.length',h.ctx),6);h.click('studio-confirm-delete',{id});assert.equal(vm.runInContext('studioSession.data.offerings.length',h.ctx),5);
  vm.runInContext('for(const idea of [...studioSession.data.offerings])QQStudio.remove(studioSession.data,idea.id)',h.ctx);await vm.runInContext('studioSession.flush()',h.ctx);const reopened=setup([...h.storage]);await vm.runInContext('studioReady',reopened.ctx);assert.equal(vm.runInContext('studioSession.data.offerings.length',reopened.ctx),0);
@@ -50,4 +54,29 @@ test('Studio opens on the library and edits the chosen idea’s existing next ac
  await state('studioSession.flush()');const restored=setup([...h.storage]);await vm.runInContext('studioReady',restored.ctx);
  restored.click('view',{view:'studio'});restored.click('studio-select',{id:second.id});
  assert.match(restored.elements['#root'].innerHTML,/Request the print proof/);
+});
+
+test('naming, finding, and restoring library drafts preserves old records and their links',async()=>{
+ const h=setup(),run=code=>vm.runInContext(code,h.ctx),page=()=>h.elements['#root'].innerHTML;
+ await run('studioReady');
+ run("QQStudio.create(studioSession.data,{buyer:'Orchid shop'});QQStudio.create(studioSession.data,{nextAction:'Call the buyer'});");
+ h.click('view',{view:'studio'});h.click('studio-add');
+ assert.equal(run('studioSession.data.nextId'),8);
+ submitIdeaName(h,'   ');h.click('close');
+ assert.equal(run('studioSession.data.offerings.length'),7);
+ assert.match(page(),/Untitled draft 6/);assert.match(page(),/Untitled draft 7/);
+ h.handlers.input({target:{id:'studio-find',value:'orchid'}});
+ assert.match(page(),/Untitled draft 6/);assert.doesNotMatch(page(),/Untitled draft 7/);
+ h.click('studio-rename',{id:'idea-6'});submitIdeaName(h,'  Orchid campaign  ','idea-6');
+ assert.equal(run("studioSession.data.offerings[5].name"),'Orchid campaign');
+ const original=run('JSON.stringify(studioSession.data.offerings[5])');
+ h.click('studio-delete',{id:'idea-6'});h.click('studio-confirm-delete',{id:'idea-6'});
+ assert.match(page(),/No ideas match/);assert.match(page(),/studio-undo-delete/);
+ run("QQStudio.setField(studioSession.data,'idea-7','researchNotes','Another edit')");
+ h.click('studio-undo-delete');
+ assert.equal(run('JSON.stringify(studioSession.data.offerings[5])'),original);
+ assert.equal(run('studioSession.data.offerings[6].researchNotes'),'Another edit');
+ h.click('studio-add');submitIdeaName(h,'  Seasonal launch  ');
+ assert.equal(run("studioSession.data.offerings.at(-1).name"),'Seasonal launch');
+ assert.equal(run('studioUI.selectedId'),'idea-8');
 });

@@ -52,6 +52,8 @@ let filter='active',search='',toastTimer,modalFocus=null,actionFocus=null,expand
 let presetSelection={market:'metro',operation:'solo',mix:'balanced',condition:'steady'},pendingPreset=null,presetUndoDraft=null,pendingEvidence=null;
 let catalogGoal='all',catalogAudience='all',pendingCatalogId=null,pendingStarterId=null,serviceUndoDraft=null;
 const disclosureState=new Map(),catalogPrices=new Map();
+// History belongs to this draft menu. Replacing a workspace or mix naturally drops it.
+const removedServices=new WeakMap();
 let studioUI={selectedId:null,tab:'idea',section:'offer',phase:'first'},pendingStudioImport=null;
 let studioLocal;try{studioLocal=localStorage;}catch(e){}
 const studioSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,seed:()=>{const studio=QQStudio.fresh();for(const item of QQStudioSeeds.EXAMPLES)QQStudio.create(studio,QQStudioSeeds.create(item.id));return studio;},onStatus:()=>updateStudioStatus()});
@@ -278,11 +280,43 @@ function importStudioFile(){
  const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
  input.onchange=async()=>{try{const file=input.files?.[0];if(!file)return;if(file.size>QQStudio.MAX_BYTES)throw Error('Choose a Studio backup smaller than 8 MiB.');pendingStudioImport=QQStudio.parseText(await file.text());modal(`<h2 id="dialog-title">Add these saved ideas?</h2><p>Add ${pendingStudioImport.offerings.length} ideas from this Studio backup as new copies. Your current ideas stay in place. Simulator backups open from the simulator workspace.</p><div class="actions">${btn('Cancel','close')}${btn('Add ideas','studio-confirm-import','primary')}</div>`);}catch(e){toast(e.message||'The Studio backup could not be opened.');}};input.click();
 }
+function studioNameDialog(idea){
+ const label=idea?'Rename idea':'Name your idea';
+ const value=idea?.name.trim()?QQI18n.text(QQStudioView.ideaTitle(idea)):'';
+ modal(`<form id="studio-name-form" data-id="${idea?.id||''}"><h2 id="dialog-title">${label}</h2>
+  <label class="input-field" for="studio-name-entry">Idea name<input type="text" id="studio-name-entry" maxlength="300" required value="${esc(value)}" placeholder="A working title" aria-describedby="modal-error"></label>
+  <div class="actions">${btn('Cancel','close','','type="button"')}<button type="submit" class="primary">${idea?'Save name':'Create idea'}</button></div></form>`,'studio-name-entry');
+ if(idea)document.querySelector('#studio-name-entry')?.select?.();
+}
+document.addEventListener('submit',e=>{
+ if(e.target.id!=='studio-name-form')return;
+ e.preventDefault();
+ const input=$('#studio-name-entry'),name=input.value.trim(),id=e.target.dataset.id;
+ try{
+  if(!name){input.focus();throw Error('Give this idea a working title.');}
+  if(id){
+   const idea=studioSession.data.offerings.find(v=>v.id===id);
+   if(!idea)throw Error('Studio idea not found.');
+   if(!idea.name.trim()||name!==QQI18n.text(QQStudioView.ideaTitle(idea))){
+    QQStudio.update(studioSession.data,id,{name});studioSession.changed();
+   }
+  }else{
+   const created=QQStudio.create(studioSession.data,{name});
+   studioUI={...studioUI,query:'',selectedId:created.id,tab:'idea',section:'offer'};
+   disclosureState.set('studio-details-'+created.id,true);
+   studioSession.changed();
+  }
+  closeModal();render();
+  if(id)(document.querySelector('#studio-rename-'+id)||document.querySelector('#studio-find'))?.focus();
+  else document.querySelector('[data-studio-field="buyer"]')?.focus();
+ }catch(err){showError(err.message);}
+});
 function handleStudioAction(a,el){
  if(!studioSession.ready)throw Error('Studio ideas are still opening. Wait for the saved ideas before downloading or editing.');
  if(a==='studio-backup'){download('MEIQQ-Studio-Ideas.json',QQStudio.serialize(studioSession.data));toast('Studio backup download requested. This contains ideas and research; simulator runs have their own backup.');return;}
  if(a==='studio-original'){const file=studioSession.originals[Number(el.dataset.index)];if(file)download('MEIQQ-Studio-Preserved-'+el.dataset.index+'.json',file.text);return;}
  let changed=false,focusAfter=null;const id=el.dataset.id||studioUI.selectedId,idea=studioSession.data.offerings.find(v=>v.id===id);
+ const libraryChange=!studioUI.selectedId&&(a==='studio-confirm-delete'||a==='studio-undo-delete');
  if(a==='studio-job'){
   if(!idea)throw Error('Select an idea first.');
   const job=jobsController.startFromIdea(linkStudioIdea(idea));
@@ -303,20 +337,38 @@ function handleStudioAction(a,el){
   focusAfter=studioUI.section==='offer'?'#studio-go-'+previous:'#studio-heading';
  }
  else if(a==='studio-phase')studioUI.phase=el.dataset.phase==='repeat'?'repeat':'first';
- else if(a==='studio-add'||a==='studio-example'||a==='studio-duplicate'){
-  const created=a==='studio-duplicate'?QQStudio.duplicate(studioSession.data,id):QQStudio.create(studioSession.data,a==='studio-example'?QQStudioSeeds.create(el.dataset.id):{});
+ else if(a==='studio-add'||a==='studio-rename'){
+  if(a==='studio-rename'&&!idea)throw Error('Studio idea not found.');
+  if(a==='studio-add'&&studioSession.data.offerings.length>=QQStudio.MAX_OFFERINGS)throw Error('Studio has reached its idea limit.');
+  studioNameDialog(a==='studio-add'?null:idea);return;
+ }else if(a==='studio-clear-search'){studioUI.query='';$('#studio-find').value='';focusAfter='#studio-find';}
+ else if(a==='studio-example'||a==='studio-duplicate'){
+  const created=a==='studio-duplicate'?QQStudio.duplicate(studioSession.data,id):QQStudio.create(studioSession.data,QQStudioSeeds.create(el.dataset.id));
   studioUI={...studioUI,selectedId:created.id,tab:'idea',section:'offer'};changed=true;
-  focusAfter=a==='studio-add'?'[data-studio-field="name"]':'#studio-heading';
+  focusAfter='#studio-heading';
  }else if(a==='studio-delete'){
   if(!idea)throw Error('Select an idea first.');
-  modal(`<h2 id="dialog-title">Delete this idea?</h2><p>Remove ${esc(idea.name||'Untitled idea')} from this browser. Existing downloaded backups keep their copy.</p><div class="actions">${btn('Cancel','close')}${btn('Delete idea','studio-confirm-delete','primary',`data-id="${esc(id)}"`)}</div>`);return;
- }else if(a==='studio-confirm-delete'){QQStudio.remove(studioSession.data,id);studioUI.selectedId=null;changed=true;closeModal();focusAfter='#studio-heading';}
+  modal(`<h2 id="dialog-title">Delete this idea?</h2><p><b>${esc(QQStudioView.ideaTitle(idea))}</b></p><p>This removes the idea and its research from this library. Existing plans, jobs and downloaded backups keep their copies.</p><div class="actions">${btn('Cancel','close')}${btn('Delete idea','studio-confirm-delete','primary',`data-id="${esc(id)}"`)}</div>`);return;
+ }else if(a==='studio-confirm-delete'){
+  if(!idea)throw Error('Studio idea not found.');
+  studioUI.removal={idea,index:studioSession.data.offerings.indexOf(idea)};
+  QQStudio.remove(studioSession.data,id);studioUI.selectedId=null;changed=true;closeModal();focusAfter='#studio-undo-delete';
+ }else if(a==='studio-undo-delete'){
+  const removal=studioUI.removal;
+  if(!removal)return;
+  const offerings=studioSession.data.offerings.slice();
+  offerings.splice(removal.index,0,removal.idea);
+  QQStudio.serialize({...studioSession.data,offerings});
+  studioSession.data.offerings=offerings;studioUI.removal=null;changed=true;
+  focusAfter='#studio-select-'+removal.idea.id;
+ }
  else if(a==='studio-role-add'){if(!idea)throw Error('Select an idea first.');QQStudio.update(studioSession.data,id,{roles:[...idea.roles,{name:'',hours:'',setupHours:'',rate:''}]});changed=true;}
  else if(a==='studio-role-remove'){if(!idea)throw Error('Select an idea first.');QQStudio.update(studioSession.data,id,{roles:idea.roles.filter((v,i)=>i!==Number(el.dataset.index))});changed=true;}
  else if(a==='studio-import'){importStudioFile();return;}
  else if(a==='studio-confirm-import'){if(!pendingStudioImport)throw Error('Choose a Studio backup first.');const count=studioSession.merge(pendingStudioImport);pendingStudioImport=null;closeModal();toast(count+' saved ideas added as new copies.');}
- if(changed)studioSession.changed();render();
- if(focusAfter)document.querySelector(focusAfter)?.focus();
+ if(changed)studioSession.changed();
+ if(libraryChange)renderListChange('.studio-ideas li');else render();
+ if(focusAfter)(document.querySelector(focusAfter)||document.querySelector('#studio-find')||document.querySelector('#studio-heading'))?.focus();
 }
 function renderKey(node){
  if(node?.nodeType!==1)return null;
@@ -363,6 +415,20 @@ function presentationKey(){
  }
  return view==='setup'?[view,setupNeedsChoice(),stepIndex,setupMode].join('/'):view;
 }
+// Take layout measurements only for a deliberate list change, never while typing.
+function renderListChange(selector){
+ if(document.documentElement.dataset.uiMotion!=='on'){render();return;}
+ const tops=new Map([...document.querySelectorAll(selector)].map(el=>[el.dataset.renderKey,el.getBoundingClientRect().top+window.scrollY]));
+ render();
+ for(const el of document.querySelectorAll(selector)){
+  if(!el.animate)continue;
+  const before=tops.get(el.dataset.renderKey),dy=before-el.getBoundingClientRect().top-window.scrollY;
+  if(before===undefined)el.animate([{opacity:.6},{opacity:1}],{id:'workspace-motion',duration:180});
+  else if(Math.abs(dy)>1&&Math.abs(dy)<window.innerHeight)el.animate(
+   [{transform:'translateY('+dy+'px)'},{transform:'translateY(0)'}],
+   {id:'workspace-motion',duration:220,easing:'cubic-bezier(.22,.7,.2,1)'});
+ }
+}
 // Measure the outgoing selection before reconciliation. Keep the live form
 // elements in place so typing, scrolling and autosaves do not replay entrances.
 function workspaceTransition(root){
@@ -389,8 +455,8 @@ function workspaceTransition(root){
    const within=previous.split('/')[0]===view;
    const rows=workspace.querySelector('.studio-ideas');
    const panels=within&&detail?[detail]:opening?[...opening.children]:rows?[...rows.children].slice(0,5):[...workspace.querySelectorAll(':scope > :not(.workspace-heading)')].slice(0,4);
-   if(!within||!detail)animate(title,[{opacity:.22,translate:'0 13px'},{opacity:1,translate:'0 0'}],440);
-   panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.28,translate:'0 19px'},{opacity:1,translate:'0 0'}],490,45+i*52);});
+   if(!within||!detail)animate(title,[{opacity:.76,translate:'0 7px'},{opacity:1,translate:'0 0'}],290);
+   panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.78,translate:'0 8px'},{opacity:1,translate:'0 0'}],300,i*22);});
    const rail=root.querySelector('.nav-rail');
    if(rail&&oldRail){
      const delta=oldRail.top-rail.getBoundingClientRect().top;
@@ -652,6 +718,38 @@ function clearServiceRecords(id){
  for(const path of Object.keys(draft.assumptionRecords))if(path.startsWith(prefix))delete draft.assumptionRecords[path];
  if(!Object.keys(draft.assumptionRecords).length)delete draft.assumptionRecords;
 }
+function removeDraftService(index){
+ const offers=draft.services, service=offers[index];
+ if(!service)throw Error('Choose a service first.');
+ if(offers.length===1)throw Error('Keep at least one service.');
+ const records=Object.entries(draft.assumptionRecords||{}).filter(([path])=>path.startsWith('services.'+service.id+'.'));
+ const history=removedServices.get(offers)||[];
+ history.push({service,index,records});
+ removedServices.set(offers,history);
+ clearServiceRecords(service.id);
+ offers.splice(index,1);
+ if(expandedService===index)expandedService=-1;
+ else if(expandedService>index)expandedService--;
+ renderListChange('.offer-card,.offer-recovery[data-render-key]');
+ document.querySelector('#undo-service-removal')?.focus();
+}
+function restoreDraftService(){
+ const offers=draft.services,history=removedServices.get(offers),entry=history?.at(-1);
+ if(!entry)throw Error('No removed service to restore.');
+ if(offers.length>=20)throw Error('This draft already contains 20 services.');
+ const {index,service,records}=entry;
+ if(records.length){
+  const combined={...draft.assumptionRecords,...Object.fromEntries(records)};
+  if(!QQ.validAssumptionRecords(combined))throw Error('There is no room for the restored assumption records.');
+  draft.assumptionRecords=combined;
+ }
+ offers.splice(index,0,service);
+ history.pop();
+ presetUndoDraft=null;serviceUndoDraft=null;
+ if(expandedService>=index)expandedService++;
+ renderListChange('.offer-card,.offer-recovery[data-render-key]');
+ document.querySelector('#offer-edit-'+service.id)?.focus();
+}
 function addCatalogService(id,price){
  if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');
  const s=id?QQServiceCatalog.createService(id):{customOffer:true,name:'',deliverable:'',price:null,hours:null,review:null,print:null,supplierMode:'choose',recurring:false,audience:'all',color:'#647f9a'};
@@ -681,7 +779,7 @@ function serviceEditor(s,i,row){
  const basis=key=>serviceInputBasis(s,key);
  const priceLabel=s.fulfillment?'Managed-print price':'Client price';
  const title=s.name.trim()?serviceName(s):'New service';
- const summary=`<summary><span class="offer-heading"><strong>${title}</strong>${s.deliverable?`<span>${esc(QQI18n.literal(serviceCopy(s,'deliverable')))}</span>`:''}</span>${s.weight===0?'<span class="offer-inactive">Outside mix</span>':''}<span class="offer-rate">${s.price==null?'Set price':offerAmount(s.price)}${s.fulfillment?' managed':''}</span><span class="disclosure-chevron" aria-hidden="true"></span></summary>`;
+ const summary=`<summary id="offer-edit-${s.id}"><span class="offer-heading"><strong>${title}</strong>${s.deliverable?`<span>${esc(QQI18n.literal(serviceCopy(s,'deliverable')))}</span>`:''}</span><span class="offer-rate">${s.price==null?'Set price':offerAmount(s.price)}${s.fulfillment?' managed':''}</span><span class="offer-edit-label"><span class="when-closed">Edit</span><span class="when-open">Close</span></span><span class="disclosure-chevron" aria-hidden="true"></span></summary>`;
  const supplierMode=s.supplierMode||(s.print>0?'print':'none');
  const supplier=s.fulfillment?'':field('Print supplier','supplierMode',supplierMode,{path:path('supplierMode'),options:[...(s.supplierMode==='choose'?[['choose','Choose a route…']]:[]),['none','No supplier purchase'],['print','We arrange printing']]});
  const costField=s.fulfillment||supplierMode==='print'?input('Printing + shipping cost','print',{step:0.01,suffix:'$ / batch',help:basis('print')+' · total for one project, including any freight.'}):'';
@@ -709,11 +807,15 @@ function serviceEditor(s,i,row){
   <div><span>Orders</span><b>${num(row.orders)}</b></div><div><span>Potential revenue</span><b>${offerAmount(row.revenue)}</b></div><div><span>Direct cost</span><b>${offerAmount(row.directCost)}</b></div><div><span>Contribution</span><b>${offerAmount(row.contribution)}</b></div>
   <div><span>Design capacity</span><b>${pct(row.designCapacityShare)}</b></div><div><span>Your service capacity</span><b>${pct(row.ownerCapacityShare)}</b></div></div></details>`:'';
  const more=`${advanced}${economics}${totals}${evidenceControls('service',s.id)}
-  <div class="service-actions">${btn('Compare prices','price-experiment','soft',`data-index="${i}" ${unit?'':'disabled'}`)}${btn('Duplicate','duplicate','small',`data-index="${i}"`)}${draft.services.length>1?btn('Remove from draft','remove-service','small ghost',`data-index="${i}"`):''}</div>`;
- return `<details class="service-editor" ${setupMode==='guided'?'name="offer-editors"':''} data-disclosure="service-${s.id}" ${i===expandedService?'open':''}>${summary}<div class="service-fields">${fields}
+  <div class="service-actions">${btn('Compare prices','price-experiment','soft',`data-index="${i}" ${unit?'':'disabled'}`)}${btn('Duplicate','duplicate','small',`data-index="${i}"`)}</div>`;
+ const weight=s.weight==null?'Set inquiry weight':s.weight===0?'Outside mix':QQ.round(s.weight)+'% inquiry weight';
+ const meter=`<span class="offer-weight-track" aria-hidden="true"><i style="width:${Math.max(0,Math.min(100,s.weight||0))}%"></i></span>`;
+ const tools=`<div class="offer-card-tools">${btn(meter+'<span>'+weight+'</span>','edit-inquiry-weight','offer-weight',`data-index="${i}" aria-label="Edit inquiry weight for ${title}"`)}
+  ${draft.services.length>1?btn('Remove','remove-service','offer-remove',`data-id="${s.id}" aria-label="Remove ${title} from draft"`):'<small>Keep one service in the draft.</small>'}</div>`;
+ return `<article class="offer-card" data-render-key="offer-${s.id}"><details class="service-editor" ${setupMode==='guided'?'name="offer-editors"':''} data-disclosure="service-${s.id}" ${i===expandedService?'open':''}>${summary}<div class="service-fields">${fields}
   ${advancedBlock('delivery-'+s.id,'Delivery time and costs',delivery)}
   ${advancedBlock('service-'+s.id,'Service options and estimates',more)}
-  ${s.weight===0?btn('Set inquiry weight','edit-inquiry-weight','soft',`data-index="${i}"`):''}</div></details>`;
+  </div></details>${tools}</article>`;
 }
 
 function inquiryMix(rows,estimate){
@@ -745,10 +847,19 @@ function serviceInputs(){
   const row=rows.get(s.id),u=row?.perProject||serviceUnit(s);
   return `<tr><th>${btn((s.name?serviceName(s):'New service'),'inspect-service','table-link',`data-index="${i}"`)}</th><td>${offerAmount(u?.price)}</td><td>${offerAmount(u?.designerCost)}</td><td>${offerAmount(u?.printCost)}</td><td>${offerAmount(u?.contribution)}</td><td>${offerAmount(u?.afterOwnerTime)}</td><td>${row?inquiryShare(row.effectiveShare):'—'}</td></tr>`;
  }).join('')}</tbody></table></div>`:'';
- return `<div class="section-heading menu-heading"><div><h2>Build your service menu</h2><p>${draft.services.length===1&&!draft.services[0].name?'Start with the name, price and deliverable for one service.':'Open a service to set its price and delivery details.'}</p></div></div>
+ const cards=draft.services.map((service,index)=>serviceEditor(service,index,rows.get(service.id)));
+ const removed=removedServices.get(draft.services)?.at(-1);
+ if(removed){
+  const service=removed.service;
+  const gap=QQ.round(100-draft.services.reduce((sum,s)=>sum+(s.weight||0),0));
+  const fix=gap?btn(gap>0?gap+'% left to assign':Math.abs(gap)+'% over allocation','inspect-mix','small'):'';
+  const undo=btn('Undo','restore-service','small','id="undo-service-removal"'+(draft.services.length>=20?' disabled title="This draft already contains 20 services."':''));
+  cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}</div>`);
+ }
+ return `<div class="section-heading menu-heading"><div><h2>Build your service menu</h2><p>${draft.services.length===1&&!draft.services[0].name?'Start with the name, price and deliverable for one service.':'Edit your offers here. Review the draft to apply changes to the run.'}</p></div></div>
   ${serviceUndoDraft?`<div class="preset-undo"><span>Previous service mix available.</span>${btn('Undo service mix','undo-services','small')}</div>`:''}${analyst}
-  ${draft.services.map((s,i)=>serviceEditor(s,i,rows.get(s.id))).join('')}
-  <div class="menu-tools">${btn(icon('plus')+'Add my service','add-blank-service','soft')}
+  ${cards.join('')}
+  <div class="menu-tools">${btn(icon('plus')+'Add my service','add-blank-service','soft',draft.services.length>=20?'disabled':'')}${draft.services.length>=20?'<small>This draft already contains 20 services.</small>':''}
   <details data-disclosure="offer-examples"><summary>Use an example</summary><div class="actions">${btn('Browse examples','service-library','small')}${btn('Choose a starter mix','service-starters','small')}</div></details></div>
   ${inquiryMix(rows,estimate)}`;
 }
@@ -1664,6 +1775,7 @@ function saveCapacityReplay(){
 
 function newServiceId(){
  const used=new Set([...draft.services,...state.config.services].map(s=>s.id));
+ for(const entry of removedServices.get(draft.services)||[])used.add(entry.service.id);
  for(const project of state.projects)used.add(project.serviceId);
  const base='service'+Date.now();let id=base,index=1;
  while(used.has(id))id=base+'_'+index++;
@@ -1756,6 +1868,7 @@ function applyDraft(mode,intent=''){
  const i=checkpoint();
  if(pin&&i>=0){checkpointInfo[i].baseline=true;checkpointInfo[i].kind='manual';}
  state=updated;selection=null;inspectorTrail=[];view='map';
+ removedServices.delete(draft.services);
  closeModal();
  if(intent==='play')play();
  else if(intent==='step'){if(beginRun('step'))tick();}
@@ -1822,7 +1935,9 @@ function handleInput(el){
  updatePreview();
  if(view==='setup')render();
 }
-document.addEventListener('input',e=>{if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
+document.addEventListener('input',e=>{
+ if(e.target.id==='studio-find'){studioUI.query=e.target.value;render();return;}
+ if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
 document.addEventListener('change',e=>{
  const el=e.target;
  if(el.id==='language'){if(QQI18n.choose(el.value)){render();$('#toast').textContent='';$('#toast').className='';}return;}
@@ -1911,6 +2026,10 @@ document.addEventListener('click',e=>{
   else if(a==='setup-step'){stop();setupRepairPath=null;stepIndex=Number(el.dataset.step);render();document.querySelector('#setup-tab-'+stepIndex)?.focus();}
   else if(a==='fix-setup-issue')fixSetupIssue();
   else if(a==='edit-inquiry-weight')revealSetupField({path:'services.'+Number(el.dataset.index)+'.weight'});
+  else if(a==='inspect-mix'){
+   const mix=document.querySelector('.inquiry-mix');
+   if(mix){mix.open=true;mix.querySelector('summary')?.focus();}
+  }
   else if(a==='service-library')serviceLibrary();
   else if(a==='catalog-package')catalogPackage(el.dataset.id);
   else if(a==='confirm-catalog-service'){const value=QQI18n.inputValue($('#catalog-price'));if(value.trim()==='')throw Error('Enter a customer price.');const amount=Number(value),s=QQServiceCatalog.createService(pendingCatalogId);if(s.fulfillment&&amount<s.fulfillment.designOnlyPrice)throw Error('The managed-print price must cover at least the design-only price.');addCatalogService(pendingCatalogId,amount);catalogPrices.delete(pendingCatalogId);pendingCatalogId=null;}
@@ -1944,7 +2063,8 @@ document.addEventListener('click',e=>{
   else if(a==='enable-profiles'){draft.customerMix=QQ.clone(QQ.DEFAULT.customerMix);draft.profileStrength=QQ.DEFAULT.profileStrength;draft.focusType='none';render();}
   else if(a==='add-service'){const id=$('#service-template').value;addCatalogService(QQServiceCatalog.SERVICES.some(s=>s.id===id)?id:id==='menu'?'menu-refresh':null);}
   else if(a==='duplicate'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id=newServiceId();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
-  else if(a==='remove-service'){if(draft.services.length<=1)throw Error('Keep at least one service.');clearServiceRecords(draft.services[Number(el.dataset.index)].id);draft.services.splice(Number(el.dataset.index),1);expandedService=Math.min(expandedService,draft.services.length-1);render();}
+  else if(a==='remove-service')removeDraftService(el.dataset.id?draft.services.findIndex(s=>s.id===el.dataset.id):Number(el.dataset.index));
+  else if(a==='restore-service')restoreDraftService();
   else if(a==='assign-remainder'){
    const service=draft.services[Number(el.dataset.index??$('#mix-recipient').value)],total=draft.services.reduce((sum,s)=>sum+(s.weight||0),0),weight=QQ.round((service?.weight||0)+100-total);
    if(!service||weight<0||weight>100)throw Error('Choose an offer that can take the remaining weight.');
@@ -2004,7 +2124,7 @@ else if(a==='open-archive'){
   else if(['delete-checkpoint','delete-archive'].includes(a)){const kind=a==='delete-checkpoint'?'checkpoint':'workspace';modal(`<h2 id="dialog-title">Delete this ${kind}?</h2><p>This removes the saved copy from this browser. Existing downloaded backups keep their copy.</p><div class="actions">${btn('Cancel','close')}${btn('Delete saved copy','confirm-delete','primary',`data-kind="${kind}" data-index="${Number(el.dataset.index)}"`)}</div>`);}
   else if(a==='confirm-delete'){const i=Number(el.dataset.index);if(el.dataset.kind==='checkpoint'){MEIQQWorkspace.removeCheckpoint(saved,checkpointInfo,i);comparisonSelection=null;}else archives.splice(i,1);closeModal();render();}
   else if(a==='close'){closeModal();render();}
-  if(['confirm-catalog-service','add-blank-service','add-starter','confirm-starter','undo-services','use-service-price','apply','confirm-preset','undo-preset','discard','enable-profiles','add-service','duplicate','remove-service','balance','assign-remainder','priority','deadline','approve','checkpoint','pin-baseline','confirm-branch','load','confirm-restart','confirm-example','confirm-fund','confirm-import','open-archive','confirm-restore-draft','confirm-rename','confirm-delete'].includes(a))save();
+  if(['confirm-catalog-service','add-blank-service','add-starter','confirm-starter','undo-services','restore-service','use-service-price','apply','confirm-preset','undo-preset','discard','enable-profiles','add-service','duplicate','remove-service','balance','assign-remainder','priority','deadline','approve','checkpoint','pin-baseline','confirm-branch','load','confirm-restart','confirm-example','confirm-fund','confirm-import','open-archive','confirm-restore-draft','confirm-rename','confirm-delete'].includes(a))save();
  }catch(err){showError(err.message||'The action could not be completed.');}finally{actionFocus=null;}
 });
 document.addEventListener('keydown',e=>{

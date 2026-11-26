@@ -106,3 +106,33 @@
  .studio-workbench :is(button,select,summary) {min-height:44px}
  .studio-field :is(input,textarea,select),.studio-next .studio-field textarea {font-size:16px}
 }
+
+.idea-library-tools {display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:12px}
+.idea-search {display:grid;gap:5px;width:min(100%,350px);min-width:0;font-size:12px;color:var(--muted)}
+.idea-search input {width:100%;min-width:0;min-height:40px;border:1px solid var(--line);padding:8px 11px;font:inherit;font-size:14px}
+.idea-count {flex:none;font-size:12px;color:var(--muted);padding-bottom:11px;font-variant-numeric:tabular-nums}
+.studio-ideas li {display:flex;align-items:center;gap:12px}
+.studio-ideas li:last-child {border-bottom:0}
+.studio-workbench .studio-idea-row {flex:1;min-width:0;grid-template-columns:minmax(0,1fr) minmax(100px,22%);gap:16px;padding:14px 6px;min-height:78px}
+.studio-row-copy,.studio-row-meta {display:grid;gap:4px;min-width:0}
+.studio-row-next {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px;line-height:1.5;font-weight:400}
+.studio-row-status {display:flex;align-items:center;gap:6px;font-size:12px;color:var(--bench-ink);font-weight:500}
+.studio-row-status::before {content:"";width:7px;height:7px;border-radius:50%;border:1px solid var(--muted)}
+.studio-row-status[data-status="research"]::before {background:var(--accent);border-color:var(--accent)}
+.studio-row-status[data-status="ready"]::before {background:var(--positive);border-color:var(--positive)}
+.idea-row-tools {display:flex;gap:3px;align-items:center}
+.studio-workbench .idea-row-tools button {color:var(--muted);font-size:12px}
+.studio-workbench .idea-row-tools button:hover {color:var(--bench-copper)}
+.studio-workbench .idea-row-tools [data-action="studio-delete"]:hover {color:var(--negative)}
+.modal:has(#studio-name-form) {width:min(100%,430px)}
+#studio-name-form input {width:100%;margin-top:7px}
+@media(max-width:800px){
+ .studio-ideas li {flex-wrap:wrap;gap:0}
+ .studio-workbench .studio-idea-row {flex-basis:100%;padding:12px 4px 3px;min-height:54px}
+ .idea-row-tools {margin-inline-start:auto;padding-bottom:5px}
+}
+@media(max-width:540px){
+ .studio-workbench .studio-idea-row {grid-template-columns:minmax(0,1fr);gap:6px}
+ .studio-row-meta {display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+ .idea-search input,#studio-name-form input {font-size:16px}
+}

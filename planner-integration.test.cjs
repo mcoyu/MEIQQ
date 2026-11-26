@@ -90,3 +90,20 @@ test('mix quantities can be edited with closed service details and the next esti
  assert.equal(run(h,'plannerSession.data.plans[0].services[0].quantity'),'7');
  assert.equal(run(h,'plannerSession.data.plans[0].services[1].setupCount'),'');
 });
+
+test('service mix Undo restores the original row and preserves intervening workload changes',async()=>{
+ const h=await open();
+ h.click('planner-example');h.click('planner-tab',{tab:'mix'});
+ const p=()=>run(h,'plannerSession.data.plans.find(p=>p.id===plannerController.ui.selectedId)');
+ const first=p().services[0];
+ h.click('planner-service-remove',{serviceId:first.id});assert.equal(p().services.some(s=>s.id===first.id),false);
+ h.click('planner-service-add');edit(h,'services.'+(p().services.length-1)+'.quantity','11');
+ h.click('planner-service-restore',{serviceId:first.id});
+ assert.deepEqual(p().services[0],first);assert.equal(p().services.at(-1).quantity,'11');
+ h.click('planner-service-remove',{serviceId:first.id});h.click('planner-pool-remove',{index:'0'});
+ h.click('planner-service-restore',{serviceId:first.id});
+ assert.equal(p().services[0].id,first.id);
+ assert.ok(p().services[0].allocations.every(a=>!a.poolId||p().pools.some(pool=>pool.id===a.poolId)));
+ assert.equal(p().services[0].allocations.length,first.allocations.length);
+ assert.equal(await run(h,'plannerSession.flush()'),true);
+});

@@ -43,23 +43,42 @@ function ideaText(idea,path,fallback){
  const value=ideaValue(idea,path,path.split('.').reduce((record,key)=>record?.[key],idea));
  return value ? (root.QQI18n?.literal(value) ?? value) : fallback;
 }
+function ideaTitle(idea){
+ return idea.name.trim()?ideaText(idea,'name',''):'Untitled draft '+idea.id.slice(5);
+}
 function examplesMenu(){
  const examples=root.QQStudioSeeds?.EXAMPLES||[];
  if(!examples.length)return '';
  return `<details class="studio-examples" data-disclosure="studio-examples"><summary>Add an example</summary><div class="studio-example-options">${examples.map(example=>button(`<strong>${esc(example.name)}</strong><span>${esc(example.summary||'Editable starting context')}</span>`,'example',`id="studio-example-${dom(example.id)}" data-id="${esc(example.id)}"`)).join('')}</div></details>`;
 }
-function library(studio){
- const rows=studio.offerings.map(idea=>{
-  const contents=`<span class="studio-row-name">${esc(ideaText(idea,'name','Untitled idea'))}</span><span class="studio-row-family">${esc(ideaText(idea,'family',''))}</span><span class="studio-row-arrow" aria-hidden="true">→</span>`;
-  return `<li>${button(contents,'select',`id="studio-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-idea-row')}</li>`;
+function library(studio,ui){
+ const query=ui.query||'';
+ const translated=value=>root.QQI18n?.text(value)??value;
+ const rowStatus=idea=>idea.status==='idea'?(idea.origin.kind==='example'?'Editable example':'Draft'):statusLabels[idea.status];
+ const terms=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+ const matching=studio.offerings.filter(idea=>{
+  if(!terms.length)return true;
+  const text=[ideaTitle(idea),ideaText(idea,'family',''),ideaText(idea,'nextAction',''),ideaText(idea,'buyer',''),rowStatus(idea)].map(translated).join(' ').toLocaleLowerCase();
+  return terms.every(term=>text.includes(term));
+ });
+ const rows=matching.reverse().map(idea=>{
+  const title=esc(ideaTitle(idea)),family=ideaText(idea,'family','');
+  const detailKey=idea.nextAction.trim()?'nextAction':'buyer';
+  const detail=ideaValue(idea,detailKey,idea[detailKey]).trim().replace(/\s+/g,' ');
+  const excerpt=detail.length>180?detail.slice(0,180).trimEnd()+'…':detail;
+  const next=root.QQI18n?.literal(excerpt)??excerpt;
+  const contents=`<span class="studio-row-copy"><span class="studio-row-name">${title}</span>${next?`<span class="studio-row-next">${esc(next)}</span>`:''}</span><span class="studio-row-meta"><span class="studio-row-status" data-status="${idea.status}">${rowStatus(idea)}</span>${family?`<span class="studio-row-family">${esc(family)}</span>`:''}</span>`;
+  return `<li data-render-key="library-${idea.id}">${button(contents,'select',`id="studio-select-${dom(idea.id)}" data-id="${idea.id}" aria-label="Open ${title}"`,'studio-idea-row')}<div class="idea-row-tools">${button('Rename','rename',`id="studio-rename-${idea.id}" data-id="${idea.id}" aria-label="Rename ${title}"`)}${button('Delete','delete',`id="studio-delete-${idea.id}" data-id="${idea.id}" aria-label="Delete ${title}"`)}</div></li>`;
  }).join('');
+ const search=studio.offerings.length?`<div class="idea-library-tools"><label class="idea-search"><span>Find an idea</span><input type="search" id="studio-find" value="${esc(query)}" placeholder="Name, family or next action"></label><span class="idea-count" role="status">${matching.length===1?'1 idea':matching.length+' ideas'}</span></div>`:'';
  return `<section aria-labelledby="studio-heading"><div class="studio-home-heading"><h1 id="studio-heading" tabindex="-1">Your ideas</h1>${button('<span aria-hidden="true">＋</span> New idea','add','id="studio-add"','studio-new')}</div>
- ${rows?`<ul class="studio-ideas">${rows}</ul>`:'<p class="studio-empty">Start with an idea of your own, or choose an example below.</p>'}
- <div class="studio-work-links">${rows?button('Compare ideas','tab','id="studio-compare" data-tab="compare"','studio-link'):''}${examplesMenu()}</div></section>`;
+ ${ui.removal?`<div class="offer-recovery"><span role="status">Deleted from library · <b>${esc(ideaTitle(ui.removal.idea))}</b></span>${button('Undo','undo-delete','id="studio-undo-delete"')}</div>`:''}
+ ${search}${rows?`<ul class="studio-ideas">${rows}</ul>`:studio.offerings.length?`<div class="studio-empty">No ideas match your search. ${button('Clear search','clear-search','','studio-link')}</div>`:'<p class="studio-empty">Start with an idea of your own, or choose an example below.</p>'}
+ <div class="studio-work-links">${studio.offerings.length?button('Compare ideas','tab','id="studio-compare" data-tab="compare"','studio-link'):''}${examplesMenu()}</div></section>`;
 }
 function offer(idea){
  return `<div class="studio-fields">
- ${field(idea,'name','Idea name',{placeholder:'A working title',maxLength:200,wide:true})}
+ ${field(idea,'name','Idea name',{placeholder:'A working title',maxLength:300,wide:true})}
  ${field(idea,'buyer','Possible buyer',{area:true,placeholder:'Who has the problem and could pay for help?'})}
  ${field(idea,'deliverables','What the buyer receives',{area:true,placeholder:'Outputs the buyer can inspect and use'})}
  </div>
@@ -139,23 +158,23 @@ function editor(idea,ui){
  <details class="studio-details" data-disclosure="${esc(detailKey)}"${!idea.name?' open':''}><summary>Idea details</summary>${offer(idea)}${ideaOptions(idea)}</details>
  <div class="studio-work-links">${button('Numbers','section','id="studio-go-numbers" data-section="numbers"','studio-link')}${button('Research','section','id="studio-go-research" data-section="research"','studio-link')}${button('Plan this idea','plan',`id="studio-plan-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-link')}${button('Start a job from this idea','job',`id="studio-job-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'studio-link')}</div>`:
  ui.section==='numbers'?numbers(idea,ui):research(idea);
- return `<section class="studio-editor" aria-label="Selected service idea" data-render-key="studio-editor-${esc(idea.id)}">${back}<h1 id="studio-heading" tabindex="-1">${esc(ideaText(idea,'name','Untitled idea'))}</h1>${!work&&idea.origin?.kind==='example'?'<p class="studio-origin">Editable example</p>':''}<div id="studio-editor-content">${surface}</div></section>`;
+ return `<section class="studio-editor" aria-label="Selected service idea" data-render-key="studio-editor-${esc(idea.id)}">${back}<h1 id="studio-heading" tabindex="-1">${esc(ideaTitle(idea))}</h1>${!work&&idea.origin?.kind==='example'?'<p class="studio-origin">Editable example</p>':''}<div id="studio-editor-content">${surface}</div></section>`;
 }
 function compare(studio,ui){
  return `<section class="studio-compare" aria-labelledby="studio-heading">${backToIdeas()}<div class="studio-section-heading"><div><h1 id="studio-heading" tabindex="-1">Compare ideas</h1><p>Different scopes and evidence still matter. These figures use your estimates, without assuming sales volume.</p></div>${phases(ui)}</div>
  <div class="tablewrap" tabindex="0" role="region" aria-label="Scrollable service idea comparison"><table><caption>${ui.phase==='first'?'First engagement includes preparation once.':'Later engagement assumes the same preparation can be reused.'} USD · — means unknown or unavailable</caption><thead><tr><th scope="col">Idea / buyer / priced unit</th><th scope="col">Price</th><th scope="col">Direct costs</th><th scope="col">Total work hours</th><th scope="col">Your time value</th><th scope="col">All costs + time</th><th scope="col">Left after allowances</th><th scope="col">Available / owner hour</th><th scope="col">Next validation</th></tr></thead><tbody>${studio.offerings.map(idea=>{
  const c=model().economics(idea),r=phaseResults(idea,c,ui.phase);
- return `<tr data-render-key="studio-compare-${esc(idea.id)}"><td>${button(esc(ideaText(idea,'name','Untitled idea')),'select',`id="studio-compare-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'table-link')}<small>${esc(ideaText(idea,'buyer','Buyer unknown'))}</small><small>Priced unit: ${esc(ideaText(idea,'unit','Not defined yet'))}</small><small>${esc(statusLabels[idea.status]||'Idea')} · ${esc(originLabel(idea))}</small></td><td>${money(r.price)}</td><td>${money(r.direct)}</td><td>${hours(r.workHours)}<small>Your hours: ${hours(r.ownerHours)}</small></td><td>${money(r.ownerAllowance)}</td><td>${money(r.total)}</td><td class="${r.remainder<0?'studio-negative':''}">${money(r.remainder)}</td><td>${r.ownerHourly===null||r.ownerHourly===undefined?'—':money(r.ownerHourly)+'/h'}</td><td class="studio-next-validation">${esc(ideaText(idea,'nextAction','Choose a next check'))}</td></tr>`;
+ return `<tr data-render-key="studio-compare-${esc(idea.id)}"><td>${button(esc(ideaTitle(idea)),'select',`id="studio-compare-select-${dom(idea.id)}" data-id="${esc(idea.id)}"`,'table-link')}<small>${esc(ideaText(idea,'buyer','Buyer unknown'))}</small><small>Priced unit: ${esc(ideaText(idea,'unit','Not defined yet'))}</small><small>${esc(statusLabels[idea.status]||'Idea')} · ${esc(originLabel(idea))}</small></td><td>${money(r.price)}</td><td>${money(r.direct)}</td><td>${hours(r.workHours)}<small>Your hours: ${hours(r.ownerHours)}</small></td><td>${money(r.ownerAllowance)}</td><td>${money(r.total)}</td><td class="${r.remainder<0?'studio-negative':''}">${money(r.remainder)}</td><td>${r.ownerHourly===null||r.ownerHourly===undefined?'—':money(r.ownerHourly)+'/h'}</td><td class="studio-next-validation">${esc(ideaText(idea,'nextAction','Choose a next check'))}</td></tr>`;
  }).join('')}</tbody></table></div><p class="studio-footer-note">Total work hours sum your time and paid-role time${ui.phase==='first'?', including setup':''}; they do not estimate elapsed turnaround. All costs include direct costs, allocated overhead and your time allowance. Available per owner hour is before valuing your time, after direct costs and overhead; it is unavailable for zero owner hours. Results exclude tax and unlisted costs. A higher price does not imply a buyer will accept it.</p></section>`;
 }
 function render(studio,options={}){
  const offerings=Array.isArray(studio?.offerings)?studio.offerings:[],selected=offerings.find(idea=>idea.id===options.selectedId);
  const ui={section:['numbers','research'].includes(options.section)?options.section:'offer',phase:options.phase==='repeat'?'repeat':'first'};
- const content=options.tab==='compare'&&offerings.length?compare({offerings},ui):selected?editor(selected,ui):library({offerings});
+ const content=options.tab==='compare'&&offerings.length?compare({offerings},ui):selected?editor(selected,ui):library({offerings},options);
  return `<div class="studio-workbench">${content}</div>`;
 }
 
-const api={render,sourceLinks};
+const api={render,sourceLinks,ideaTitle};
 root.QQStudioView=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
