@@ -172,11 +172,11 @@ Choose **Language / 语言 → 简体中文** in the header to use the app in Si
 
 ## Appearance
 
-Terminal is the default theme. Its Bloomberg-inspired appearance uses black surfaces, amber monospace text and cyan project labels. This is independent software, with no Bloomberg connection or data. Dark uses slate surfaces, light text and blue accents.
+Terminal combines warm charcoal surfaces, copper controls and cream lettering. Dark shifts the surfaces toward blue slate. Both appearances share the live sunset behind the workspace.
 
-Choose a theme under **Workspace options → Appearance** in Simulator or **Appearance** in Studio ideas, Jobs and Planner. The app remembers your choice in this browser.
+Choose a theme under **Workspace options → Appearance** in any workspace. The app remembers your choice in this browser.
 
-Three cloud banks cross the sky at different speeds. Dry air splits the banks into billows and opens gaps onto the stars. Loose copper curls around the edges and gathers in rising air to form new clouds downwind. Each bank can follow **Evolving weather** or hold one of the ten cloud genera in the [WMO International Cloud Atlas](https://cloudatlas.wmo.int/en/cloud-classification-summary.html). The Galaxy star field turns around the crescent moon, and occasional shooting stars pass behind the clouds. Choose **Edit sky** beside Appearance to move, resize or hide individual layers, adjust the light and wind, and save the composition in this browser. Drag the selected layer in the preview or use the position sliders. **Background motion** follows your device’s motion preference by default. Choose **Animate** or **Still** beside Appearance to override it. Motion pauses in hidden tabs.
+Three cloud banks cross the sky at different speeds. Dry air splits the banks into billows and opens gaps onto the stars. Loose copper curls around the edges and gathers in rising air to form new clouds downwind. Each bank can follow **Evolving weather** or hold one of the ten cloud genera in the [WMO International Cloud Atlas](https://cloudatlas.wmo.int/en/cloud-classification-summary.html). The Galaxy star field turns around the crescent moon, and occasional shooting stars pass behind the clouds. Choose **Edit sky** beside Appearance to move, resize or hide individual layers, adjust the light and wind, and save the composition in this browser. Drag the selected layer in the preview or use the position sliders. **Background motion** follows your device’s motion preference by default. Choose **Animate** or **Still** beside Appearance to override it. The same preference controls navigation and panel transitions. Motion pauses in hidden tabs. Open **View live sky** to watch individual copper shards leave a bank, turn in the wind and settle into another.
 
 ## Economics and uncertainty
 

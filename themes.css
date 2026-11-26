@@ -1,21 +1,18 @@
-:root[data-theme="dark"]{color-scheme:dark;--paper:#0d151d;--surface:#192530;--raised:#233440;--ink:#e3edf2;--muted:#a4b9c5;--line:#3b4d5b;--nav:#0a1223;--nav-text:#b9cbd6;--accent:#a5cbff;--accent-ink:#101c32;--selected:#20344d;--warn:#f2bb75;--warn-bg:#352b20;--warn-line:#9d7343;--negative:#ff9c92;--positive:#83e3ad;--danger-bg:#3e2225;--shadow:none}
-:root[data-theme="terminal"]{color-scheme:dark;--paper:#000;--surface:#0b0b0b;--raised:#191919;--ink:#ffd07a;--muted:#bdbdbd;--line:#484848;--nav:#060606;--nav-text:#d2bd98;--accent:#ffb000;--accent-ink:#000;--selected:#2e230b;--warn:#ffd065;--warn-bg:#2f1f00;--warn-line:#a7761e;--negative:#ff8686;--positive:#6cea98;--danger-bg:#341d1d;--shadow:none;font-family:"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;font-variant-numeric:tabular-nums}
-:root[data-theme="terminal"] :is(button,input,select,.panel,.metric,.banner,.stage-card,.service-editor,.input-wrap,.brandmark,.badge,.tag,.modal,.toast){border-radius:0}
-:root[data-theme="terminal"] :is(h1,.eyebrow,.navlabel,.panelhead h2){text-transform:uppercase;letter-spacing:.5px}
-:root[data-theme="terminal"] h1{font-size:25px}
-:root[data-theme="terminal"] :is(.metric strong,.summary-numbers strong,.kvs strong){color:#f3f3f3;letter-spacing:0}
-:root[data-theme="terminal"] .metric.negative strong{color:var(--negative)}
-:root[data-theme="terminal"] .projectchip b{color:#79d5ff}
-:root[data-theme="terminal"] .panelhead{border-top:2px solid var(--accent)}
-:root[data-theme="terminal"] .brandmark{background:var(--accent);color:#000}
-:root[data-theme="terminal"] .navbutton.active{color:var(--accent);box-shadow:inset 3px 0 var(--accent);background:var(--selected)}
-:root[data-theme="terminal"] .chart polyline{stroke:#6bcaff}
-
-:root[data-theme="dark"] .brand {color: #f6f8ff}
-:root[data-theme="dark"] .brandmark {background: #c2e4ff; color: #132e62}
-:root[data-theme="dark"] .navbutton.active {box-shadow: inset 3px 0 #91c6ff}
-:root[data-theme="dark"] .navlabel {color: #a0b3cb}
-
+/* Sunset glass, oxidized copper and cream lettering share an incidence of
+   warm light from the upper left. The cool appearance deepens the same dusk. */
+:root[data-theme] {
+  color-scheme:dark;--paper:#191d21;--surface:#27292b;--raised:#333438;--ink:#f6eee3;
+  --muted:#c0b9b3;--line:#585451;--nav:#1a1e22;--nav-text:#d6d1ca;--accent:#f2bd9b;
+  --accent-ink:#33241e;--selected:#473b35;--warn:#f5cb9e;--warn-bg:#40352c;--warn-line:#a37e60;
+  --negative:#ffaeaa;--positive:#acd5c2;--danger-bg:#422d32;
+  --shadow:0 8px 28px #10111738;--title-font:Baskervville,Baskerville,"Iowan Old Style",Georgia,serif;
+  --ui-font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+  font-family:var(--ui-font);font-variant-numeric:tabular-nums;
+}
+:root[data-theme="dark"] {
+  --paper:#151c25;--surface:#232e38;--raised:#2d3943;--line:#465660;
+  --nav:#15202a;--nav-text:#d0dadd;--muted:#b6c3c9;--selected:#364447;--accent:#efc2aa;
+}
 /* The sky and horizon are drawn from the editable scene model. */
 body {isolation:isolate; background:var(--paper)}
 aero-shards {
@@ -33,6 +30,16 @@ aero-shards::after {
 }
 body:has(#sky-editor[open]) :is(#root,#toast) {visibility:hidden}
 body:has(#sky-editor[open]) aero-shards::after {display:none}
+body:has(#sky-view:not([hidden])) {overflow:hidden}
+body:has(#sky-view:not([hidden])) :is(#root,#modal,#toast) {visibility:hidden}
+body:has(#sky-view:not([hidden])) aero-shards::after {display:none}
+#sky-view[hidden] {display:none}
+#sky-view:not([hidden]) {
+  position:fixed;bottom:max(12px,env(safe-area-inset-bottom));right:12px;left:12px;
+  display:flex;flex-direction:row;justify-content:center;gap:6px;flex-wrap:wrap;
+}
+#sky-view button {font-size:12px;min-height:40px;background:var(--surface);color:var(--ink)}
+body:has(#sky-editor[open]) #sky-view {visibility:hidden}
 #sky-editor {
   position:fixed; inset:0; margin:0; width:100%; max-width:none; height:100%; max-height:none;
   padding:0; border:0; background:transparent; color:var(--ink);
@@ -118,10 +125,189 @@ body:has(#sky-editor[open]) aero-shards::after {display:none}
 .language-picker select {max-width: none}
 :root[lang="zh-CN"] :is(.navlabel, .eyebrow, .subbrand, h1) {letter-spacing: normal}
 :root[lang="zh-CN"] {line-break: strict; font-family: Inter, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif}
-:root[lang="zh-CN"][data-theme="terminal"] {font-family: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace}
+:root[lang="zh-CN"][data-theme] {font-family: Inter,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
 @media (max-width: 780px) {
   .language-picker > span {display: none}
   .topbar {position:relative}
   .currency-info {position:static}
   .currency-info p {inset:auto 12px auto auto; top:100%; margin:0; width:min(300px,calc(100% - 24px))}
 }
+
+/* The workspace sits in front of the sky. Keep the live opening large on
+   arrival; bring a darker reading surface up behind dense editing views. */
+.app .shell {position:relative}
+.app .sidebar {
+  background:linear-gradient(155deg,#40403c 0%,var(--nav) 30%,color-mix(in srgb,var(--nav) 94%,#516a69) 82%,#343633);
+  border-right:1px solid #bea68f51;box-shadow:4px 0 22px #1e202415;
+}
+.app .brand {gap:11px}
+:root[data-theme] .brandmark {
+  width:35px;height:38px;position:relative;display:grid;place-items:center;
+  font-family:var(--title-font);font-weight:600;font-size:25px;line-height:1;
+  color:#40322c;background:linear-gradient(123deg,#fbddbb,#c99170 45%,#f0bd98 46%,#aa775b 73%,#788c7e);
+  clip-path:polygon(0 14%,74% 0,100% 20%,97% 87%,22% 100%,0 78%);text-shadow:0 1px #ffe0bb;
+}
+.app .brand>span {font:500 24px/1 var(--title-font);letter-spacing:.065em;color:#fbefdd}
+.app .subbrand,.app .navlabel,.eyebrow {
+  color:var(--muted);font:600 10px/1.4 var(--ui-font);letter-spacing:.14em;text-transform:uppercase;
+}
+.app .subbrand {margin-top:11px;font-size:9px}
+.app .navlabel {margin:22px 12px 9px;color:#b1b6b4}
+.app .navbutton {
+  margin-block:2px;min-height:37px;padding:9px 12px;gap:11px;border-radius:3px;
+  font-weight:500;letter-spacing:.005em;text-align:start;
+}
+.app .navbutton .icon {width:16px;height:16px;flex-shrink:0;opacity:.85}
+.app .navbutton:hover {color:var(--ink);background:#d2b9a310}
+:root[data-theme] .navbutton.active {
+  color:#ffdec0;background:linear-gradient(90deg,#b4805f38,#b4805f0b);
+  box-shadow:inset 2px 0 #edbd98,inset 0 1px #eec4a114;
+}
+.app .topbar {
+  min-height:56px;height:auto;padding-block:10px;
+  background:linear-gradient(100deg,#272d31f0,#252b30d6);
+  box-shadow:0 1px 0 #f9d8b51c;border-bottom:1px solid #161b2070;
+}
+.app .crumb b {font-weight:500;color:#e7ded3;letter-spacing:.035em}
+.app .workspace-options>summary {list-style-position:inside;color:var(--ink);border:1px solid #d2bdac42;border-radius:4px}
+.app .workspace-options[open] .topactions,.sky-controls,.modal,.app .clock {
+  background:linear-gradient(132deg,color-mix(in srgb,var(--raised) 89%,#ac8060),var(--surface) 40%,var(--paper));
+  border-color:var(--line);box-shadow:inset 0 1px #f8d7b32b,0 18px 56px #11182060;
+}
+.app .workspace-options[open] .topactions {z-index:12}
+.app .workspace {width:100%;margin-inline:auto}
+:root[data-theme] .studio-app {--bench-paper:var(--paper);--bench-ink:var(--ink);--bench-copper:var(--accent);--bench-rule:var(--line)}
+.studio-app .shell {background:transparent}
+
+.workspace .workspace-heading {min-height:clamp(82px,11vh,126px);margin-bottom:clamp(18px,2.4vw,34px)}
+.workspace .workspace-heading h1,.studio-workbench #studio-heading {
+  color:#fff2e0;font:400 clamp(34px,3.65vw,59px)/1.04 var(--title-font);
+  letter-spacing:-.036em;text-transform:none;text-shadow:0 2px 18px #17202791;text-wrap:balance;
+}
+.studio-app .workspace,.app .workspace:not(:has(.setup-start)) {padding-inline:clamp(18px,3.1vw,48px)}
+.studio-workbench .studio-home-heading {min-height:clamp(78px,10vh,128px)}
+.studio-workbench .studio-editor,.studio-workbench .studio-ideas,.studio-workbench .studio-empty,
+.studio-workbench .studio-compare {
+  background:color-mix(in srgb,var(--surface) 88%,transparent);border-block:1px solid var(--line);
+  padding:clamp(16px,2.3vw,32px);
+}
+.app :is(.panel,.metric,.stage-card,.studio-economics,.planner-section,.jobs-section) {
+  background:linear-gradient(127deg,color-mix(in srgb,var(--raised) 87%,var(--surface)),var(--surface) 54%);
+  border-color:color-mix(in srgb,var(--line) 78%,var(--surface));border-radius:6px;
+  box-shadow:inset 0 1px #f3ddd313,0 7px 18px #0e131820;
+}
+.app .panelhead {border-top:0;border-bottom-color:var(--line)}
+.app :is(.panelhead h2,.planner-heading h2,.jobs-heading h2,.studio-section-heading h2) {letter-spacing:-.025em;font-weight:570}
+.app .metric strong {font-weight:520;letter-spacing:-.045em}
+.app :is(input,select,textarea):not([type="range"]):not([type="checkbox"]):not([type="radio"]),.sky-controls select {
+  background:color-mix(in srgb,var(--paper) 82%,var(--surface));border-color:var(--line);border-radius:4px;color:var(--ink);
+}
+:is(.app,.modal,.sky-controls,#sky-view) button {border-radius:4px}
+:is(.app,.modal,.sky-controls) button.primary {
+  background:linear-gradient(112deg,#f6d5b5,#e4ae8d 85%);border-color:#ebc5a6;color:#30231f;
+  box-shadow:inset 0 1px #fff2d6a1,0 3px 9px #12171a44;font-weight:630;
+}
+:is(.app,.modal,.sky-controls) button.primary:hover {filter:brightness(1.07)}
+.app .workspace:has(.setup-start) {
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;
+  min-height:calc(100svh - 58px);max-width:none;
+  padding:clamp(112px,23vh,240px) clamp(22px,4.8vw,84px) clamp(38px,8vh,84px);
+  background:linear-gradient(0deg,#171c20f7 0%,#1f262bf0 12%,#252a30a1 35%,#232b3222 62%,transparent 90%);
+}
+.workspace:has(.setup-start) .workspace-heading {min-height:0;margin:0 0 clamp(23px,3.4vh,42px)}
+.workspace:has(.setup-start) h1 {font-size:clamp(45px,5.6vw,90px);line-height:1.01;letter-spacing:-.053em;text-shadow:0 3px 32px #14202791}
+.workspace .setup-start {
+  display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,4vw,62px);width:100%;max-width:974px;
+  padding:clamp(19px,2.6vw,36px) 0 0;background:transparent;box-shadow:none;border:0;
+  border-radius:0;border-top:1px solid #efc9ac80;overflow:visible;
+}
+.workspace .setup-start>div {padding:0;align-items:flex-start}
+.workspace .setup-start>div+div {border:0}
+.workspace .setup-start h2 {font:500 clamp(21px,2.1vw,33px)/1.12 var(--title-font);color:#fff0df;letter-spacing:-.02em}
+.workspace .setup-start p {max-width:39ch;line-height:1.58;color:#eee2d6;font-size:clamp(13px,1vw,15px);margin:9px 0 20px}
+.workspace .setup-start button {min-height:42px;padding-inline:18px;gap:18px}
+.workspace .setup-start button::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
+.workspace .setup-start .soft {background:#292b2eda;border:1px solid #c7b4a789;color:#f3dfca}
+.app button:focus-visible,.app summary:focus-visible,.sky-controls :focus-visible,#sky-view :focus-visible {outline:2px solid #f9d9ae;outline-offset:3px}
+.modalback {background:#10181db3}
+#sky-view:not([hidden]) {width:max-content;max-width:calc(100% - 24px);margin-inline:auto;gap:2px;padding:4px;background:#1c242ce6;border:1px solid #bca99664;border-radius:6px}
+#sky-view button {background:transparent;border-color:transparent;color:#f4e4d2}
+#sky-view button:hover {background:#f3d9c013}
+@media(min-width:981px) {
+  .app {grid-template-columns:202px minmax(0,1fr)}
+  .app .sidebar {width:202px;padding:29px 16px}
+  .app .clock {left:202px}
+}
+@media(max-width:780px) {
+  .app .topbar {min-height:46px;padding-block:6px}
+  .app .workspace:has(.setup-start) {min-height:calc(100svh - 98px);padding:clamp(125px,21vh,210px) 20px 32px}
+  .workspace .workspace-heading {min-height:58px}
+  .app .brand>span {font-size:21px}
+}
+@media(max-width:600px) {
+  .workspace .setup-start {grid-template-columns:1fr;gap:18px;padding-top:17px}
+  .workspace .setup-start>div+div {padding-top:17px;border-top:1px solid #d7b79b4d}
+  .workspace .setup-start h2 {font-size:24px}
+  .workspace .setup-start p {margin:6px 0 12px}
+  .workspace:has(.setup-start) h1 {font-size:clamp(43px,10vw,58px)}
+  .app .workspace:has(.setup-start) {background:linear-gradient(0deg,#181e22fa 5%,#20272bf0 42%,#1c242b78 72%,transparent)}
+}
+@media(forced-colors:active) {
+  .app :is(.panel,.metric,.stage-card,button,.sidebar,.topbar),.modal,.sky-controls {box-shadow:none}
+  .app .navbutton.active {outline:1px solid Highlight}
+}
+
+.app .navbutton {position:relative}
+:root[data-theme] .navbutton.active {box-shadow:inset 0 1px #eec4a114}
+.nav-rail {position:absolute;left:0;top:16%;height:68%;width:2px;background:linear-gradient(#ffdbb7,#cb9374);border-radius:2px;pointer-events:none}
+:root[data-ui-motion="on"] :is(.app,.modal,.sky-controls) :is(button,summary,input,select,textarea) {
+  transition:background-color 170ms,border-color 170ms,color 140ms,box-shadow 180ms,translate 170ms;
+}
+:root[data-ui-motion="on"] :is(.app,.modal,.sky-controls) button:active:not(:disabled) {translate:0 1px}
+:root[data-ui-motion="on"] .navbutton:hover .icon {transform:translateX(2px)}
+:root[data-ui-motion="on"] :is(.navbutton .icon,.setup-start button::after,.studio-row-arrow) {transition:transform .23s ease}
+:root[data-ui-motion="on"] .setup-start button:hover::after {transform:translateX(3px) rotate(45deg)}
+:root[data-ui-motion="on"] .studio-idea-row:hover .studio-row-arrow {transform:translateX(4px)}
+:root[data-ui-motion="on"] :is(.workspace-options[open] .topactions,.sky-controls,.modalback[data-enter] .modal,.toast:not(:empty)) {
+  animation:surface-arrives .28s cubic-bezier(.22,.72,.21,1) backwards;
+}
+:root[data-ui-motion="on"] .sky-controls {animation-duration:.36s}
+:root[data-ui-motion="on"] .modalback[data-enter] {animation:backdrop-arrives .20s ease-out}
+@keyframes surface-arrives {from {opacity:.18;transform:translateY(9px) scale(.987)}to{opacity:1;transform:none}}
+@keyframes backdrop-arrives {from{background-color:transparent}}
+@media(pointer:fine) {
+  .app :is(.studio-idea-row,.navbutton,.setup-start button,.stage-card button,.projectchip):hover {border-color:var(--accent)}
+}
+@media(forced-colors:active) {.nav-rail {background:Highlight}}
+/* Carry the skyline through the full height of the shell on short pages. */
+.app:not(:has(.setup-start)) .shell {
+  background:linear-gradient(180deg,#252c3452 0,#2630398c 120px,color-mix(in srgb,var(--paper) 90%,transparent) 365px,color-mix(in srgb,var(--paper) 96%,transparent) 100%);
+}
+.app .workspace:not(:has(.setup-start)) {background:transparent}
+.app .studio-workbench .studio-ideas {background:linear-gradient(115deg,#2f3436d9,#282c2dde);border-radius:3px;padding-block:5px}
+.app :is(.jobs-toolbar,.planner-toolbar) {align-items:center;gap:16px;margin:-3px 0 25px}
+.app :is(.jobs-intro,.planner-intro) {flex:1 1 23rem;max-width:60ch;margin:0;font-size:14px;line-height:1.55;color:#e4ded7}
+.app .jobs-empty,.app .planner-empty {background:linear-gradient(110deg,#34383ad9,#262b2eeb);border:1px solid var(--line);border-left:2px solid #bd957a;padding:clamp(20px,2.3vw,35px);border-radius:4px}
+.app :is(.jobs-empty,.planner-empty) h3 {font:500 24px/1.2 var(--title-font);letter-spacing:-.02em}
+aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%),linear-gradient(90deg,#251e271e,transparent 55%)}
+
+.app .sky-shortcut {
+  display:flex;align-items:center;justify-content:flex-start;gap:11px;min-height:40px;margin-top:auto;
+  padding:14px 11px 0;border:0;border-top:1px solid #eac4a93a;border-radius:0;
+  color:#e4d3c0;background:transparent;font-size:12px;font-weight:500;
+}
+.sky-shortcut i {
+  display:block;width:15px;height:15px;flex:none;border-radius:50%;
+  box-shadow:inset -4px -1px 0 #f1d4a4;transform:rotate(18deg);
+}
+.app .sky-shortcut:hover {color:#ffead0}
+@media(min-width:781px) and (max-width:980px) {
+  .sky-shortcut span {display:none}
+  .app .sky-shortcut {justify-content:center}
+}
+@media(max-width:780px) {
+  .app .sky-shortcut {order:1;margin:0 0 0 auto;padding:5px 6px;border:0;min-height:34px}
+  .app .sidebar .nav-toggle {order:2;margin:0}
+  .app .sky-shortcut i {width:12px;height:12px}
+}
+@media(forced-colors:active) {.sky-shortcut i {border:1px solid ButtonText}}

@@ -72,28 +72,28 @@
   function createShardFlights(weather){
     const shards=[];
     let delay=.28,lastSource=-1;
-    function clear(){
-      for(const s of shards)if(!s.landed)s.ticket.parcel.inFlight=false;
-      shards.length=0;delay=.28;
-    }
     function launch(views,aspect){
       const route=choosePassage(views,weather,aspect,lastSource);
       if(!route)return;
       const {a,b}=route;
       for(let i=0;i<3;i++){
-        const u=a.u+[0,-.033,.028][i], v=a.v+[0,.024,.047][i];
+        const u=a.u-.023*i, v=a.v+[0,.025,-.022][i];
         const ticket=weather[a.view.index].release(u,v);
         if(!ticket)continue;
         const p=ticket.parcel;
+        const start=world(a.view,p.x,p.y), [wx,wy]=weather[a.view.index].windAt(p.x,p.y);
+        const vx=banks[a.view.index].drift+wx*a.view.sx, vy=wy*a.view.sy;
         shards.push({ticket,from:a.view,to:b.view,u:b.u+(i-1)*.024,v:b.v+(1-i)*.029,
-          age:-i*1.12,duration:6.9+i*.36+p.seed*.55,lane:i-1,landed:false,
-          x:0,y:0,focus:0,alpha:0,roll:0,pitch:0,yaw:0});
+          age:-i*(.93+.68*p.depth), duration:5.1+.83*p.depth+.42*i, landed:false,
+          x:start.x,y:start.y,vx,vy,focus:0,alpha:0,roll:p.angle,pitch:.18,angle:Math.atan2(vy,vx*aspect),
+          spin:(p.depth>.42?1:-1)*(.45+.55*p.seed), pitchSpeed:0, yawSpeed:0, near:0,depthSpeed:0,
+          approach:i===0?.75+.21*p.depth:i===1?.40+.13*p.seed:.17, lane:i-1});
       }
       if(shards.length)lastSource=a.view.index;
     }
     function advance(dt,views,aspect){
-      if(!dt)return;
       if(!shards.length){
+        if(!dt)return;
         delay-=dt;
         if(delay>0)return;
         delay=1.25;
@@ -104,35 +104,73 @@
         const matching=old=>views.find(v=>v.index===old.index&&v.copy===old.copy);
         const from=matching(s.from), to=matching(s.to);
         if(!to||(!from&&!s.landed)){if(!s.landed)p.inFlight=false;shards.splice(i,1);continue;}
-        s.age+=dt;
-        const t=clamp(s.age/s.duration);
-        if(!s.landed){
+        if(s.age<=0 && from){
+          const wait=Math.min(dt,-s.age), wind=weather[from.index].windAt(p.x,p.y);
+          p.x=clamp(p.x+wind[0]*wait);p.y=clamp(p.y+wind[1]*wait);
           const start=world(from,p.x,p.y);
-          const [u,v]=nearestCloud(weather[to.index],s.u,s.v);
-          const follow=1-Math.exp(-dt*1.9);
-          s.u=mix(s.u,u,follow);s.v=mix(s.v,v,follow);
-          const end=world(to,s.u,s.v), along=smooth(t), arc=Math.sin(Math.PI*t);
-          const curl=Math.sin(2*Math.PI*t+p.depth*.85);
-          s.x=mix(start.x,end.x,along)+arc*(.020+.013*s.lane+.014*curl)/aspect;
-          s.y=mix(start.y,end.y,along)+arc*(-.045+.031*s.lane+.034*curl);
-          s.focus=smooth((s.age+.48)/1.7);
-          s.yaw=Math.atan2(end.y-start.y,(end.x-start.x)*aspect)*.52;
-          if(t===1){weather[to.index].receive(s.ticket,s.u,s.v);s.landed=true;}
+          s.x=start.x;s.y=start.y;s.vx=banks[from.index].drift+wind[0]*from.sx;s.vy=wind[1]*from.sy;
+        }
+        const [u,v]=nearestCloud(weather[to.index],s.u,s.v);
+        const follow=1-Math.exp(-dt*2.2);
+        s.u=mix(s.u,u,follow);s.v=mix(s.v,v,follow);
+        const goal=world(to,s.u,s.v);
+        const [localX,localY]=weather[to.index].windAt(s.u,s.v);
+        const rimVX=banks[to.index].drift, rimVY=0;
+        // The flake leaves with the velocity of the source. Broadside to
+        // the air it brakes and lifts; edge-on it carries its momentum.
+        let remaining=dt;
+        while(remaining>1e-7){
+          const h=Math.min(remaining,1/40);remaining-=h;s.age+=h;
+          if(s.age<=0)continue;
+          const progress=clamp(s.age/s.duration);
+          const capture=smooth((progress-.54)/.46);
+          const face=Math.cos(s.roll)*Math.cos(s.pitch);
+          const slip=Math.sin(s.roll)*Math.cos(s.roll);
+          if(!s.landed){
+            const dx=(goal.x-s.x)*aspect,dy=goal.y-s.y;
+            const distance=Math.hypot(dx,dy);
+            const timeLeft=Math.max(.32,s.duration-s.age);
+            const drag=1.12+.77*Math.abs(face)+capture*3.0;
+            const gust=Math.sin(s.age*.88+p.angle)+.4*Math.sin(s.age*1.64+p.depth*8);
+            const lift=(1-capture)*(.035+.026*(1+s.lane))*(.45+Math.abs(face));
+            const side=(1-capture)*(.024*gust+.032*s.lane+.022*slip);
+            const targetX=mix(rimVX,rimVX+localX*to.sx,capture)+clamp(dx/timeLeft,-.40,.40)/aspect;
+            const targetY=mix(rimVY,localY*to.sy,capture)+clamp(dy/timeLeft,-.40,.40);
+            const response=1-Math.exp(-drag*h);
+            s.vx+=response*(targetX+side/aspect-s.vx);
+            s.vy+=response*(targetY-lift+(1-capture)*.025*(1-Math.abs(face))-s.vy);
+            s.x+=s.vx*h;s.y+=s.vy*h;
+            // Hand off in the moist air itself. The position is never snapped
+            // to a waypoint or reset to the centre of the destination cloud.
+            const px=.5+(s.x-to.cx)/to.sx,py=.5+(s.y-to.cy)/to.sy;
+            if(progress>.82 && distance<.042 && px>0&&px<1&&py>0&&py<1 && (weather[to.index].densityAt(px,py)>.14 || s.age>s.duration+1.3)){
+              weather[to.index].receive(s.ticket,px,py);s.landed=true;s.touchdown=s.age;
+            }
+          }
+          const speed=Math.hypot(s.vx*aspect,s.vy);
+          const free=s.landed?0:1-capture*.73;
+          const depthTarget=s.landed?0:s.approach*(1-smooth((progress-.48)/.43));
+          const depthRate=1.9+.57*capture;
+          s.depthSpeed+=(depthRate*depthRate*(depthTarget-s.near)-2*depthRate*s.depthSpeed)*h;
+          s.near=clamp(s.near+s.depthSpeed*h,0,.96);
+          const handed=p.depth>.42?1:-1;
+          const torque=handed*(.70+speed*5.2)*free+.70*slip*free;
+          s.spin+=(torque-(.65+(1-free)*2.2)*s.spin)*h;
+          s.pitchSpeed+=((.58*Math.sin(s.roll+.7)*free-.54*s.pitch)-.95*s.pitchSpeed)*h;
+          const heading=Math.atan2(s.vy,s.vx*aspect);
+          const error=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
+          s.yawSpeed+=(error*(s.landed?2.3:.78)+slip*free*.70-1.15*s.yawSpeed)*h;
+          s.roll+=s.spin*h;s.pitch+=s.pitchSpeed*h;s.angle+=s.yawSpeed*h;
         }
         if(s.landed){
-          const position=world(to,p.x,p.y);
-          s.x=position.x;s.y=position.y;
-          s.focus=1-smooth((s.age-s.duration)/1.65);
+          const position=world(to,p.x,p.y);s.x=position.x;s.y=position.y;
+          s.focus=1-smooth((s.age-s.touchdown)/1.55);
           if(s.focus<=0){shards.splice(i,1);continue;}
-        }
-        const spin=Math.max(0,s.age), settle=Math.min(spin,s.duration);
-        s.roll=p.angle+settle*(1.47+.58*p.depth);
-        s.pitch=.64*Math.sin(p.angle*.51+settle*(.8+.2*p.seed));
-        s.angle=s.yaw+.39*Math.sin(settle*.99+p.angle)+.56*Math.sin(settle*.44+p.depth);
-        s.alpha=.23+.74*s.focus;
+        }else{s.focus=smooth((s.age+.38)/1.4);}
+        s.alpha=.24+.73*s.focus;
       }
     }
-    return {shards,advance,clear};
+    return {shards,advance};
   }
   Object.assign(scene,{cloudViews,createShardFlights});
 })();

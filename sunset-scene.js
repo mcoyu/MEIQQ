@@ -49,7 +49,7 @@
     east:{visible:true,type:'auto',x:96,y:32,scale:100,spacing:16},
     low:{visible:true,type:'auto',x:18,y:73,scale:100,spacing:32},
     galaxy:{visible:true,x:65,y:43,density:78,drift:49,meteors:55},
-    moon:{visible:true,x:61,y:55,scale:100},
+    moon:{visible:true,x:49,y:44,scale:100},
     horizon:{visible:true,y:96},light:{dusk:58,wind:50,humidity:55}
   };
   const COLS=100, ROWS=64, STEP=.24;
@@ -309,11 +309,13 @@
       const p=ticket.parcel, other=parcels[slot];
       Object.assign(other,{x:p.x,y:p.y,home:p.home,mass:0,loose:0});
       ticket.replaceWith(other);
-      Object.assign(p,{x,y,home:y,mass:.68,loose:.68,inFlight:false});
+      const mass=smooth((sample(water,x,y)-.024-.21*p.seed)*3.7);
+      Object.assign(p,{x,y,home:y,mass,loose:Math.max(.40,mass),inFlight:false});
       parcels[slot]=p;
     }
     solve(0,true);transport(0,true);
     return {texture,stream,configure,advance,release,receive,densityAt:(x,y)=>sample(water,x,y),
+      windAt:(x,y)=>[sample(vx,x,y),sample(vy,x,y)],
       get count(){return count;},get version(){return version;},
       get profile(){return profile;},get time(){return time;}};
   }

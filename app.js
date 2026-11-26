@@ -11,7 +11,14 @@ const THEMES = {terminal: 'Terminal', dark: 'Dark'};
 const MOTION = {system:'Follow device', animate:'Animate', still:'Still'};
 let shardMotion='system';
 const shardBackground=document.querySelector('aero-shards');
-function applyShardMotion(){shardBackground?.setAttribute?.('motion',shardMotion);}
+const motionPreference=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion:reduce)'):null;
+function applyShardMotion(){
+ shardBackground?.setAttribute?.('motion',shardMotion);
+ const enabled=shardMotion==='animate'||(shardMotion==='system'&&!motionPreference?.matches);
+ document.documentElement.dataset.uiMotion=enabled?'on':'off';
+ if(!enabled)document.getAnimations?.().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
+}
+motionPreference?.addEventListener('change',applyShardMotion);
 function syncBackgroundVisibility(){shardBackground?.toggleAttribute?.('suspended',document.hidden);}
 document.addEventListener('visibilitychange',syncBackgroundVisibility);
 syncBackgroundVisibility();
@@ -237,17 +244,17 @@ function workspaceHeading(simulator = false) {
    : '';
  return `<div class="heading workspace-heading"><h1${simulator ? ' id="sim-heading" tabindex="-1"' : ''}>${title()}</h1>${actions}</div>`;
 }
-function sidebar(){return `<aside class="sidebar"><div class="brand"><div class="brandmark" aria-hidden="true">M</div><span>MEIQQ</span></div><div class="subbrand">STUDIO & SIMULATOR</div>${btn('Navigate','mobile-nav','nav-toggle',`aria-expanded="${mobileNavOpen}" aria-controls="main-navigation"`)}<nav id="main-navigation"><div role="group" aria-label="Studio"><div class="navlabel">STUDIO</div>${[['studio','box','Ideas'],['planner','chart','Planner'],['jobs','file','Jobs']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`,'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div><div role="group" aria-label="Simulator"><div class="navlabel">SIMULATOR</div>${[['setup','settings','1. Set up'],['map','map','2. Run scenario'],['finances','chart','3. Review results'],['projects','file','Projects'],['scenarios','compare','Runs & backups'],['about','info','Model guide']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`,'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div></nav></aside>`;}
+function sidebar(){return `<aside class="sidebar"><div class="brand"><div class="brandmark" aria-hidden="true">M</div><span>MEIQQ</span></div><div class="subbrand">STUDIO & SIMULATOR</div>${btn('Navigate','mobile-nav','nav-toggle',`aria-expanded="${mobileNavOpen}" aria-controls="main-navigation"`)}<nav id="main-navigation"><div role="group" aria-label="Studio"><div class="navlabel">STUDIO</div>${[['studio','box','Ideas'],['planner','chart','Planner'],['jobs','file','Jobs']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`+(view===v?'<i class="nav-rail" aria-hidden="true"></i>':''),'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div><div role="group" aria-label="Simulator"><div class="navlabel">SIMULATOR</div>${[['setup','settings','1. Set up'],['map','map','2. Run scenario'],['finances','chart','3. Review results'],['projects','file','Projects'],['scenarios','compare','Runs & backups'],['about','info','Model guide']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`+(view===v?'<i class="nav-rail" aria-hidden="true"></i>':''),'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div></nav><button class="sky-shortcut" type="button" data-view-sky aria-label="View live sky"><i aria-hidden="true"></i><span>View live sky</span></button></aside>`;}
 function jobsStatusLabel(){return jobsSession.status==='opening'?'Opening jobs…':jobsSession.status==='error'?jobsSession.error+' Download a Jobs backup to keep this session.':jobsSession.status==='pending'?'Saving your latest job edits…':jobsSession.status==='saving'?'Saving jobs…':'Jobs saved in this browser · use Jobs backup for a portable copy.';}
 function updateJobsStatus(){const el=$('#jobs-save-status');if(el){el.textContent=QQI18n.text(jobsStatusLabel());el.className='save-status '+(jobsSession.status==='error'?'negative':'');}}
 function plannerStatusLabel(){return plannerSession.status==='opening'?'Opening planner…':plannerSession.status==='error'?plannerSession.error+' Download a Planner backup to keep this session.':plannerSession.status==='pending'?'Saving your latest planning edits…':plannerSession.status==='saving'?'Saving planner…':'Planner saved in this browser · use Planner backup for a portable copy.';}
 function updatePlannerStatus(){const el=$('#planner-save-status');if(el){el.textContent=QQI18n.text(plannerStatusLabel());el.className='save-status '+(plannerSession.status==='error'?'negative':'');}}
 function renderPlannerShell(){
- $('#root').innerHTML=`<div class="app planner-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<div class="topactions">${appearancePicker()}${btn(icon('download')+'Planner backup','planner-backup','small')}${btn(icon('upload')+'Import plans','planner-import','small')}</div></header><div id="planner-save-status" class="save-status ${plannerSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(plannerStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${plannerSession.originals.length?`<div class="banner warn">Original saves are preserved. ${plannerSession.originals.map((v,i)=>btn('Download '+esc(v.label),'planner-original','small',`data-index="${i}"`)).join('')}</div>`:''}${plannerSession.ready?plannerController.render():'<p>Opening your locally saved plans…</p>'}</main></div></div>`;
+ $('#root').innerHTML=`<div class="app planner-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="planner-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Planner backup','planner-backup','small')}${btn(icon('upload')+'Import plans','planner-import','small')}</div></details></header><div id="planner-save-status" class="save-status ${plannerSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(plannerStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${plannerSession.originals.length?`<div class="banner warn">Original saves are preserved. ${plannerSession.originals.map((v,i)=>btn('Download '+esc(v.label),'planner-original','small',`data-index="${i}"`)).join('')}</div>`:''}${plannerSession.ready?plannerController.render():'<p>Opening your locally saved plans…</p>'}</main></div></div>`;
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function renderJobsShell(){
- $('#root').innerHTML=`<div class="app jobs-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<div class="topactions">${appearancePicker()}${btn(icon('download')+'Jobs backup','jobs-backup','small')}${btn(icon('upload')+'Import jobs','jobs-import','small')}</div></header><div id="jobs-save-status" class="save-status ${jobsSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(jobsStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${jobsSession.originals.length?`<div class="banner warn">Original saves are preserved. ${jobsSession.originals.map((v,i)=>btn('Download '+esc(v.label),'jobs-original','small',`data-index="${i}"`)).join('')}</div>`:''}${jobsSession.ready?jobsController.render():'<p>Opening your locally saved jobs…</p>'}</main></div></div>`;
+ $('#root').innerHTML=`<div class="app jobs-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="jobs-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Jobs backup','jobs-backup','small')}${btn(icon('upload')+'Import jobs','jobs-import','small')}</div></details></header><div id="jobs-save-status" class="save-status ${jobsSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(jobsStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${jobsSession.originals.length?`<div class="banner warn">Original saves are preserved. ${jobsSession.originals.map((v,i)=>btn('Download '+esc(v.label),'jobs-original','small',`data-index="${i}"`)).join('')}</div>`:''}${jobsSession.ready?jobsController.render():'<p>Opening your locally saved jobs…</p>'}</main></div></div>`;
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function studioStatusLabel(){return studioSession.status==='opening'?'Opening Studio ideas…':studioSession.status==='error'?studioSession.error+' Download a Studio backup to keep this session.':studioSession.status==='pending'?'Saving your latest idea edits…':studioSession.status==='saving'?'Saving Studio ideas…':'Studio ideas saved in this browser · use Studio backup for a portable copy.';}
@@ -347,13 +354,58 @@ function patchRenderChildren(current,next){
  }
  while(cursor){const stale=cursor;cursor=cursor.nextSibling;stale.remove();}
 }
+let lastPresentationKey='';
+function presentationKey(){
+ if(view==='studio')return [view,studioSession.ready,studioUI.tab,studioUI.selectedId,studioUI.section].join('/');
+ if(view==='jobs'||view==='planner'){
+   const ui=view==='jobs'?jobsController.ui:plannerController.ui;
+   return [view,ui.tab,ui.selectedId,ui.editingService?.serviceId].join('/');
+ }
+ return view==='setup'?[view,setupNeedsChoice(),stepIndex,setupMode].join('/'):view;
+}
+// Measure the outgoing selection before reconciliation. Keep the live form
+// elements in place so typing, scrolling and autosaves do not replay entrances.
+function workspaceTransition(root){
+ const key=presentationKey(), previous=lastPresentationKey;lastPresentationKey=key;
+ if(document.documentElement.dataset.uiMotion!=='on'||!root.animate)return null;
+ const animate=(node,frames,ms,delay=0)=>{
+   if(!node)return;
+   node.getAnimations().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
+   node.animate(frames,{id:'workspace-motion',duration:ms,delay,fill:'backwards',easing:'cubic-bezier(.18,.74,.22,1)'});
+ };
+ if(previous===key){
+   const values=[...root.querySelectorAll('.metric strong,.clockday b,.studio-total dd,.planner-lab-summary strong')].slice(0,10);
+   const labels=values.map(el=>el.textContent);
+   return ()=>values.forEach((el,i)=>{
+     if(el.isConnected&&el.textContent!==labels[i])animate(el,[{color:'var(--accent)',translate:'0 -2px'},{color:'var(--ink)',translate:'0 0'}],380);
+   });
+ }
+ const oldRail=root.querySelector('.nav-rail')?.getBoundingClientRect();
+ return ()=>{
+   const workspace=root.querySelector('.workspace');
+   if(!workspace)return;
+   const title=workspace.querySelector('h1'), opening=workspace.querySelector('.setup-start');
+   const detail=workspace.querySelector('#setup-panel,#planner-editor-content,#jobs-editor-content,#studio-editor-content');
+   const within=previous.split('/')[0]===view;
+   const rows=workspace.querySelector('.studio-ideas');
+   const panels=within&&detail?[detail]:opening?[...opening.children]:rows?[...rows.children].slice(0,5):[...workspace.querySelectorAll(':scope > :not(.workspace-heading)')].slice(0,4);
+   if(!within||!detail)animate(title,[{opacity:.22,translate:'0 13px'},{opacity:1,translate:'0 0'}],440);
+   panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.28,translate:'0 19px'},{opacity:1,translate:'0 0'}],490,45+i*52);});
+   const rail=root.querySelector('.nav-rail');
+   if(rail&&oldRail){
+     const delta=oldRail.top-rail.getBoundingClientRect().top;
+     if(Math.abs(delta)>1)animate(rail,[{transform:'translateY('+delta+'px)'},{transform:'translateY(0)'}],360);
+   }
+ };
+}
 function patchableRoot(root){
  if(!root?.nodeType||typeof Proxy==='undefined')return root;
  return new Proxy(root,{get:(target,property)=>Reflect.get(target,property,target),set(target,property,value){
   if(property==='innerHTML'){
    const template=document.createElement('template');template.innerHTML=value;
    QQI18n.localize(template.content);
-   patchRenderChildren(target,template.content);return true;
+   const present=workspaceTransition(target);
+   patchRenderChildren(target,template.content);present?.();return true;
   }
   return Reflect.set(target,property,value,target);
  }});
@@ -1621,8 +1673,9 @@ function checkpoint(kind='automatic'){const snapshot=JSON.stringify(state);MEIQQ
 function modalTabStops(){return [...document.querySelectorAll('#modal button, #modal input, #modal select, #modal textarea, #modal summary, #modal a[href], #modal [tabindex]')].filter(el=>!el.disabled&&el.tabIndex>=0&&!el.closest('[hidden], [inert]')&&el.getClientRects().length>0);}
 function modal(html,focusId){
  stop();
- if(!$('#modal').innerHTML)modalFocus=actionFocus||focusKey(document.activeElement);
- $('#modal').innerHTML=QQI18n.html(`<div class="modalback"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title">${html}<div class="modal-error" id="modal-error" role="alert"></div></section></div>`);
+ const opening=!$('#modal').innerHTML;
+ if(opening)modalFocus=actionFocus||focusKey(document.activeElement);
+ $('#modal').innerHTML=QQI18n.html(`<div class="modalback"${opening?' data-enter':''}><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title">${html}<div class="modal-error" id="modal-error" role="alert"></div></section></div>`);
  render();
  const target=focusId?document.querySelector('#'+focusId):null;
  (target||modalTabStops()[0])?.focus();

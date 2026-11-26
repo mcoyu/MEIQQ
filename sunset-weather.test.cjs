@@ -6,6 +6,7 @@ const { createHash } = require('node:crypto');
 
 const sceneWindow = {};
 vm.compileFunction(fs.readFileSync(require.resolve('./sunset-scene.js'), 'utf8'), ['window'])(sceneWindow);
+vm.compileFunction(fs.readFileSync(require.resolve('./shard-flight.js'), 'utf8'), ['window'])(sceneWindow);
 const {banks, bankCenters, types, createWeather, createMeteors, cols, rows} = sceneWindow.SunsetScene;
 const fingerprint = data => createHash('sha256').update(data).digest('hex');
 const water = weather => weather.texture.reduce((sum, value, index) => index%4 === 0 ? sum+value : sum, 0);
@@ -119,4 +120,71 @@ test('meteors cross the sky, burn out, and restart without replaying a paused ev
   meteors.clear();
   assert.equal(meteors.advance(4,0),null);
   assert.equal(meteors.advance(.2,100),null);
+});
+
+test('the same three shards leave one bank, cross clear sky and enter a different bank on desktop and phone', () => {
+  const {createShardFlights,cloudViews,defaults}=sceneWindow.SunsetScene;
+  for(const aspect of [1.6,390/844]){
+    const state=structuredClone(defaults), weather=banks.map(createWeather), flights=createShardFlights(weather);
+    const airborne=new Set(), landed=new Set();
+    for(let i=0;i<55;i++){
+      for(const bank of weather)bank.advance(.24);
+      const views=cloudViews(state,weather,aspect);
+      flights.advance(.24,views,aspect);
+      for(const s of flights.shards){
+        assert.notEqual(s.from.index,s.to.index);
+        const p=s.ticket.parcel, oldAge=s.age;
+        if(s.focus>.9&&views.every(v=>{
+          const x=.5+(s.x-v.cx)/v.sx,y=.5+(s.y-v.cy)/v.sy;
+          return x<0||x>1||y<0||y>1||weather[v.index].densityAt(x,y)<.08;
+        }))airborne.add(p);
+        if(s.landed && airborne.has(p)){
+          assert.ok(!p.inFlight);
+          const bank=weather[s.to.index];
+          if(bank.stream.subarray(0,bank.count*10).some((v,k)=>k%10===8&&v===Math.fround(p.seed)))landed.add(p);
+        }
+        flights.advance(0,views,aspect);
+        assert.equal(s.age,oldAge);
+      }
+    }
+    assert.equal(landed.size,3);
+  }
+});
+
+test('a paused edit moves bound copper with its bank while an airborne shard holds its world position', () => {
+  const {createShardFlights,cloudViews,defaults}=sceneWindow.SunsetScene;
+  const state=structuredClone(defaults), weather=banks.map(createWeather), flights=createShardFlights(weather);
+  flights.advance(.36,cloudViews(state,weather,1.6),1.6);
+  const s=flights.shards[0],waiting=flights.shards[1], initial=waiting.x, x=s.x, age=s.age, source=state[banks[s.from.index].id];
+  source.x+=8;
+  flights.advance(0,cloudViews(state,weather,1.6),1.6);
+  assert.equal(s.x,x);assert.ok(waiting.x>initial+.07);assert.equal(s.age,age);
+  source.visible=false;flights.advance(0,cloudViews(state,weather,1.6),1.6);
+  assert.equal(flights.shards.length,0);assert.equal(s.ticket.parcel.inFlight,false);
+});
+
+test('a close shard carries momentum into the gap and returns continuously to cloud depth', () => {
+  const {createShardFlights,cloudViews,defaults}=sceneWindow.SunsetScene;
+  const weather=banks.map(createWeather), flights=createShardFlights(weather), dt=1/25;
+  let lead=null, previous=null, peak=0, rotation=0, contact=false;
+  for(let i=0;i<270 && !contact;i++){
+    weather.forEach(w=>w.advance(dt));
+    flights.advance(dt,cloudViews(defaults,weather,1.6),1.6);
+    lead??=flights.shards[0];
+    if(!lead)continue;
+    if(previous){
+      const distance=Math.hypot((lead.x-previous.x)*1.6,lead.y-previous.y);
+      assert.ok(distance<dt*.48,'no jump on release or handoff');
+      const angle=Math.abs(lead.roll-previous.roll);
+      assert.ok(angle<dt*4.4,'no instantaneous angular flip');
+      rotation+=angle;
+    }
+    peak=Math.max(peak,lead.near);
+    if(lead.landed){
+      assert.ok(lead.near<.30,'the shard reaches the depth of the receiving bank');
+      contact=true;
+    }
+    previous={x:lead.x,y:lead.y,roll:lead.roll};
+  }
+  assert.ok(contact && peak>.61 && rotation>Math.PI);
 });

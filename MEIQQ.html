@@ -761,24 +761,21 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
 .planner-job-hours li {display:flex;justify-content:space-between;gap:12px}
 .planner-job-hours li strong {white-space:nowrap}
 .planner-job-hours p {color:var(--muted)}
-:root[data-theme="dark"]{color-scheme:dark;--paper:#0d151d;--surface:#192530;--raised:#233440;--ink:#e3edf2;--muted:#a4b9c5;--line:#3b4d5b;--nav:#0a1223;--nav-text:#b9cbd6;--accent:#a5cbff;--accent-ink:#101c32;--selected:#20344d;--warn:#f2bb75;--warn-bg:#352b20;--warn-line:#9d7343;--negative:#ff9c92;--positive:#83e3ad;--danger-bg:#3e2225;--shadow:none}
-:root[data-theme="terminal"]{color-scheme:dark;--paper:#000;--surface:#0b0b0b;--raised:#191919;--ink:#ffd07a;--muted:#bdbdbd;--line:#484848;--nav:#060606;--nav-text:#d2bd98;--accent:#ffb000;--accent-ink:#000;--selected:#2e230b;--warn:#ffd065;--warn-bg:#2f1f00;--warn-line:#a7761e;--negative:#ff8686;--positive:#6cea98;--danger-bg:#341d1d;--shadow:none;font-family:"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;font-variant-numeric:tabular-nums}
-:root[data-theme="terminal"] :is(button,input,select,.panel,.metric,.banner,.stage-card,.service-editor,.input-wrap,.brandmark,.badge,.tag,.modal,.toast){border-radius:0}
-:root[data-theme="terminal"] :is(h1,.eyebrow,.navlabel,.panelhead h2){text-transform:uppercase;letter-spacing:.5px}
-:root[data-theme="terminal"] h1{font-size:25px}
-:root[data-theme="terminal"] :is(.metric strong,.summary-numbers strong,.kvs strong){color:#f3f3f3;letter-spacing:0}
-:root[data-theme="terminal"] .metric.negative strong{color:var(--negative)}
-:root[data-theme="terminal"] .projectchip b{color:#79d5ff}
-:root[data-theme="terminal"] .panelhead{border-top:2px solid var(--accent)}
-:root[data-theme="terminal"] .brandmark{background:var(--accent);color:#000}
-:root[data-theme="terminal"] .navbutton.active{color:var(--accent);box-shadow:inset 3px 0 var(--accent);background:var(--selected)}
-:root[data-theme="terminal"] .chart polyline{stroke:#6bcaff}
-
-:root[data-theme="dark"] .brand {color: #f6f8ff}
-:root[data-theme="dark"] .brandmark {background: #c2e4ff; color: #132e62}
-:root[data-theme="dark"] .navbutton.active {box-shadow: inset 3px 0 #91c6ff}
-:root[data-theme="dark"] .navlabel {color: #a0b3cb}
-
+/* Sunset glass, oxidized copper and cream lettering share an incidence of
+   warm light from the upper left. The cool appearance deepens the same dusk. */
+:root[data-theme] {
+  color-scheme:dark;--paper:#191d21;--surface:#27292b;--raised:#333438;--ink:#f6eee3;
+  --muted:#c0b9b3;--line:#585451;--nav:#1a1e22;--nav-text:#d6d1ca;--accent:#f2bd9b;
+  --accent-ink:#33241e;--selected:#473b35;--warn:#f5cb9e;--warn-bg:#40352c;--warn-line:#a37e60;
+  --negative:#ffaeaa;--positive:#acd5c2;--danger-bg:#422d32;
+  --shadow:0 8px 28px #10111738;--title-font:Baskervville,Baskerville,"Iowan Old Style",Georgia,serif;
+  --ui-font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+  font-family:var(--ui-font);font-variant-numeric:tabular-nums;
+}
+:root[data-theme="dark"] {
+  --paper:#151c25;--surface:#232e38;--raised:#2d3943;--line:#465660;
+  --nav:#15202a;--nav-text:#d0dadd;--muted:#b6c3c9;--selected:#364447;--accent:#efc2aa;
+}
 /* The sky and horizon are drawn from the editable scene model. */
 body {isolation:isolate; background:var(--paper)}
 aero-shards {
@@ -796,6 +793,16 @@ aero-shards::after {
 }
 body:has(#sky-editor[open]) :is(#root,#toast) {visibility:hidden}
 body:has(#sky-editor[open]) aero-shards::after {display:none}
+body:has(#sky-view:not([hidden])) {overflow:hidden}
+body:has(#sky-view:not([hidden])) :is(#root,#modal,#toast) {visibility:hidden}
+body:has(#sky-view:not([hidden])) aero-shards::after {display:none}
+#sky-view[hidden] {display:none}
+#sky-view:not([hidden]) {
+  position:fixed;bottom:max(12px,env(safe-area-inset-bottom));right:12px;left:12px;
+  display:flex;flex-direction:row;justify-content:center;gap:6px;flex-wrap:wrap;
+}
+#sky-view button {font-size:12px;min-height:40px;background:var(--surface);color:var(--ink)}
+body:has(#sky-editor[open]) #sky-view {visibility:hidden}
 #sky-editor {
   position:fixed; inset:0; margin:0; width:100%; max-width:none; height:100%; max-height:none;
   padding:0; border:0; background:transparent; color:var(--ink);
@@ -881,13 +888,192 @@ body:has(#sky-editor[open]) aero-shards::after {display:none}
 .language-picker select {max-width: none}
 :root[lang="zh-CN"] :is(.navlabel, .eyebrow, .subbrand, h1) {letter-spacing: normal}
 :root[lang="zh-CN"] {line-break: strict; font-family: Inter, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif}
-:root[lang="zh-CN"][data-theme="terminal"] {font-family: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace}
+:root[lang="zh-CN"][data-theme] {font-family: Inter,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
 @media (max-width: 780px) {
   .language-picker > span {display: none}
   .topbar {position:relative}
   .currency-info {position:static}
   .currency-info p {inset:auto 12px auto auto; top:100%; margin:0; width:min(300px,calc(100% - 24px))}
 }
+
+/* The workspace sits in front of the sky. Keep the live opening large on
+   arrival; bring a darker reading surface up behind dense editing views. */
+.app .shell {position:relative}
+.app .sidebar {
+  background:linear-gradient(155deg,#40403c 0%,var(--nav) 30%,color-mix(in srgb,var(--nav) 94%,#516a69) 82%,#343633);
+  border-right:1px solid #bea68f51;box-shadow:4px 0 22px #1e202415;
+}
+.app .brand {gap:11px}
+:root[data-theme] .brandmark {
+  width:35px;height:38px;position:relative;display:grid;place-items:center;
+  font-family:var(--title-font);font-weight:600;font-size:25px;line-height:1;
+  color:#40322c;background:linear-gradient(123deg,#fbddbb,#c99170 45%,#f0bd98 46%,#aa775b 73%,#788c7e);
+  clip-path:polygon(0 14%,74% 0,100% 20%,97% 87%,22% 100%,0 78%);text-shadow:0 1px #ffe0bb;
+}
+.app .brand>span {font:500 24px/1 var(--title-font);letter-spacing:.065em;color:#fbefdd}
+.app .subbrand,.app .navlabel,.eyebrow {
+  color:var(--muted);font:600 10px/1.4 var(--ui-font);letter-spacing:.14em;text-transform:uppercase;
+}
+.app .subbrand {margin-top:11px;font-size:9px}
+.app .navlabel {margin:22px 12px 9px;color:#b1b6b4}
+.app .navbutton {
+  margin-block:2px;min-height:37px;padding:9px 12px;gap:11px;border-radius:3px;
+  font-weight:500;letter-spacing:.005em;text-align:start;
+}
+.app .navbutton .icon {width:16px;height:16px;flex-shrink:0;opacity:.85}
+.app .navbutton:hover {color:var(--ink);background:#d2b9a310}
+:root[data-theme] .navbutton.active {
+  color:#ffdec0;background:linear-gradient(90deg,#b4805f38,#b4805f0b);
+  box-shadow:inset 2px 0 #edbd98,inset 0 1px #eec4a114;
+}
+.app .topbar {
+  min-height:56px;height:auto;padding-block:10px;
+  background:linear-gradient(100deg,#272d31f0,#252b30d6);
+  box-shadow:0 1px 0 #f9d8b51c;border-bottom:1px solid #161b2070;
+}
+.app .crumb b {font-weight:500;color:#e7ded3;letter-spacing:.035em}
+.app .workspace-options>summary {list-style-position:inside;color:var(--ink);border:1px solid #d2bdac42;border-radius:4px}
+.app .workspace-options[open] .topactions,.sky-controls,.modal,.app .clock {
+  background:linear-gradient(132deg,color-mix(in srgb,var(--raised) 89%,#ac8060),var(--surface) 40%,var(--paper));
+  border-color:var(--line);box-shadow:inset 0 1px #f8d7b32b,0 18px 56px #11182060;
+}
+.app .workspace-options[open] .topactions {z-index:12}
+.app .workspace {width:100%;margin-inline:auto}
+:root[data-theme] .studio-app {--bench-paper:var(--paper);--bench-ink:var(--ink);--bench-copper:var(--accent);--bench-rule:var(--line)}
+.studio-app .shell {background:transparent}
+
+.workspace .workspace-heading {min-height:clamp(82px,11vh,126px);margin-bottom:clamp(18px,2.4vw,34px)}
+.workspace .workspace-heading h1,.studio-workbench #studio-heading {
+  color:#fff2e0;font:400 clamp(34px,3.65vw,59px)/1.04 var(--title-font);
+  letter-spacing:-.036em;text-transform:none;text-shadow:0 2px 18px #17202791;text-wrap:balance;
+}
+.studio-app .workspace,.app .workspace:not(:has(.setup-start)) {padding-inline:clamp(18px,3.1vw,48px)}
+.studio-workbench .studio-home-heading {min-height:clamp(78px,10vh,128px)}
+.studio-workbench .studio-editor,.studio-workbench .studio-ideas,.studio-workbench .studio-empty,
+.studio-workbench .studio-compare {
+  background:color-mix(in srgb,var(--surface) 88%,transparent);border-block:1px solid var(--line);
+  padding:clamp(16px,2.3vw,32px);
+}
+.app :is(.panel,.metric,.stage-card,.studio-economics,.planner-section,.jobs-section) {
+  background:linear-gradient(127deg,color-mix(in srgb,var(--raised) 87%,var(--surface)),var(--surface) 54%);
+  border-color:color-mix(in srgb,var(--line) 78%,var(--surface));border-radius:6px;
+  box-shadow:inset 0 1px #f3ddd313,0 7px 18px #0e131820;
+}
+.app .panelhead {border-top:0;border-bottom-color:var(--line)}
+.app :is(.panelhead h2,.planner-heading h2,.jobs-heading h2,.studio-section-heading h2) {letter-spacing:-.025em;font-weight:570}
+.app .metric strong {font-weight:520;letter-spacing:-.045em}
+.app :is(input,select,textarea):not([type="range"]):not([type="checkbox"]):not([type="radio"]),.sky-controls select {
+  background:color-mix(in srgb,var(--paper) 82%,var(--surface));border-color:var(--line);border-radius:4px;color:var(--ink);
+}
+:is(.app,.modal,.sky-controls,#sky-view) button {border-radius:4px}
+:is(.app,.modal,.sky-controls) button.primary {
+  background:linear-gradient(112deg,#f6d5b5,#e4ae8d 85%);border-color:#ebc5a6;color:#30231f;
+  box-shadow:inset 0 1px #fff2d6a1,0 3px 9px #12171a44;font-weight:630;
+}
+:is(.app,.modal,.sky-controls) button.primary:hover {filter:brightness(1.07)}
+.app .workspace:has(.setup-start) {
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;
+  min-height:calc(100svh - 58px);max-width:none;
+  padding:clamp(112px,23vh,240px) clamp(22px,4.8vw,84px) clamp(38px,8vh,84px);
+  background:linear-gradient(0deg,#171c20f7 0%,#1f262bf0 12%,#252a30a1 35%,#232b3222 62%,transparent 90%);
+}
+.workspace:has(.setup-start) .workspace-heading {min-height:0;margin:0 0 clamp(23px,3.4vh,42px)}
+.workspace:has(.setup-start) h1 {font-size:clamp(45px,5.6vw,90px);line-height:1.01;letter-spacing:-.053em;text-shadow:0 3px 32px #14202791}
+.workspace .setup-start {
+  display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,4vw,62px);width:100%;max-width:974px;
+  padding:clamp(19px,2.6vw,36px) 0 0;background:transparent;box-shadow:none;border:0;
+  border-radius:0;border-top:1px solid #efc9ac80;overflow:visible;
+}
+.workspace .setup-start>div {padding:0;align-items:flex-start}
+.workspace .setup-start>div+div {border:0}
+.workspace .setup-start h2 {font:500 clamp(21px,2.1vw,33px)/1.12 var(--title-font);color:#fff0df;letter-spacing:-.02em}
+.workspace .setup-start p {max-width:39ch;line-height:1.58;color:#eee2d6;font-size:clamp(13px,1vw,15px);margin:9px 0 20px}
+.workspace .setup-start button {min-height:42px;padding-inline:18px;gap:18px}
+.workspace .setup-start button::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
+.workspace .setup-start .soft {background:#292b2eda;border:1px solid #c7b4a789;color:#f3dfca}
+.app button:focus-visible,.app summary:focus-visible,.sky-controls :focus-visible,#sky-view :focus-visible {outline:2px solid #f9d9ae;outline-offset:3px}
+.modalback {background:#10181db3}
+#sky-view:not([hidden]) {width:max-content;max-width:calc(100% - 24px);margin-inline:auto;gap:2px;padding:4px;background:#1c242ce6;border:1px solid #bca99664;border-radius:6px}
+#sky-view button {background:transparent;border-color:transparent;color:#f4e4d2}
+#sky-view button:hover {background:#f3d9c013}
+@media(min-width:981px) {
+  .app {grid-template-columns:202px minmax(0,1fr)}
+  .app .sidebar {width:202px;padding:29px 16px}
+  .app .clock {left:202px}
+}
+@media(max-width:780px) {
+  .app .topbar {min-height:46px;padding-block:6px}
+  .app .workspace:has(.setup-start) {min-height:calc(100svh - 98px);padding:clamp(125px,21vh,210px) 20px 32px}
+  .workspace .workspace-heading {min-height:58px}
+  .app .brand>span {font-size:21px}
+}
+@media(max-width:600px) {
+  .workspace .setup-start {grid-template-columns:1fr;gap:18px;padding-top:17px}
+  .workspace .setup-start>div+div {padding-top:17px;border-top:1px solid #d7b79b4d}
+  .workspace .setup-start h2 {font-size:24px}
+  .workspace .setup-start p {margin:6px 0 12px}
+  .workspace:has(.setup-start) h1 {font-size:clamp(43px,10vw,58px)}
+  .app .workspace:has(.setup-start) {background:linear-gradient(0deg,#181e22fa 5%,#20272bf0 42%,#1c242b78 72%,transparent)}
+}
+@media(forced-colors:active) {
+  .app :is(.panel,.metric,.stage-card,button,.sidebar,.topbar),.modal,.sky-controls {box-shadow:none}
+  .app .navbutton.active {outline:1px solid Highlight}
+}
+
+.app .navbutton {position:relative}
+:root[data-theme] .navbutton.active {box-shadow:inset 0 1px #eec4a114}
+.nav-rail {position:absolute;left:0;top:16%;height:68%;width:2px;background:linear-gradient(#ffdbb7,#cb9374);border-radius:2px;pointer-events:none}
+:root[data-ui-motion="on"] :is(.app,.modal,.sky-controls) :is(button,summary,input,select,textarea) {
+  transition:background-color 170ms,border-color 170ms,color 140ms,box-shadow 180ms,translate 170ms;
+}
+:root[data-ui-motion="on"] :is(.app,.modal,.sky-controls) button:active:not(:disabled) {translate:0 1px}
+:root[data-ui-motion="on"] .navbutton:hover .icon {transform:translateX(2px)}
+:root[data-ui-motion="on"] :is(.navbutton .icon,.setup-start button::after,.studio-row-arrow) {transition:transform .23s ease}
+:root[data-ui-motion="on"] .setup-start button:hover::after {transform:translateX(3px) rotate(45deg)}
+:root[data-ui-motion="on"] .studio-idea-row:hover .studio-row-arrow {transform:translateX(4px)}
+:root[data-ui-motion="on"] :is(.workspace-options[open] .topactions,.sky-controls,.modalback[data-enter] .modal,.toast:not(:empty)) {
+  animation:surface-arrives .28s cubic-bezier(.22,.72,.21,1) backwards;
+}
+:root[data-ui-motion="on"] .sky-controls {animation-duration:.36s}
+:root[data-ui-motion="on"] .modalback[data-enter] {animation:backdrop-arrives .20s ease-out}
+@keyframes surface-arrives {from {opacity:.18;transform:translateY(9px) scale(.987)}to{opacity:1;transform:none}}
+@keyframes backdrop-arrives {from{background-color:transparent}}
+@media(pointer:fine) {
+  .app :is(.studio-idea-row,.navbutton,.setup-start button,.stage-card button,.projectchip):hover {border-color:var(--accent)}
+}
+@media(forced-colors:active) {.nav-rail {background:Highlight}}
+/* Carry the skyline through the full height of the shell on short pages. */
+.app:not(:has(.setup-start)) .shell {
+  background:linear-gradient(180deg,#252c3452 0,#2630398c 120px,color-mix(in srgb,var(--paper) 90%,transparent) 365px,color-mix(in srgb,var(--paper) 96%,transparent) 100%);
+}
+.app .workspace:not(:has(.setup-start)) {background:transparent}
+.app .studio-workbench .studio-ideas {background:linear-gradient(115deg,#2f3436d9,#282c2dde);border-radius:3px;padding-block:5px}
+.app :is(.jobs-toolbar,.planner-toolbar) {align-items:center;gap:16px;margin:-3px 0 25px}
+.app :is(.jobs-intro,.planner-intro) {flex:1 1 23rem;max-width:60ch;margin:0;font-size:14px;line-height:1.55;color:#e4ded7}
+.app .jobs-empty,.app .planner-empty {background:linear-gradient(110deg,#34383ad9,#262b2eeb);border:1px solid var(--line);border-left:2px solid #bd957a;padding:clamp(20px,2.3vw,35px);border-radius:4px}
+.app :is(.jobs-empty,.planner-empty) h3 {font:500 24px/1.2 var(--title-font);letter-spacing:-.02em}
+aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%),linear-gradient(90deg,#251e271e,transparent 55%)}
+
+.app .sky-shortcut {
+  display:flex;align-items:center;justify-content:flex-start;gap:11px;min-height:40px;margin-top:auto;
+  padding:14px 11px 0;border:0;border-top:1px solid #eac4a93a;border-radius:0;
+  color:#e4d3c0;background:transparent;font-size:12px;font-weight:500;
+}
+.sky-shortcut i {
+  display:block;width:15px;height:15px;flex:none;border-radius:50%;
+  box-shadow:inset -4px -1px 0 #f1d4a4;transform:rotate(18deg);
+}
+.app .sky-shortcut:hover {color:#ffead0}
+@media(min-width:781px) and (max-width:980px) {
+  .sky-shortcut span {display:none}
+  .app .sky-shortcut {justify-content:center}
+}
+@media(max-width:780px) {
+  .app .sky-shortcut {order:1;margin:0 0 0 auto;padding:5px 6px;border:0;min-height:34px}
+  .app .sidebar .nav-toggle {order:2;margin:0}
+  .app .sky-shortcut i {width:12px;height:12px}
+}
+@media(forced-colors:active) {.sky-shortcut i {border:1px solid ButtonText}}
 
 </style></head><body><aero-shards aria-hidden="true">
   <canvas class="sunset-environment"></canvas>
@@ -901,7 +1087,11 @@ body:has(#sky-editor[open]) aero-shards::after {display:none}
     <p class="sky-drag-tip" data-copy="Drag in the sky to move this layer.">Drag in the sky to move this layer.</p>
     <footer><button type="button" value="reset" data-copy="Reset sky">Reset sky</button><button type="button" value="cancel" data-copy="Cancel">Cancel</button><button type="button" class="primary" value="save" data-copy="Save sky">Save sky</button></footer>
   </section>
-</dialog><script>/* Simplified Chinese interface copy. Numbered slots preserve runtime values. */
+</dialog><nav id="sky-view" aria-label="Live sky" hidden>
+  <button type="button" data-sky-play>Pause sky</button>
+  <button type="button" data-sky-adjust>Edit sky</button>
+  <button type="button" data-sky-exit>Back to workspace</button>
+</nav><script>/* Simplified Chinese interface copy. Numbered slots preserve runtime values. */
 globalThis.QQChinese = {
   "Try a 30-day service mix to see how much time it takes and what you could earn.": "试算 30 天的服务组合，查看所需工时和预期收入。",
   "Track what you agreed with each client, what happens next and what they’ve paid.": "跟踪与每位客户约定的事项、下一步行动和已付金额。",
@@ -976,6 +1166,11 @@ globalThis.QQChinese = {
   "Stratus": "层云",
   "Cumulus": "积云",
   "Cumulonimbus": "积雨云",
+  "View live sky": "观看实时天空",
+  "Live sky": "实时天空",
+  "Pause sky": "暂停天空动画",
+  "Resume sky": "继续天空动画",
+  "Back to workspace": "返回工作区",
   "Edit sky": "编辑天空",
   "Layer": "图层",
   "Western cloud bank": "西侧云层",
@@ -8805,7 +9000,7 @@ function listTools(jobs,ui){
 function render(workspace,ui={},findIdea=()=>null){
  const jobs=Array.isArray(workspace?.jobs)?workspace.jobs:[],visible=visibleJobs({jobs},ui),job=visible.find(item=>item.id===ui.selectedId)||visible[0],filter=Object.hasOwn(filterLabels,ui.filter)?ui.filter:'active',searching=!!String(ui.search||'').trim();
  const empty=searching?'<h3>No jobs match</h3><p>Try another search or location. Clearing the search shows every job in the selected location.</p>':jobs.length===0?'<h3>Start with a job of your own</h3><p>Add a blank real job to record your client, scope and next action. Or use the clearly marked practice example to try the workflow first.</p>':filter==='trash'?'<h3>Trash is empty</h3><p>Deleted drafts appear here and can be restored.</p>':filter==='archive'?'<h3>No archived jobs</h3><p>Archive a job to keep it out of Active while retaining its history.</p>':'<h3>No active jobs</h3><p>Add a new job, or restore one from Archived or Trash.</p>';
- return `<div class="jobs-workspace"><p class="jobs-intro">Track what you agreed with each client, what happens next and what they’ve paid.</p><div class="jobs-toolbar"><div><h2>Studio jobs</h2></div><div class="jobs-actions">${button('+ Blank real job','add','id="jobs-add"','primary')}${button(jobs.some(job=>job.mode==='practice'&&location(job)==='active')?'Open practice example':'Add practice example','practice','id="jobs-practice"')}</div></div>${listTools(jobs,ui)}${ui.undo?`<div class="jobs-undo" role="status"><span>${text(ui.undo.title,'Untitled job')} moved to ${ui.undo.location==='trash'?'Trash':'Archived'}.</span>${button('Undo','restore',`id="jobs-undo" data-id="${esc(ui.undo.id)}"`,'small')}</div>`:''}${job?`<div class="jobs-layout">${library(visible,job.id)}${editor(job,ui,findIdea)}</div>`:`<div class="jobs-empty">${empty}</div>`}<p class="jobs-footer">Nothing is sent to clients or suppliers. Typing saves drafts; only an explicit record or post action adds an agreement or event. No simulation controls affect these jobs.</p></div>`;
+ return `<div class="jobs-workspace"><div class="jobs-toolbar" role="group" aria-label="Studio jobs"><p class="jobs-intro">Track what you agreed with each client, what happens next and what they’ve paid.</p><div class="jobs-actions">${button('+ Blank real job','add','id="jobs-add"','primary')}${button(jobs.some(job=>job.mode==='practice'&&location(job)==='active')?'Open practice example':'Add practice example','practice','id="jobs-practice"')}</div></div>${listTools(jobs,ui)}${ui.undo?`<div class="jobs-undo" role="status"><span>${text(ui.undo.title,'Untitled job')} moved to ${ui.undo.location==='trash'?'Trash':'Archived'}.</span>${button('Undo','restore',`id="jobs-undo" data-id="${esc(ui.undo.id)}"`,'small')}</div>`:''}${job?`<div class="jobs-layout">${library(visible,job.id)}${editor(job,ui,findIdea)}</div>`:`<div class="jobs-empty">${empty}</div>`}<p class="jobs-footer">Nothing is sent to clients or suppliers. Typing saves drafts; only an explicit record or post action adds an agreement or event. No simulation controls affect these jobs.</p></div>`;
 }
 const api={render,visibleJobs};root.QQJobsView=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
@@ -9470,13 +9665,13 @@ function render(book,ui={},ideas=[],recentHours=()=>[]){
  const availableIdeas=Array.isArray(ideas)?ideas:ideas?.offerings||[];
  const plans=Array.isArray(book?.plans)?book.plans:[],plan=plans.find(value=>value.id===ui.selectedId)||plans[0],tab=tabs.some(([key])=>key===ui.tab)?ui.tab:'baseline';
  const intro='<p class="planner-intro">Try a 30-day service mix to see how much time it takes and what you could earn.</p>';
- const toolbar=`<div class="planner-toolbar"><h2>Capacity and earnings plans</h2><div class="planner-actions">${button('Studio plan','studio','id="planner-studio"','primary')}${button('+ Blank plan','add','id="planner-add"')}${button(plans.some(value=>value.origin==='example')?'Open fictional example':'Add fictional example','example','id="planner-example"')}</div></div>${ui.undoName?`<div class="planner-undo" role="status"><span>Deleted ${text(ui.undoName)}.</span>${button('Undo deletion','undo-delete','id="planner-undo-delete"','small')}</div>`:''}`;
- if(!plan)return `<div class="planner-workspace">${intro}${toolbar}${ui.error?`<div id="planner-error" class="planner-callout error" role="alert" tabindex="-1">${esc(ui.error)}</div>`:''}<div class="planner-empty"><h3>Start with your own assumptions</h3><p>Add a blank plan. Use the optional fictional example only as a starting point to change, not as evidence of viable prices or demand.</p></div></div>`;
+ const toolbar=`<div class="planner-toolbar" role="group" aria-label="Capacity and earnings plans">${intro}<div class="planner-actions">${button('Studio plan','studio','id="planner-studio"','primary')}${button('+ Blank plan','add','id="planner-add"')}${button(plans.some(value=>value.origin==='example')?'Open fictional example':'Add fictional example','example','id="planner-example"')}</div></div>${ui.undoName?`<div class="planner-undo" role="status"><span>Deleted ${text(ui.undoName)}.</span>${button('Undo deletion','undo-delete','id="planner-undo-delete"','small')}</div>`:''}`;
+ if(!plan)return `<div class="planner-workspace">${toolbar}${ui.error?`<div id="planner-error" class="planner-callout error" role="alert" tabindex="-1">${esc(ui.error)}</div>`:''}<div class="planner-empty"><h3>Start with your own assumptions</h3><p>Add a blank plan. Use the optional fictional example only as a starting point to change, not as evidence of viable prices or demand.</p></div></div>`;
  const list=`<aside class="planner-list" aria-label="Saved capacity plans"><h3>Your plans</h3>${plans.map(value=>button(`<strong>${named(value,'name','Untitled plan')}</strong><small>${value.origin==='example'?'Fictional example':'Your planning assumptions'} · ${esc(value.id)}</small><small>${value.baseline?'Baseline: '+text(value.baseline.date):'No dated baseline captured'}</small>`,'select',`id="planner-select-${dom(value.id)}" data-id="${esc(value.id)}" aria-pressed="${value.id===plan.id}"`,'planner-plan')).join('')}</aside>`;
  const baselineNote=plan.baseline?`<p class="planner-muted">Preserved baseline: ${text(plan.baseline.label,'Unnamed')} · ${text(plan.baseline.date)}. Current edits do not change that snapshot.</p>`:'<p class="planner-muted">Capture a dated baseline when these assumptions are ready to compare. It will remain separate from later edits.</p>';
  const focused=tab==='mix';
  const tools=focused?`<details class="planner-plan-tools" data-disclosure="mix-plan-tools"><summary>Plan options</summary>${toolbar}${list}${planActions(plan)}${baselineNote}</details>`:planActions(plan);
- return `<div class="planner-workspace">${focused?'':intro+toolbar}<div class="${focused?'planner-mix-layout':'planner-layout'}">${focused?'':list}<section class="planner-editor panel" aria-label="Selected capacity plan"><div class="planner-heading"><div><h2 id="planner-selected-heading" tabindex="-1">${named(plan,'name','Untitled plan')}</h2><p>${plan.origin==='example'?'Fictional example · all assumptions need your review':'Working plan · editable assumptions'} · revision ${text(plan.revision)}</p></div>${tools}</div>${plan.origin==='example'?'<div class="planner-callout warning">Fictional example. Its prices, quantities, costs and capacity are illustrative, not measured demand or available supplier quotes.</div>':''}${focused?'':baselineNote}<div class="planner-tabs" role="group" aria-label="Planner sections">${tabs.map(([key,label])=>button(label,'tab',`id="planner-tab-${key}" data-tab="${key}" aria-pressed="${tab===key}"`)).join('')}</div>${ui.error?`<div id="planner-error" class="planner-callout error" role="alert" tabindex="-1">${esc(ui.error)}</div>`:''}<div id="planner-editor-content">${tab==='earnings'?earnings(plan,ui,book,availableIdeas):tab==='mix'?serviceMix(plan,ui,availableIdeas,recentHours):tab==='results'?results(plan):tab==='compare'?comparison(plan,ui,{plans}):baseline(plan)}</div></section></div>${focused?'':'<p class="planner-footer">Planning numbers do not create customer orders, expenses, receipts or owner payments. Unknown estimates remain visible.</p>'}</div>`;
+ return `<div class="planner-workspace">${focused?'':toolbar}<div class="${focused?'planner-mix-layout':'planner-layout'}">${focused?'':list}<section class="planner-editor panel" aria-label="Selected capacity plan"><div class="planner-heading"><div><h2 id="planner-selected-heading" tabindex="-1">${named(plan,'name','Untitled plan')}</h2><p>${plan.origin==='example'?'Fictional example · all assumptions need your review':'Working plan · editable assumptions'} · revision ${text(plan.revision)}</p></div>${tools}</div>${plan.origin==='example'?'<div class="planner-callout warning">Fictional example. Its prices, quantities, costs and capacity are illustrative, not measured demand or available supplier quotes.</div>':''}${focused?'':baselineNote}<div class="planner-tabs" role="group" aria-label="Planner sections">${tabs.map(([key,label])=>button(label,'tab',`id="planner-tab-${key}" data-tab="${key}" aria-pressed="${tab===key}"`)).join('')}</div>${ui.error?`<div id="planner-error" class="planner-callout error" role="alert" tabindex="-1">${esc(ui.error)}</div>`:''}<div id="planner-editor-content">${tab==='earnings'?earnings(plan,ui,book,availableIdeas):tab==='mix'?serviceMix(plan,ui,availableIdeas,recentHours):tab==='results'?results(plan):tab==='compare'?comparison(plan,ui,{plans}):baseline(plan)}</div></section></div>${focused?'':'<p class="planner-footer">Planning numbers do not create customer orders, expenses, receipts or owner payments. Unknown estimates remain visible.</p>'}</div>`;
 }
 const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
@@ -9584,7 +9779,14 @@ const THEMES = {terminal: 'Terminal', dark: 'Dark'};
 const MOTION = {system:'Follow device', animate:'Animate', still:'Still'};
 let shardMotion='system';
 const shardBackground=document.querySelector('aero-shards');
-function applyShardMotion(){shardBackground?.setAttribute?.('motion',shardMotion);}
+const motionPreference=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion:reduce)'):null;
+function applyShardMotion(){
+ shardBackground?.setAttribute?.('motion',shardMotion);
+ const enabled=shardMotion==='animate'||(shardMotion==='system'&&!motionPreference?.matches);
+ document.documentElement.dataset.uiMotion=enabled?'on':'off';
+ if(!enabled)document.getAnimations?.().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
+}
+motionPreference?.addEventListener('change',applyShardMotion);
 function syncBackgroundVisibility(){shardBackground?.toggleAttribute?.('suspended',document.hidden);}
 document.addEventListener('visibilitychange',syncBackgroundVisibility);
 syncBackgroundVisibility();
@@ -9810,17 +10012,17 @@ function workspaceHeading(simulator = false) {
    : '';
  return `<div class="heading workspace-heading"><h1${simulator ? ' id="sim-heading" tabindex="-1"' : ''}>${title()}</h1>${actions}</div>`;
 }
-function sidebar(){return `<aside class="sidebar"><div class="brand"><div class="brandmark" aria-hidden="true">M</div><span>MEIQQ</span></div><div class="subbrand">STUDIO & SIMULATOR</div>${btn('Navigate','mobile-nav','nav-toggle',`aria-expanded="${mobileNavOpen}" aria-controls="main-navigation"`)}<nav id="main-navigation"><div role="group" aria-label="Studio"><div class="navlabel">STUDIO</div>${[['studio','box','Ideas'],['planner','chart','Planner'],['jobs','file','Jobs']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`,'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div><div role="group" aria-label="Simulator"><div class="navlabel">SIMULATOR</div>${[['setup','settings','1. Set up'],['map','map','2. Run scenario'],['finances','chart','3. Review results'],['projects','file','Projects'],['scenarios','compare','Runs & backups'],['about','info','Model guide']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`,'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div></nav></aside>`;}
+function sidebar(){return `<aside class="sidebar"><div class="brand"><div class="brandmark" aria-hidden="true">M</div><span>MEIQQ</span></div><div class="subbrand">STUDIO & SIMULATOR</div>${btn('Navigate','mobile-nav','nav-toggle',`aria-expanded="${mobileNavOpen}" aria-controls="main-navigation"`)}<nav id="main-navigation"><div role="group" aria-label="Studio"><div class="navlabel">STUDIO</div>${[['studio','box','Ideas'],['planner','chart','Planner'],['jobs','file','Jobs']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`+(view===v?'<i class="nav-rail" aria-hidden="true"></i>':''),'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div><div role="group" aria-label="Simulator"><div class="navlabel">SIMULATOR</div>${[['setup','settings','1. Set up'],['map','map','2. Run scenario'],['finances','chart','3. Review results'],['projects','file','Projects'],['scenarios','compare','Runs & backups'],['about','info','Model guide']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`+(view===v?'<i class="nav-rail" aria-hidden="true"></i>':''),'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div></nav><button class="sky-shortcut" type="button" data-view-sky aria-label="View live sky"><i aria-hidden="true"></i><span>View live sky</span></button></aside>`;}
 function jobsStatusLabel(){return jobsSession.status==='opening'?'Opening jobs…':jobsSession.status==='error'?jobsSession.error+' Download a Jobs backup to keep this session.':jobsSession.status==='pending'?'Saving your latest job edits…':jobsSession.status==='saving'?'Saving jobs…':'Jobs saved in this browser · use Jobs backup for a portable copy.';}
 function updateJobsStatus(){const el=$('#jobs-save-status');if(el){el.textContent=QQI18n.text(jobsStatusLabel());el.className='save-status '+(jobsSession.status==='error'?'negative':'');}}
 function plannerStatusLabel(){return plannerSession.status==='opening'?'Opening planner…':plannerSession.status==='error'?plannerSession.error+' Download a Planner backup to keep this session.':plannerSession.status==='pending'?'Saving your latest planning edits…':plannerSession.status==='saving'?'Saving planner…':'Planner saved in this browser · use Planner backup for a portable copy.';}
 function updatePlannerStatus(){const el=$('#planner-save-status');if(el){el.textContent=QQI18n.text(plannerStatusLabel());el.className='save-status '+(plannerSession.status==='error'?'negative':'');}}
 function renderPlannerShell(){
- $('#root').innerHTML=`<div class="app planner-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<div class="topactions">${appearancePicker()}${btn(icon('download')+'Planner backup','planner-backup','small')}${btn(icon('upload')+'Import plans','planner-import','small')}</div></header><div id="planner-save-status" class="save-status ${plannerSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(plannerStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${plannerSession.originals.length?`<div class="banner warn">Original saves are preserved. ${plannerSession.originals.map((v,i)=>btn('Download '+esc(v.label),'planner-original','small',`data-index="${i}"`)).join('')}</div>`:''}${plannerSession.ready?plannerController.render():'<p>Opening your locally saved plans…</p>'}</main></div></div>`;
+ $('#root').innerHTML=`<div class="app planner-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="planner-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Planner backup','planner-backup','small')}${btn(icon('upload')+'Import plans','planner-import','small')}</div></details></header><div id="planner-save-status" class="save-status ${plannerSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(plannerStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${plannerSession.originals.length?`<div class="banner warn">Original saves are preserved. ${plannerSession.originals.map((v,i)=>btn('Download '+esc(v.label),'planner-original','small',`data-index="${i}"`)).join('')}</div>`:''}${plannerSession.ready?plannerController.render():'<p>Opening your locally saved plans…</p>'}</main></div></div>`;
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function renderJobsShell(){
- $('#root').innerHTML=`<div class="app jobs-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<div class="topactions">${appearancePicker()}${btn(icon('download')+'Jobs backup','jobs-backup','small')}${btn(icon('upload')+'Import jobs','jobs-import','small')}</div></header><div id="jobs-save-status" class="save-status ${jobsSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(jobsStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${jobsSession.originals.length?`<div class="banner warn">Original saves are preserved. ${jobsSession.originals.map((v,i)=>btn('Download '+esc(v.label),'jobs-original','small',`data-index="${i}"`)).join('')}</div>`:''}${jobsSession.ready?jobsController.render():'<p>Opening your locally saved jobs…</p>'}</main></div></div>`;
+ $('#root').innerHTML=`<div class="app jobs-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="jobs-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Jobs backup','jobs-backup','small')}${btn(icon('upload')+'Import jobs','jobs-import','small')}</div></details></header><div id="jobs-save-status" class="save-status ${jobsSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(jobsStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${jobsSession.originals.length?`<div class="banner warn">Original saves are preserved. ${jobsSession.originals.map((v,i)=>btn('Download '+esc(v.label),'jobs-original','small',`data-index="${i}"`)).join('')}</div>`:''}${jobsSession.ready?jobsController.render():'<p>Opening your locally saved jobs…</p>'}</main></div></div>`;
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function studioStatusLabel(){return studioSession.status==='opening'?'Opening Studio ideas…':studioSession.status==='error'?studioSession.error+' Download a Studio backup to keep this session.':studioSession.status==='pending'?'Saving your latest idea edits…':studioSession.status==='saving'?'Saving Studio ideas…':'Studio ideas saved in this browser · use Studio backup for a portable copy.';}
@@ -9920,13 +10122,58 @@ function patchRenderChildren(current,next){
  }
  while(cursor){const stale=cursor;cursor=cursor.nextSibling;stale.remove();}
 }
+let lastPresentationKey='';
+function presentationKey(){
+ if(view==='studio')return [view,studioSession.ready,studioUI.tab,studioUI.selectedId,studioUI.section].join('/');
+ if(view==='jobs'||view==='planner'){
+   const ui=view==='jobs'?jobsController.ui:plannerController.ui;
+   return [view,ui.tab,ui.selectedId,ui.editingService?.serviceId].join('/');
+ }
+ return view==='setup'?[view,setupNeedsChoice(),stepIndex,setupMode].join('/'):view;
+}
+// Measure the outgoing selection before reconciliation. Keep the live form
+// elements in place so typing, scrolling and autosaves do not replay entrances.
+function workspaceTransition(root){
+ const key=presentationKey(), previous=lastPresentationKey;lastPresentationKey=key;
+ if(document.documentElement.dataset.uiMotion!=='on'||!root.animate)return null;
+ const animate=(node,frames,ms,delay=0)=>{
+   if(!node)return;
+   node.getAnimations().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
+   node.animate(frames,{id:'workspace-motion',duration:ms,delay,fill:'backwards',easing:'cubic-bezier(.18,.74,.22,1)'});
+ };
+ if(previous===key){
+   const values=[...root.querySelectorAll('.metric strong,.clockday b,.studio-total dd,.planner-lab-summary strong')].slice(0,10);
+   const labels=values.map(el=>el.textContent);
+   return ()=>values.forEach((el,i)=>{
+     if(el.isConnected&&el.textContent!==labels[i])animate(el,[{color:'var(--accent)',translate:'0 -2px'},{color:'var(--ink)',translate:'0 0'}],380);
+   });
+ }
+ const oldRail=root.querySelector('.nav-rail')?.getBoundingClientRect();
+ return ()=>{
+   const workspace=root.querySelector('.workspace');
+   if(!workspace)return;
+   const title=workspace.querySelector('h1'), opening=workspace.querySelector('.setup-start');
+   const detail=workspace.querySelector('#setup-panel,#planner-editor-content,#jobs-editor-content,#studio-editor-content');
+   const within=previous.split('/')[0]===view;
+   const rows=workspace.querySelector('.studio-ideas');
+   const panels=within&&detail?[detail]:opening?[...opening.children]:rows?[...rows.children].slice(0,5):[...workspace.querySelectorAll(':scope > :not(.workspace-heading)')].slice(0,4);
+   if(!within||!detail)animate(title,[{opacity:.22,translate:'0 13px'},{opacity:1,translate:'0 0'}],440);
+   panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.28,translate:'0 19px'},{opacity:1,translate:'0 0'}],490,45+i*52);});
+   const rail=root.querySelector('.nav-rail');
+   if(rail&&oldRail){
+     const delta=oldRail.top-rail.getBoundingClientRect().top;
+     if(Math.abs(delta)>1)animate(rail,[{transform:'translateY('+delta+'px)'},{transform:'translateY(0)'}],360);
+   }
+ };
+}
 function patchableRoot(root){
  if(!root?.nodeType||typeof Proxy==='undefined')return root;
  return new Proxy(root,{get:(target,property)=>Reflect.get(target,property,target),set(target,property,value){
   if(property==='innerHTML'){
    const template=document.createElement('template');template.innerHTML=value;
    QQI18n.localize(template.content);
-   patchRenderChildren(target,template.content);return true;
+   const present=workspaceTransition(target);
+   patchRenderChildren(target,template.content);present?.();return true;
   }
   return Reflect.set(target,property,value,target);
  }});
@@ -11194,8 +11441,9 @@ function checkpoint(kind='automatic'){const snapshot=JSON.stringify(state);MEIQQ
 function modalTabStops(){return [...document.querySelectorAll('#modal button, #modal input, #modal select, #modal textarea, #modal summary, #modal a[href], #modal [tabindex]')].filter(el=>!el.disabled&&el.tabIndex>=0&&!el.closest('[hidden], [inert]')&&el.getClientRects().length>0);}
 function modal(html,focusId){
  stop();
- if(!$('#modal').innerHTML)modalFocus=actionFocus||focusKey(document.activeElement);
- $('#modal').innerHTML=QQI18n.html(`<div class="modalback"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title">${html}<div class="modal-error" id="modal-error" role="alert"></div></section></div>`);
+ const opening=!$('#modal').innerHTML;
+ if(opening)modalFocus=actionFocus||focusKey(document.activeElement);
+ $('#modal').innerHTML=QQI18n.html(`<div class="modalback"${opening?' data-enter':''}><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title">${html}<div class="modal-error" id="modal-error" role="alert"></div></section></div>`);
  render();
  const target=focusId?document.querySelector('#'+focusId):null;
  (target||modalTabStops()[0])?.focus();
@@ -11818,7 +12066,7 @@ function simulationAnalyticsView(a,m){
     east:{visible:true,type:'auto',x:96,y:32,scale:100,spacing:16},
     low:{visible:true,type:'auto',x:18,y:73,scale:100,spacing:32},
     galaxy:{visible:true,x:65,y:43,density:78,drift:49,meteors:55},
-    moon:{visible:true,x:61,y:55,scale:100},
+    moon:{visible:true,x:49,y:44,scale:100},
     horizon:{visible:true,y:96},light:{dusk:58,wind:50,humidity:55}
   };
   const COLS=100, ROWS=64, STEP=.24;
@@ -12078,11 +12326,13 @@ function simulationAnalyticsView(a,m){
       const p=ticket.parcel, other=parcels[slot];
       Object.assign(other,{x:p.x,y:p.y,home:p.home,mass:0,loose:0});
       ticket.replaceWith(other);
-      Object.assign(p,{x,y,home:y,mass:.68,loose:.68,inFlight:false});
+      const mass=smooth((sample(water,x,y)-.024-.21*p.seed)*3.7);
+      Object.assign(p,{x,y,home:y,mass,loose:Math.max(.40,mass),inFlight:false});
       parcels[slot]=p;
     }
     solve(0,true);transport(0,true);
     return {texture,stream,configure,advance,release,receive,densityAt:(x,y)=>sample(water,x,y),
+      windAt:(x,y)=>[sample(vx,x,y),sample(vy,x,y)],
       get count(){return count;},get version(){return version;},
       get profile(){return profile;},get time(){return time;}};
   }
@@ -12190,28 +12440,28 @@ function simulationAnalyticsView(a,m){
   function createShardFlights(weather){
     const shards=[];
     let delay=.28,lastSource=-1;
-    function clear(){
-      for(const s of shards)if(!s.landed)s.ticket.parcel.inFlight=false;
-      shards.length=0;delay=.28;
-    }
     function launch(views,aspect){
       const route=choosePassage(views,weather,aspect,lastSource);
       if(!route)return;
       const {a,b}=route;
       for(let i=0;i<3;i++){
-        const u=a.u+[0,-.033,.028][i], v=a.v+[0,.024,.047][i];
+        const u=a.u-.023*i, v=a.v+[0,.025,-.022][i];
         const ticket=weather[a.view.index].release(u,v);
         if(!ticket)continue;
         const p=ticket.parcel;
+        const start=world(a.view,p.x,p.y), [wx,wy]=weather[a.view.index].windAt(p.x,p.y);
+        const vx=banks[a.view.index].drift+wx*a.view.sx, vy=wy*a.view.sy;
         shards.push({ticket,from:a.view,to:b.view,u:b.u+(i-1)*.024,v:b.v+(1-i)*.029,
-          age:-i*1.12,duration:6.9+i*.36+p.seed*.55,lane:i-1,landed:false,
-          x:0,y:0,focus:0,alpha:0,roll:0,pitch:0,yaw:0});
+          age:-i*(.93+.68*p.depth), duration:5.1+.83*p.depth+.42*i, landed:false,
+          x:start.x,y:start.y,vx,vy,focus:0,alpha:0,roll:p.angle,pitch:.18,angle:Math.atan2(vy,vx*aspect),
+          spin:(p.depth>.42?1:-1)*(.45+.55*p.seed), pitchSpeed:0, yawSpeed:0, near:0,depthSpeed:0,
+          approach:i===0?.75+.21*p.depth:i===1?.40+.13*p.seed:.17, lane:i-1});
       }
       if(shards.length)lastSource=a.view.index;
     }
     function advance(dt,views,aspect){
-      if(!dt)return;
       if(!shards.length){
+        if(!dt)return;
         delay-=dt;
         if(delay>0)return;
         delay=1.25;
@@ -12222,35 +12472,73 @@ function simulationAnalyticsView(a,m){
         const matching=old=>views.find(v=>v.index===old.index&&v.copy===old.copy);
         const from=matching(s.from), to=matching(s.to);
         if(!to||(!from&&!s.landed)){if(!s.landed)p.inFlight=false;shards.splice(i,1);continue;}
-        s.age+=dt;
-        const t=clamp(s.age/s.duration);
-        if(!s.landed){
+        if(s.age<=0 && from){
+          const wait=Math.min(dt,-s.age), wind=weather[from.index].windAt(p.x,p.y);
+          p.x=clamp(p.x+wind[0]*wait);p.y=clamp(p.y+wind[1]*wait);
           const start=world(from,p.x,p.y);
-          const [u,v]=nearestCloud(weather[to.index],s.u,s.v);
-          const follow=1-Math.exp(-dt*1.9);
-          s.u=mix(s.u,u,follow);s.v=mix(s.v,v,follow);
-          const end=world(to,s.u,s.v), along=smooth(t), arc=Math.sin(Math.PI*t);
-          const curl=Math.sin(2*Math.PI*t+p.depth*.85);
-          s.x=mix(start.x,end.x,along)+arc*(.020+.013*s.lane+.014*curl)/aspect;
-          s.y=mix(start.y,end.y,along)+arc*(-.045+.031*s.lane+.034*curl);
-          s.focus=smooth((s.age+.48)/1.7);
-          s.yaw=Math.atan2(end.y-start.y,(end.x-start.x)*aspect)*.52;
-          if(t===1){weather[to.index].receive(s.ticket,s.u,s.v);s.landed=true;}
+          s.x=start.x;s.y=start.y;s.vx=banks[from.index].drift+wind[0]*from.sx;s.vy=wind[1]*from.sy;
+        }
+        const [u,v]=nearestCloud(weather[to.index],s.u,s.v);
+        const follow=1-Math.exp(-dt*2.2);
+        s.u=mix(s.u,u,follow);s.v=mix(s.v,v,follow);
+        const goal=world(to,s.u,s.v);
+        const [localX,localY]=weather[to.index].windAt(s.u,s.v);
+        const rimVX=banks[to.index].drift, rimVY=0;
+        // The flake leaves with the velocity of the source. Broadside to
+        // the air it brakes and lifts; edge-on it carries its momentum.
+        let remaining=dt;
+        while(remaining>1e-7){
+          const h=Math.min(remaining,1/40);remaining-=h;s.age+=h;
+          if(s.age<=0)continue;
+          const progress=clamp(s.age/s.duration);
+          const capture=smooth((progress-.54)/.46);
+          const face=Math.cos(s.roll)*Math.cos(s.pitch);
+          const slip=Math.sin(s.roll)*Math.cos(s.roll);
+          if(!s.landed){
+            const dx=(goal.x-s.x)*aspect,dy=goal.y-s.y;
+            const distance=Math.hypot(dx,dy);
+            const timeLeft=Math.max(.32,s.duration-s.age);
+            const drag=1.12+.77*Math.abs(face)+capture*3.0;
+            const gust=Math.sin(s.age*.88+p.angle)+.4*Math.sin(s.age*1.64+p.depth*8);
+            const lift=(1-capture)*(.035+.026*(1+s.lane))*(.45+Math.abs(face));
+            const side=(1-capture)*(.024*gust+.032*s.lane+.022*slip);
+            const targetX=mix(rimVX,rimVX+localX*to.sx,capture)+clamp(dx/timeLeft,-.40,.40)/aspect;
+            const targetY=mix(rimVY,localY*to.sy,capture)+clamp(dy/timeLeft,-.40,.40);
+            const response=1-Math.exp(-drag*h);
+            s.vx+=response*(targetX+side/aspect-s.vx);
+            s.vy+=response*(targetY-lift+(1-capture)*.025*(1-Math.abs(face))-s.vy);
+            s.x+=s.vx*h;s.y+=s.vy*h;
+            // Hand off in the moist air itself. The position is never snapped
+            // to a waypoint or reset to the centre of the destination cloud.
+            const px=.5+(s.x-to.cx)/to.sx,py=.5+(s.y-to.cy)/to.sy;
+            if(progress>.82 && distance<.042 && px>0&&px<1&&py>0&&py<1 && (weather[to.index].densityAt(px,py)>.14 || s.age>s.duration+1.3)){
+              weather[to.index].receive(s.ticket,px,py);s.landed=true;s.touchdown=s.age;
+            }
+          }
+          const speed=Math.hypot(s.vx*aspect,s.vy);
+          const free=s.landed?0:1-capture*.73;
+          const depthTarget=s.landed?0:s.approach*(1-smooth((progress-.48)/.43));
+          const depthRate=1.9+.57*capture;
+          s.depthSpeed+=(depthRate*depthRate*(depthTarget-s.near)-2*depthRate*s.depthSpeed)*h;
+          s.near=clamp(s.near+s.depthSpeed*h,0,.96);
+          const handed=p.depth>.42?1:-1;
+          const torque=handed*(.70+speed*5.2)*free+.70*slip*free;
+          s.spin+=(torque-(.65+(1-free)*2.2)*s.spin)*h;
+          s.pitchSpeed+=((.58*Math.sin(s.roll+.7)*free-.54*s.pitch)-.95*s.pitchSpeed)*h;
+          const heading=Math.atan2(s.vy,s.vx*aspect);
+          const error=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
+          s.yawSpeed+=(error*(s.landed?2.3:.78)+slip*free*.70-1.15*s.yawSpeed)*h;
+          s.roll+=s.spin*h;s.pitch+=s.pitchSpeed*h;s.angle+=s.yawSpeed*h;
         }
         if(s.landed){
-          const position=world(to,p.x,p.y);
-          s.x=position.x;s.y=position.y;
-          s.focus=1-smooth((s.age-s.duration)/1.65);
+          const position=world(to,p.x,p.y);s.x=position.x;s.y=position.y;
+          s.focus=1-smooth((s.age-s.touchdown)/1.55);
           if(s.focus<=0){shards.splice(i,1);continue;}
-        }
-        const spin=Math.max(0,s.age), settle=Math.min(spin,s.duration);
-        s.roll=p.angle+settle*(1.47+.58*p.depth);
-        s.pitch=.64*Math.sin(p.angle*.51+settle*(.8+.2*p.seed));
-        s.angle=s.yaw+.39*Math.sin(settle*.99+p.angle)+.56*Math.sin(settle*.44+p.depth);
-        s.alpha=.23+.74*s.focus;
+        }else{s.focus=smooth((s.age+.38)/1.4);}
+        s.alpha=.24+.73*s.focus;
       }
     }
-    return {shards,advance,clear};
+    return {shards,advance};
   }
   Object.assign(scene,{cloudViews,createShardFlights});
 })();
@@ -12302,9 +12590,9 @@ function simulationAnalyticsView(a,m){
       vec2 uv=vec2(gl_FragCoord.x/uSize.x,1.-gl_FragCoord.y/uSize.y);
       vec2 aspect=vec2(uSize.x/uSize.y,1.);
       float h=uv.y, dusk=uDusk;
-      vec3 top=mix(vec3(.32,.39,.46),vec3(.065,.105,.19),dusk);
-      vec3 waist=mix(vec3(.65,.67,.66),vec3(.29,.40,.49),dusk);
-      vec3 bottom=mix(vec3(.95,.86,.70),vec3(.72,.64,.64),dusk);
+      vec3 top=mix(vec3(.39,.45,.49),vec3(.14,.20,.27),dusk);
+      vec3 waist=mix(vec3(.66,.70,.70),vec3(.36,.47,.53),dusk);
+      vec3 bottom=mix(vec3(.95,.86,.70),vec3(.74,.69,.64),dusk);
       vec3 sky=mix(top,waist,smoothstep(-.12,.77,h));
       sky=mix(sky,bottom,smoothstep(.43,1.04,h));
       sky+=vec3(.10,.043,.018)*exp(-length((uv-vec2(.21,.87))*vec2(1.5,3.)));
@@ -12322,7 +12610,7 @@ function simulationAnalyticsView(a,m){
       for(int k=0;k<3;k++){
         float layer=float(k)/3.;
         sky+=StarLayer(skyPos+vec2(.0010,-.00024)*uOrbit*(layer+.3),
-          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(1.14-.28*layer);
+          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer);
       }
       if(uBurst>0.){
         vec2 path=uStreak.zw*uSize, delta=(uv-uStreak.xy)*uSize;
@@ -12378,7 +12666,7 @@ function simulationAnalyticsView(a,m){
       if(any(greaterThan(vUV,vec2(1.))))discard;
       float storm=smoothstep(1.3,1.76,uAir.w);
       vec3 base=mix(vec3(.64,.53,.55),vec3(.42,.39,.47),uDusk)-storm*vec3(.095,.079,.075);
-      vec3 warm=mix(vec3(.93,.71,.59),vec3(.81,.585,.525),uDusk);
+      vec3 warm=mix(vec3(.97,.74,.64),vec3(.88,.60,.51),uDusk);
       vec3 sun=mix(vec3(1.,.87,.72),vec3(1.,.80,.65),uDusk);
       vec3 sum=vec3(0.);
       float transmittance=1.;
@@ -12394,8 +12682,9 @@ function simulationAnalyticsView(a,m){
         float slope=clamp(.49+(rho-nearSun)*1.66,0.,1.);
         float sunlight=exp(-(nearSun*1.30+middleSun*1.27+farSun*.65)*depthScale);
         vec4 grain=texture(uGrain,vec3((uv-vec2(.008,-.003)*uTime)*4.3,z*.34)+uSeed*.073);
-        float silver=(grain.r-.46)*.14+(grain.g-.46)*.08;
-        float light=clamp(.55*slope+.54*sunlight+.11*z+silver,0.,1.);
+        float silver=(grain.r-.46)*.26+(grain.g-.46)*.17;
+        float rim=smoothstep(.18,.66,grain.r)*(1.-smoothstep(.08,.40,rho));
+        float light=clamp(.55*slope+.54*sunlight+.11*z+silver+rim*.12,0.,1.);
         vec3 scatter=mix(base,warm,smoothstep(.17,.80,light));
         scatter=mix(scatter,sun,smoothstep(.52,.93,light)*.82);
         float extinction=1.-exp(-rho*depthScale*.83);
@@ -12418,7 +12707,7 @@ function simulationAnalyticsView(a,m){
     uniform float uTime,uSpace,uDusk;
     out vec4 vColor;
     void main(){
-      float scale=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(1.17,.42,uSpace);
+      float scale=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.80,.35,uSpace);
       vec2 chip=aCorner.xy;
       chip.y*=aShape.y;
       chip.x+=chip.y*(aSeed.x-.5)*1.17;
@@ -12434,7 +12723,10 @@ function simulationAnalyticsView(a,m){
       vec3 body=mix(shadow,vec3(.89,.62,.53),smoothstep(.14,.78,light));
       body=mix(body,vec3(1.,.86,.67),smoothstep(.60,.96,light));
       vec3 lip=mix(shadow*.89,vec3(1.,.87,.72),smoothstep(.42,.87,light));
-      vColor=vec4(mix(body,lip,aFace.y),mix(.19,.67,aShape.w));
+      float facing=.5+.5*sin(uTime*(.39+.26*aSeed.y)+aSeed.x*53.+aShape.x*1.8);
+      float glint=pow(facing,10.)*smoothstep(.35,.73,light);
+      vec3 reflection=mix(mix(body,lip,aFace.y),vec3(1.,.87,.72),glint*.87);
+      vColor=vec4(reflection,.08+.15*aShape.w+.49*glint*aShape.w);
     }`;
   const shardFragment=`#version 300 es
     precision mediump float; in vec4 vColor; out vec4 color;
@@ -12456,7 +12748,7 @@ function simulationAnalyticsView(a,m){
     const u={};for(const name of names)u[name]=gl.getUniformLocation(p,name);
     return {p,u};
   }
-  function prism(closed=false){
+  function prism(){
     // Shared bevelled AeroShards lance. Parcel attributes vary its aspect,
     // shear and pitch so the formation can change without rebuilding a mesh.
     const rim=[[1,0,0],[.08,.54,0],[-.70,.29,0],[-.81,-.16,0],[-.18,-.48,0]];
@@ -12466,30 +12758,92 @@ function simulationAnalyticsView(a,m){
       const b=rim[(i+1)%rim.length], lowerA=[a[0],a[1],-.082], lowerB=[b[0],b[1],-.082];
       const light=.5+.47*Math.sin(i*1.26+.8);
       face(a,b,[0,0,.11],light,0);face(a,lowerA,b,light,1);face(b,lowerA,lowerB,light,1);
-      if(closed)face(lowerB,lowerA,[0,0,-.15],1-light,0);
     });
     return new Float32Array(data);
   }
   function bankPositions(index){
     return views.filter(v=>v.index===index).map(v=>[v.cx*width,v.cy*height]);
   }
-  const flightMesh=prism(true);
-  const facets=new Float32Array(3*(flightMesh.length/5)*6);
+  function copperSurface(){
+    // Oxide grows in the recesses; grinding and long scoring marks expose the
+    // warmer metal. Object-space UVs keep these marks attached during a turn.
+    const size=192, plate=document.createElement('canvas');plate.width=plate.height=size;
+    const c=plate.getContext('2d'), image=c.createImageData(size,size);
+    function patinaNoise(x,y){
+      const i=Math.floor(x),j=Math.floor(y),u=smooth(x-i),v=smooth(y-j);
+      return mix(mix(hash(i+13,j),hash(i+14,j),u),mix(hash(i+13,j+1),hash(i+14,j+1),u),v);
+    }
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const u=x/size,v=y/size;
+      const veins=patinaNoise(u*5.8+v*1.7,v*4.1);
+      const grain=patinaNoise(u*16+3*veins,v*24)+.28*patinaNoise(u*70,v*97);
+      const oxide=smooth((veins*.59+grain*.41-.515)/.23);
+      const pits=hash(x+18,y+9),brush=.075*Math.sin(v*960+u*43+veins*13)+.10*(pits-.5);
+      const stain=clamp(veins*.48+grain*.32+brush-.15);
+      const k=4*(y*size+x);
+      image.data[k]=mix(mix(235,155,stain),77+25*grain,oxide);
+      image.data[k+1]=mix(mix(160,83,stain),120+32*grain,oxide);
+      image.data[k+2]=mix(mix(110,52,stain),109+24*grain,oxide);
+      image.data[k+3]=255;
+    }
+    c.putImageData(image,0,0);
+    for(let i=0;i<85;i++){
+      const x=hash(i,1)*size,y=hash(i,2)*size,length=2+hash(i,3)**3*58;
+      c.strokeStyle=i%3?'rgba(255,220,169,.34)':'rgba(66,41,32,.38)';
+      c.lineWidth=.35+hash(i,4)*.55;c.beginPath();c.moveTo(x,y);
+      c.lineTo(x+length,y+length*(.08+.11*hash(i,5)));c.stroke();
+    }
+    return plate;
+  }
+  const copper=copperSurface();
+  function foldedCopper(seed){
+    // Mill-cut sheet with one torn edge, a cold-worked crease, and a bright
+    // exposed bevel. Top and underside share the cut outline.
+    const length=10, across=4, grid=[], mesh=[];
+    for(let i=0;i<=length;i++){
+      const t=i/length, belly=Math.sin(Math.PI*t);
+      const breadth=.17+.32*belly+.10*(1-t)-.11*t;
+      const lean=.105*Math.sin(t*4.6+seed)+.065*t;
+      for(let j=0;j<=across;j++){
+        const v=2*j/across-1, nick=j===across?.07*hash(i+seed,5):.035*hash(i,seed);
+        const x=-.92+1.87*t+v*(.10-.16*t)+.05*belly*v*v;
+        const y=lean+v*(breadth-nick)*(.86+.16*t);
+        const z=.14*belly-.08*t+v*(.030+.080*Math.sin(t*3.6+seed))+
+          .067*(1-Math.abs(v+.12))-.034*v*v+.016*hash(i+seed,j)*belly;
+        grid.push([x,y,z]);
+      }
+    }
+    const lower=p=>[p[0],p[1],p[2]-.048];
+    function face(a,b,c,edge){for(const point of [a,b,c])mesh.push(...point,.52,edge);}
+    function rim(a,b){const c=lower(a),d=lower(b);face(a,c,b,1);face(b,c,d,1);}
+    for(let i=0;i<length;i++)for(let j=0;j<across;j++){
+      const k=i*(across+1)+j,a=grid[k],b=grid[k+across+1],c=grid[k+across+2],d=grid[k+1];
+      face(a,b,c,0);face(a,c,d,0);face(lower(c),lower(b),lower(a),0);face(lower(d),lower(c),lower(a),0);
+      if(!j)rim(a,b);if(j===across-1)rim(c,d);if(!i)rim(d,a);if(i===length-1)rim(b,c);
+    }
+    return new Float32Array(mesh);
+  }
+  const flightMeshes=[foldedCopper(11),foldedCopper(32),foldedCopper(73)];
+  const facets=new Float32Array(flightMeshes.reduce((n,mesh)=>n+mesh.length/5*8,0));
   let facetCount=0;
   function projectFlights(){
-    // Rotate the closed metal prism in three axes. Both renderers see the
+    // Rotate each folded sheet in three axes. Both renderers see the
     // same silhouette and copper reflections, including during an edge-on turn.
     let out=0;
     const pixelRatio=width/Math.max(1,host.clientWidth);
     for(const s of flights.shards){
+      const flightMesh=flightMeshes[s.lane+1];
       const p=s.ticket.parcel, cr=Math.cos(s.roll), sr=Math.sin(s.roll);
       const cp=Math.cos(s.pitch), sp=Math.sin(s.pitch), ca=Math.cos(s.angle), sa=Math.sin(s.angle);
-      const radius=clamp(Math.min(width,height)*.028,8*pixelRatio,20*pixelRatio)
-        *(.91+.22*p.seed)*(.20+.80*s.focus);
+      const radius=clamp(Math.min(width,height)*.019,5*pixelRatio,15*pixelRatio)
+        *(.86+.20*p.seed)*(.26+.74*s.focus)/(1-.81*s.near);
+      const parallax=height*.031*s.near;
+      const centerX=(s.x+(s.x-.50)*s.near*.09)*width+look[0]*parallax;
+      const centerY=(s.y+(s.y-.46)*s.near*.09)*height+look[1]*parallax;
       const face=new Float32Array(9);
       for(let k=0;k<flightMesh.length;k+=15){
         for(let i=0;i<3;i++){
-          const j=k+i*5, y=flightMesh[j+1]*(.73+.42*p.depth), z=flightMesh[j+2]*1.58;
+          const j=k+i*5, y=flightMesh[j+1]*(.73+.42*p.depth), z=flightMesh[j+2]*1.14;
           const x=flightMesh[j]+y*(p.seed-.5)*.72, ty=cr*y-sr*z, tz=sr*y+cr*z;
           const tx=cp*x+sp*tz;
           face[i*3]=ca*tx-sa*ty;face[i*3+1]=sa*tx+ca*ty;face[i*3+2]=-sp*x+cp*tz;
@@ -12501,15 +12855,17 @@ function simulationAnalyticsView(a,m){
         const n=Math.hypot(nx,ny,nz);
         const sun=clamp((-.55*nx-.72*ny+.42*nz)/n);
         const glint=Math.pow(clamp((-.33*nx-.42*ny+.845*nz)/n),12);
-        const light=clamp(.13+.66*sun+.43*glint+.12*flightMesh[k+4]+.12*(flightMesh[k+3]-.5));
+        const light=clamp(.13+.66*sun+.28*glint+.24*flightMesh[k+4]+.12*(flightMesh[k+3]-.5));
         for(let i=0;i<3;i++){
-          facets[out++]=s.x*width+radius*face[i*3];facets[out++]=s.y*height+radius*face[i*3+1];
-          facets[out++]=mix(.42,1,light);facets[out++]=mix(.20,.86,light*light);
-          facets[out++]=mix(.14,.67,light*light);facets[out++]=s.alpha;
+          const j=k+i*5;
+          facets[out++]=centerX+radius*face[i*3];facets[out++]=centerY+radius*face[i*3+1];
+          facets[out++]=light;facets[out++]=glint;facets[out++]=1-s.near;facets[out++]=s.alpha;
+          facets[out++]=.43+flightMesh[j]*.38+.10*p.seed;
+          facets[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
         }
       }
     }
-    facetCount=out/6;
+    facetCount=out/8;
   }
   function grainTexture(gl){
     // Periodic cellular noise can be sampled throughout the cloud in three
@@ -12549,15 +12905,26 @@ function simulationAnalyticsView(a,m){
       ['uSize','uSpan','uPosition','uBody']);
     const cloud=program(gl,shardVertex,shardFragment,['uSize','uTime','uDusk','uSpan','uPosition','uLook','uSpace']);
     const metal=program(gl,`#version 300 es
-      layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aColor;
-      uniform vec2 uSize;out vec4 vColor;
-      void main(){gl_Position=vec4(aPosition/uSize*vec2(2.,-2.)+vec2(-1.,1.),0,1);vColor=aColor;}`,
-      shardFragment,['uSize']);
+      layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aFinish;layout(location=2) in vec2 aUV;
+      uniform vec2 uSize;out vec4 vFinish;out vec2 vUV;
+      void main(){gl_Position=vec4(aPosition/uSize*vec2(2.,-2.)+vec2(-1.,1.),0,1);vFinish=aFinish;vUV=aUV;}`,
+      `#version 300 es
+      precision mediump float;
+      uniform sampler2D uCopper;in vec4 vFinish;in vec2 vUV;out vec4 color;
+      void main(){
+        vec3 base=texture(uCopper,vUV).rgb;
+        float polished=smoothstep(.0,.32,base.r-base.g);
+        vec3 lit=base*(.39+.80*vFinish.x)+vec3(.32,.28,.23)*vFinish.y*(.18+.82*polished);
+        color=vec4(mix(lit,vec3(.78,.64,.60),.22*vFinish.z),vFinish.w);
+      }`,['uSize','uCopper']);
+    const plate=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,plate);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,copper);
+    gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     const flightVao=gl.createVertexArray(), flightBuffer=gl.createBuffer();
     gl.bindVertexArray(flightVao);gl.bindBuffer(gl.ARRAY_BUFFER,flightBuffer);
     gl.bufferData(gl.ARRAY_BUFFER,facets.byteLength,gl.DYNAMIC_DRAW);
-    for(const [loc,n,offset] of [[0,2,0],[1,4,8]]){
-      gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,24,offset);
+    for(const [loc,n,offset] of [[0,2,0],[1,4,8],[2,2,24]]){
+      gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,32,offset);
     }
     gl.bindVertexArray(null);
     const grain=grainTexture(gl);
@@ -12643,7 +13010,8 @@ function simulationAnalyticsView(a,m){
       if(facetCount){
         gl.disable(gl.DEPTH_TEST);gl.useProgram(metal.p);gl.uniform2f(metal.u.uSize,width,height);
         gl.bindVertexArray(flightVao);gl.bindBuffer(gl.ARRAY_BUFFER,flightBuffer);
-        gl.bufferSubData(gl.ARRAY_BUFFER,0,facets,0,facetCount*6);
+        gl.bindTexture(gl.TEXTURE_2D,plate);gl.uniform1i(metal.u.uCopper,0);
+        gl.bufferSubData(gl.ARRAY_BUFFER,0,facets,0,facetCount*8);
         gl.drawArrays(gl.TRIANGLES,0,facetCount);
       }
     };
@@ -12715,14 +13083,16 @@ function simulationAnalyticsView(a,m){
   function paintSoftwareBank(w,layer,body,ox,oy,bw,bh){
     const c=ctx2d, stream=w.stream;
     c.drawImage(body,ox,oy,bw,bh);
-    const scale=Math.min(bw,bh*1.85)*mix(1.17,.42,layer.spacing/100);
+    const scale=Math.min(bw,bh*1.85)*mix(.80,.35,layer.spacing/100);
     for(let i=0;i<w.count;i++){
       const k=i*10, x=ox+stream[k]*bw,y=oy+stream[k+1]*bh,r=stream[k+3]*scale;
       if(x<-r||y<-r||x>width+r||y>height+r)continue;
       const angle=stream[k+4]+.2*Math.sin(w.time*.4+stream[k+9]*6.28);
       const ax=r*Math.cos(angle),ay=r*Math.sin(angle),thin=stream[k+5]*.52;
       const lit=smooth((stream[k+6]-.2+(stream[k+8]-.5)*.13)/.6);
-      c.fillStyle='rgba('+Math.round(mix(110,252,lit))+','+Math.round(mix(80,204,lit))+','+Math.round(mix(87,156,lit))+','+(.20+.54*stream[k+7])+')';
+      const facing=.5+.5*Math.sin(w.time*(.39+.26*stream[k+9])+stream[k+8]*53+angle*1.8);
+      const glint=facing**10*smooth((lit-.35)/.38), reflection=mix(lit,1,glint);
+      c.fillStyle='rgba('+Math.round(mix(136,255,reflection))+','+Math.round(mix(98,222,reflection))+','+Math.round(mix(99,184,reflection))+','+(.08+.15*stream[k+7]+.49*glint*stream[k+7])+')';
       c.beginPath();c.moveTo(x+ax,y+ay);c.lineTo(x-.73*ax-ay*thin,y-.73*ay+ax*thin);
       c.lineTo(x-.51*ax+ay*thin,y-.51*ay-ax*thin);c.fill();
     }
@@ -12753,7 +13123,7 @@ function simulationAnalyticsView(a,m){
     const c=ctx2d,{light,moon,galaxy}=state;
     const rgb=(a,b,t)=>'rgb('+a.map((v,i)=>Math.round(mix(v,b[i],t))).join(',')+')';
     const sky=c.createLinearGradient(0,0,0,height), d=light.dusk/100;
-    sky.addColorStop(0,rgb([82,100,117],[17,27,48],d));sky.addColorStop(.62,rgb([166,171,168],[80,99,123],d));
+    sky.addColorStop(0,rgb([99,115,125],[36,51,69],d));sky.addColorStop(.62,rgb([168,179,179],[92,120,135],d));
     sky.addColorStop(1,rgb([245,219,178],[184,163,163],d));c.fillStyle=sky;c.fillRect(0,0,width,height);
     if(galaxy.visible)softwareStars(c,galaxy);
     softwareMeteor(c);
@@ -12763,10 +13133,21 @@ function simulationAnalyticsView(a,m){
       c.beginPath();c.rect(x-r,y-r,r*2,r*2);c.arc(x-r*.43,y-r*.14,r*.93,0,Math.PI*2);c.fill('evenodd');c.restore();
     }
     for(const i of bankOrder()){if(state[banks[i].id].visible)softwareBank(banks[i],i);}
-    for(let k=0;k<facetCount*6;k+=18){
-      c.fillStyle='rgba('+Math.round(255*facets[k+2])+','+Math.round(255*facets[k+3])+','+Math.round(255*facets[k+4])+','+facets[k+5]+')';
-      c.beginPath();c.moveTo(facets[k],facets[k+1]);c.lineTo(facets[k+6],facets[k+7]);
-      c.lineTo(facets[k+12],facets[k+13]);c.closePath();c.fill();
+    for(let k=0;k<facetCount*8;k+=24){
+      const x=facets[k],y=facets[k+1],ax=facets[k+8]-x,ay=facets[k+9]-y;
+      const bx=facets[k+16]-x,by=facets[k+17]-y,light=facets[k+2];
+      c.save();c.globalAlpha=facets[k+5];c.beginPath();c.moveTo(x,y);c.lineTo(x+ax,y+ay);c.lineTo(x+bx,y+by);c.closePath();c.clip();
+      c.fillStyle='rgb('+Math.round(109+140*light)+','+Math.round(63+123*light)+','+Math.round(47+99*light)+')';
+      c.fillRect(x-Math.abs(ax)-Math.abs(bx),y-Math.abs(ay)-Math.abs(by),2*(Math.abs(ax)+Math.abs(bx)),2*(Math.abs(ay)+Math.abs(by)));
+      const u=facets[k+6],v=facets[k+7],au=facets[k+14]-u,av=facets[k+15]-v,bu=facets[k+22]-u,bv=facets[k+23]-v;
+      const det=au*bv-av*bu;
+      if(facets[k+4]<.76 && Math.abs(det)>.0001){
+        const a=(ax*bv-bx*av)/det,b=(ay*bv-by*av)/det,d=(by*au-ay*bu)/det,e=(bx*au-ax*bu)/det;
+        c.transform(a,b,e,d,x-a*u-e*v,y-b*u-d*v);c.drawImage(copper,0,0,1,1);
+        c.fillStyle=light<.58?'rgba(46,31,33,'+(.52-light*.65)+')':'rgba(255,228,193,'+(.10+.46*facets[k+3])+')';
+        c.fillRect(0,0,1,1);
+      }
+      c.restore();
     }
   }
   function moveAllowed(){
@@ -12784,9 +13165,14 @@ function simulationAnalyticsView(a,m){
         for(const w of weather)w.advance(dt);
         if(state.galaxy.visible&&state.galaxy.meteors)meteor=meteorClock.advance(dt,state.galaxy.meteors);
       }
+      for(let i=0;i<2;i++)look[i]=moving?mix(look[i],target[i],1-Math.exp(-dt*3.1)):0;
       views=cloudViews(state,weather,width/height);
+      for(const v of views){
+        const depth=(1-weather[v.index].profile.height)*.017;
+        v.cx+=look[0]*depth*height/width;v.cy+=look[1]*depth;
+      }
+      if(horizon)horizon.style.transform='translate('+(-look[0]*9)+'px,'+(-look[1]*2)+'px) scaleX(1.02)';
       flights.advance(dt,views,width/height);projectFlights();
-      for(let i=0;i<2;i++)look[i]+=((moving?target[i]:0)-look[i])*Math.min(1,dt*4);
       if(renderGL)renderGL();else if(ctx2d)fallback();
       dirty=false;last=now;
     }
@@ -12818,11 +13204,12 @@ function simulationAnalyticsView(a,m){
     resize();
   }
   new ResizeObserver(resize).observe(host);
+  document.addEventListener('visibilitychange',sync);
   new MutationObserver(sync).observe(host,{attributes:true,attributeFilter:['motion','suspended']});
   reduced.addEventListener('change',sync);forced.addEventListener('change',sync);
   window.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&moveAllowed())target=[e.clientX/innerWidth-.5,e.clientY/innerHeight-.5];},{passive:true});
   window.SunsetScene.update=next=>{const horizonChanged=state.horizon.y!==next.horizon.y||state.horizon.visible!==next.horizon.visible;
-    if(banks.some(({id})=>['visible','type','x','y','scale'].some(key=>state[id][key]!==next[id][key])))flights.clear();
+    if((state.light.wind===0)!==(next.light.wind===0))last=0;
     state=structuredClone(next);
     banks.forEach((bank,i)=>weather[i].configure(state[bank.id].type,state.light.humidity,!moveAllowed()||!state.light.wind||!time));
     if(!state.galaxy.visible||!state.galaxy.meteors||!state.light.wind){meteor=null;meteorClock.clear();}
@@ -12898,6 +13285,45 @@ function simulationAnalyticsView(a,m){
     select.innerHTML=Object.entries(layers).map(([id,label])=>'<option value="'+id+'">'+t(label)+'</option>').join('');
     select.value=selected;showFields();dialog.showModal();select.focus();
   }
+  const viewer=document.querySelector('#sky-view'), host=document.querySelector('aero-shards');
+  const play=viewer.querySelector('[data-sky-play]'), adjust=viewer.querySelector('[data-sky-adjust]');
+  const exit=viewer.querySelector('[data-sky-exit]'), reduced=matchMedia('(prefers-reduced-motion:reduce)');
+  let workspaceMotion, viewOpener;
+  function playing(){
+    const mode=host.getAttribute('motion');
+    return settings.light.wind>0&&(mode==='animate'||(mode==='system'&&!reduced.matches));
+  }
+  function updatePlay(){play.textContent=t(playing()?'Pause sky':'Resume sky');}
+  function viewSky(){
+    const active=location.hash==='#sky';
+    if(active===!viewer.hidden)return;
+    viewer.hidden=!active;
+    if(active){
+      workspaceMotion=host.getAttribute('motion')||'system';
+      host.setAttribute('motion','system');
+      viewer.setAttribute('aria-label',t('Live sky'));
+      adjust.textContent=t('Edit sky');exit.textContent=t('Back to workspace');
+      updatePlay();play.focus({preventScroll:true});
+    }else{
+      if(dialog.open)dialog.close('cancel');
+      host.setAttribute('motion',workspaceMotion);
+      viewOpener?.focus({preventScroll:true});
+    }
+  }
+  play.addEventListener('click',()=>{
+    const resume=!playing();
+    if(resume&&!settings.light.wind){settings.light.wind=defaults.light.wind;update(settings);}
+    host.setAttribute('motion',resume?'animate':'still');updatePlay();
+  });
+  adjust.addEventListener('click',()=>open(adjust));
+  exit.addEventListener('click',()=>{location.hash='';viewSky();});
+  document.addEventListener('click',e=>{
+    const button=e.target.closest?.('[data-view-sky]');
+    if(button){viewOpener=button;location.hash='sky';viewSky();}
+  });
+  window.addEventListener('hashchange',viewSky);
+  reduced.addEventListener('change',updatePlay);
+  viewSky();
   document.addEventListener('click',e=>{const button=e.target.closest?.('[data-edit-sky]');if(button)open(button);});
   panel.querySelector('select').addEventListener('change',e=>{selected=e.target.value;showFields();});
   fieldset.addEventListener('input',e=>{
@@ -12913,7 +13339,7 @@ function simulationAnalyticsView(a,m){
     if(action==='save'){try{localStorage.setItem(key,JSON.stringify(settings));}catch{toast(t('Sky changes apply to this session.'));}dialog.close('save');}
   });
   dialog.addEventListener('cancel',e=>{e.preventDefault();dialog.close('cancel');});
-  dialog.addEventListener('close',()=>{if(dialog.returnValue!=='save'){settings=original;update(settings);}drag=null;opener?.focus();});
+  dialog.addEventListener('close',()=>{if(dialog.returnValue!=='save'){settings=original;update(settings);}drag=null;updatePlay();opener?.focus();});
   const viewport=dialog.querySelector('.sky-viewport');
   viewport.addEventListener('pointerdown',e=>{
     const layer=settings[selected];if(e.button!==0||layer.visible===false||(!('x' in layer)&&!('y' in layer)))return;

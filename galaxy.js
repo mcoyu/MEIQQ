@@ -46,9 +46,9 @@
       vec2 uv=vec2(gl_FragCoord.x/uSize.x,1.-gl_FragCoord.y/uSize.y);
       vec2 aspect=vec2(uSize.x/uSize.y,1.);
       float h=uv.y, dusk=uDusk;
-      vec3 top=mix(vec3(.32,.39,.46),vec3(.065,.105,.19),dusk);
-      vec3 waist=mix(vec3(.65,.67,.66),vec3(.29,.40,.49),dusk);
-      vec3 bottom=mix(vec3(.95,.86,.70),vec3(.72,.64,.64),dusk);
+      vec3 top=mix(vec3(.39,.45,.49),vec3(.14,.20,.27),dusk);
+      vec3 waist=mix(vec3(.66,.70,.70),vec3(.36,.47,.53),dusk);
+      vec3 bottom=mix(vec3(.95,.86,.70),vec3(.74,.69,.64),dusk);
       vec3 sky=mix(top,waist,smoothstep(-.12,.77,h));
       sky=mix(sky,bottom,smoothstep(.43,1.04,h));
       sky+=vec3(.10,.043,.018)*exp(-length((uv-vec2(.21,.87))*vec2(1.5,3.)));
@@ -66,7 +66,7 @@
       for(int k=0;k<3;k++){
         float layer=float(k)/3.;
         sky+=StarLayer(skyPos+vec2(.0010,-.00024)*uOrbit*(layer+.3),
-          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(1.14-.28*layer);
+          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer);
       }
       if(uBurst>0.){
         vec2 path=uStreak.zw*uSize, delta=(uv-uStreak.xy)*uSize;
@@ -122,7 +122,7 @@
       if(any(greaterThan(vUV,vec2(1.))))discard;
       float storm=smoothstep(1.3,1.76,uAir.w);
       vec3 base=mix(vec3(.64,.53,.55),vec3(.42,.39,.47),uDusk)-storm*vec3(.095,.079,.075);
-      vec3 warm=mix(vec3(.93,.71,.59),vec3(.81,.585,.525),uDusk);
+      vec3 warm=mix(vec3(.97,.74,.64),vec3(.88,.60,.51),uDusk);
       vec3 sun=mix(vec3(1.,.87,.72),vec3(1.,.80,.65),uDusk);
       vec3 sum=vec3(0.);
       float transmittance=1.;
@@ -138,8 +138,9 @@
         float slope=clamp(.49+(rho-nearSun)*1.66,0.,1.);
         float sunlight=exp(-(nearSun*1.30+middleSun*1.27+farSun*.65)*depthScale);
         vec4 grain=texture(uGrain,vec3((uv-vec2(.008,-.003)*uTime)*4.3,z*.34)+uSeed*.073);
-        float silver=(grain.r-.46)*.14+(grain.g-.46)*.08;
-        float light=clamp(.55*slope+.54*sunlight+.11*z+silver,0.,1.);
+        float silver=(grain.r-.46)*.26+(grain.g-.46)*.17;
+        float rim=smoothstep(.18,.66,grain.r)*(1.-smoothstep(.08,.40,rho));
+        float light=clamp(.55*slope+.54*sunlight+.11*z+silver+rim*.12,0.,1.);
         vec3 scatter=mix(base,warm,smoothstep(.17,.80,light));
         scatter=mix(scatter,sun,smoothstep(.52,.93,light)*.82);
         float extinction=1.-exp(-rho*depthScale*.83);
@@ -162,7 +163,7 @@
     uniform float uTime,uSpace,uDusk;
     out vec4 vColor;
     void main(){
-      float scale=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(1.17,.42,uSpace);
+      float scale=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.80,.35,uSpace);
       vec2 chip=aCorner.xy;
       chip.y*=aShape.y;
       chip.x+=chip.y*(aSeed.x-.5)*1.17;
@@ -178,7 +179,10 @@
       vec3 body=mix(shadow,vec3(.89,.62,.53),smoothstep(.14,.78,light));
       body=mix(body,vec3(1.,.86,.67),smoothstep(.60,.96,light));
       vec3 lip=mix(shadow*.89,vec3(1.,.87,.72),smoothstep(.42,.87,light));
-      vColor=vec4(mix(body,lip,aFace.y),mix(.19,.67,aShape.w));
+      float facing=.5+.5*sin(uTime*(.39+.26*aSeed.y)+aSeed.x*53.+aShape.x*1.8);
+      float glint=pow(facing,10.)*smoothstep(.35,.73,light);
+      vec3 reflection=mix(mix(body,lip,aFace.y),vec3(1.,.87,.72),glint*.87);
+      vColor=vec4(reflection,.08+.15*aShape.w+.49*glint*aShape.w);
     }`;
   const shardFragment=`#version 300 es
     precision mediump float; in vec4 vColor; out vec4 color;
@@ -200,7 +204,7 @@
     const u={};for(const name of names)u[name]=gl.getUniformLocation(p,name);
     return {p,u};
   }
-  function prism(closed=false){
+  function prism(){
     // Shared bevelled AeroShards lance. Parcel attributes vary its aspect,
     // shear and pitch so the formation can change without rebuilding a mesh.
     const rim=[[1,0,0],[.08,.54,0],[-.70,.29,0],[-.81,-.16,0],[-.18,-.48,0]];
@@ -210,30 +214,92 @@
       const b=rim[(i+1)%rim.length], lowerA=[a[0],a[1],-.082], lowerB=[b[0],b[1],-.082];
       const light=.5+.47*Math.sin(i*1.26+.8);
       face(a,b,[0,0,.11],light,0);face(a,lowerA,b,light,1);face(b,lowerA,lowerB,light,1);
-      if(closed)face(lowerB,lowerA,[0,0,-.15],1-light,0);
     });
     return new Float32Array(data);
   }
   function bankPositions(index){
     return views.filter(v=>v.index===index).map(v=>[v.cx*width,v.cy*height]);
   }
-  const flightMesh=prism(true);
-  const facets=new Float32Array(3*(flightMesh.length/5)*6);
+  function copperSurface(){
+    // Oxide grows in the recesses; grinding and long scoring marks expose the
+    // warmer metal. Object-space UVs keep these marks attached during a turn.
+    const size=192, plate=document.createElement('canvas');plate.width=plate.height=size;
+    const c=plate.getContext('2d'), image=c.createImageData(size,size);
+    function patinaNoise(x,y){
+      const i=Math.floor(x),j=Math.floor(y),u=smooth(x-i),v=smooth(y-j);
+      return mix(mix(hash(i+13,j),hash(i+14,j),u),mix(hash(i+13,j+1),hash(i+14,j+1),u),v);
+    }
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const u=x/size,v=y/size;
+      const veins=patinaNoise(u*5.8+v*1.7,v*4.1);
+      const grain=patinaNoise(u*16+3*veins,v*24)+.28*patinaNoise(u*70,v*97);
+      const oxide=smooth((veins*.59+grain*.41-.515)/.23);
+      const pits=hash(x+18,y+9),brush=.075*Math.sin(v*960+u*43+veins*13)+.10*(pits-.5);
+      const stain=clamp(veins*.48+grain*.32+brush-.15);
+      const k=4*(y*size+x);
+      image.data[k]=mix(mix(235,155,stain),77+25*grain,oxide);
+      image.data[k+1]=mix(mix(160,83,stain),120+32*grain,oxide);
+      image.data[k+2]=mix(mix(110,52,stain),109+24*grain,oxide);
+      image.data[k+3]=255;
+    }
+    c.putImageData(image,0,0);
+    for(let i=0;i<85;i++){
+      const x=hash(i,1)*size,y=hash(i,2)*size,length=2+hash(i,3)**3*58;
+      c.strokeStyle=i%3?'rgba(255,220,169,.34)':'rgba(66,41,32,.38)';
+      c.lineWidth=.35+hash(i,4)*.55;c.beginPath();c.moveTo(x,y);
+      c.lineTo(x+length,y+length*(.08+.11*hash(i,5)));c.stroke();
+    }
+    return plate;
+  }
+  const copper=copperSurface();
+  function foldedCopper(seed){
+    // Mill-cut sheet with one torn edge, a cold-worked crease, and a bright
+    // exposed bevel. Top and underside share the cut outline.
+    const length=10, across=4, grid=[], mesh=[];
+    for(let i=0;i<=length;i++){
+      const t=i/length, belly=Math.sin(Math.PI*t);
+      const breadth=.17+.32*belly+.10*(1-t)-.11*t;
+      const lean=.105*Math.sin(t*4.6+seed)+.065*t;
+      for(let j=0;j<=across;j++){
+        const v=2*j/across-1, nick=j===across?.07*hash(i+seed,5):.035*hash(i,seed);
+        const x=-.92+1.87*t+v*(.10-.16*t)+.05*belly*v*v;
+        const y=lean+v*(breadth-nick)*(.86+.16*t);
+        const z=.14*belly-.08*t+v*(.030+.080*Math.sin(t*3.6+seed))+
+          .067*(1-Math.abs(v+.12))-.034*v*v+.016*hash(i+seed,j)*belly;
+        grid.push([x,y,z]);
+      }
+    }
+    const lower=p=>[p[0],p[1],p[2]-.048];
+    function face(a,b,c,edge){for(const point of [a,b,c])mesh.push(...point,.52,edge);}
+    function rim(a,b){const c=lower(a),d=lower(b);face(a,c,b,1);face(b,c,d,1);}
+    for(let i=0;i<length;i++)for(let j=0;j<across;j++){
+      const k=i*(across+1)+j,a=grid[k],b=grid[k+across+1],c=grid[k+across+2],d=grid[k+1];
+      face(a,b,c,0);face(a,c,d,0);face(lower(c),lower(b),lower(a),0);face(lower(d),lower(c),lower(a),0);
+      if(!j)rim(a,b);if(j===across-1)rim(c,d);if(!i)rim(d,a);if(i===length-1)rim(b,c);
+    }
+    return new Float32Array(mesh);
+  }
+  const flightMeshes=[foldedCopper(11),foldedCopper(32),foldedCopper(73)];
+  const facets=new Float32Array(flightMeshes.reduce((n,mesh)=>n+mesh.length/5*8,0));
   let facetCount=0;
   function projectFlights(){
-    // Rotate the closed metal prism in three axes. Both renderers see the
+    // Rotate each folded sheet in three axes. Both renderers see the
     // same silhouette and copper reflections, including during an edge-on turn.
     let out=0;
     const pixelRatio=width/Math.max(1,host.clientWidth);
     for(const s of flights.shards){
+      const flightMesh=flightMeshes[s.lane+1];
       const p=s.ticket.parcel, cr=Math.cos(s.roll), sr=Math.sin(s.roll);
       const cp=Math.cos(s.pitch), sp=Math.sin(s.pitch), ca=Math.cos(s.angle), sa=Math.sin(s.angle);
-      const radius=clamp(Math.min(width,height)*.028,8*pixelRatio,20*pixelRatio)
-        *(.91+.22*p.seed)*(.20+.80*s.focus);
+      const radius=clamp(Math.min(width,height)*.019,5*pixelRatio,15*pixelRatio)
+        *(.86+.20*p.seed)*(.26+.74*s.focus)/(1-.81*s.near);
+      const parallax=height*.031*s.near;
+      const centerX=(s.x+(s.x-.50)*s.near*.09)*width+look[0]*parallax;
+      const centerY=(s.y+(s.y-.46)*s.near*.09)*height+look[1]*parallax;
       const face=new Float32Array(9);
       for(let k=0;k<flightMesh.length;k+=15){
         for(let i=0;i<3;i++){
-          const j=k+i*5, y=flightMesh[j+1]*(.73+.42*p.depth), z=flightMesh[j+2]*1.58;
+          const j=k+i*5, y=flightMesh[j+1]*(.73+.42*p.depth), z=flightMesh[j+2]*1.14;
           const x=flightMesh[j]+y*(p.seed-.5)*.72, ty=cr*y-sr*z, tz=sr*y+cr*z;
           const tx=cp*x+sp*tz;
           face[i*3]=ca*tx-sa*ty;face[i*3+1]=sa*tx+ca*ty;face[i*3+2]=-sp*x+cp*tz;
@@ -245,15 +311,17 @@
         const n=Math.hypot(nx,ny,nz);
         const sun=clamp((-.55*nx-.72*ny+.42*nz)/n);
         const glint=Math.pow(clamp((-.33*nx-.42*ny+.845*nz)/n),12);
-        const light=clamp(.13+.66*sun+.43*glint+.12*flightMesh[k+4]+.12*(flightMesh[k+3]-.5));
+        const light=clamp(.13+.66*sun+.28*glint+.24*flightMesh[k+4]+.12*(flightMesh[k+3]-.5));
         for(let i=0;i<3;i++){
-          facets[out++]=s.x*width+radius*face[i*3];facets[out++]=s.y*height+radius*face[i*3+1];
-          facets[out++]=mix(.42,1,light);facets[out++]=mix(.20,.86,light*light);
-          facets[out++]=mix(.14,.67,light*light);facets[out++]=s.alpha;
+          const j=k+i*5;
+          facets[out++]=centerX+radius*face[i*3];facets[out++]=centerY+radius*face[i*3+1];
+          facets[out++]=light;facets[out++]=glint;facets[out++]=1-s.near;facets[out++]=s.alpha;
+          facets[out++]=.43+flightMesh[j]*.38+.10*p.seed;
+          facets[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
         }
       }
     }
-    facetCount=out/6;
+    facetCount=out/8;
   }
   function grainTexture(gl){
     // Periodic cellular noise can be sampled throughout the cloud in three
@@ -293,15 +361,26 @@
       ['uSize','uSpan','uPosition','uBody']);
     const cloud=program(gl,shardVertex,shardFragment,['uSize','uTime','uDusk','uSpan','uPosition','uLook','uSpace']);
     const metal=program(gl,`#version 300 es
-      layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aColor;
-      uniform vec2 uSize;out vec4 vColor;
-      void main(){gl_Position=vec4(aPosition/uSize*vec2(2.,-2.)+vec2(-1.,1.),0,1);vColor=aColor;}`,
-      shardFragment,['uSize']);
+      layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aFinish;layout(location=2) in vec2 aUV;
+      uniform vec2 uSize;out vec4 vFinish;out vec2 vUV;
+      void main(){gl_Position=vec4(aPosition/uSize*vec2(2.,-2.)+vec2(-1.,1.),0,1);vFinish=aFinish;vUV=aUV;}`,
+      `#version 300 es
+      precision mediump float;
+      uniform sampler2D uCopper;in vec4 vFinish;in vec2 vUV;out vec4 color;
+      void main(){
+        vec3 base=texture(uCopper,vUV).rgb;
+        float polished=smoothstep(.0,.32,base.r-base.g);
+        vec3 lit=base*(.39+.80*vFinish.x)+vec3(.32,.28,.23)*vFinish.y*(.18+.82*polished);
+        color=vec4(mix(lit,vec3(.78,.64,.60),.22*vFinish.z),vFinish.w);
+      }`,['uSize','uCopper']);
+    const plate=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,plate);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,copper);
+    gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     const flightVao=gl.createVertexArray(), flightBuffer=gl.createBuffer();
     gl.bindVertexArray(flightVao);gl.bindBuffer(gl.ARRAY_BUFFER,flightBuffer);
     gl.bufferData(gl.ARRAY_BUFFER,facets.byteLength,gl.DYNAMIC_DRAW);
-    for(const [loc,n,offset] of [[0,2,0],[1,4,8]]){
-      gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,24,offset);
+    for(const [loc,n,offset] of [[0,2,0],[1,4,8],[2,2,24]]){
+      gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,32,offset);
     }
     gl.bindVertexArray(null);
     const grain=grainTexture(gl);
@@ -387,7 +466,8 @@
       if(facetCount){
         gl.disable(gl.DEPTH_TEST);gl.useProgram(metal.p);gl.uniform2f(metal.u.uSize,width,height);
         gl.bindVertexArray(flightVao);gl.bindBuffer(gl.ARRAY_BUFFER,flightBuffer);
-        gl.bufferSubData(gl.ARRAY_BUFFER,0,facets,0,facetCount*6);
+        gl.bindTexture(gl.TEXTURE_2D,plate);gl.uniform1i(metal.u.uCopper,0);
+        gl.bufferSubData(gl.ARRAY_BUFFER,0,facets,0,facetCount*8);
         gl.drawArrays(gl.TRIANGLES,0,facetCount);
       }
     };
@@ -459,14 +539,16 @@
   function paintSoftwareBank(w,layer,body,ox,oy,bw,bh){
     const c=ctx2d, stream=w.stream;
     c.drawImage(body,ox,oy,bw,bh);
-    const scale=Math.min(bw,bh*1.85)*mix(1.17,.42,layer.spacing/100);
+    const scale=Math.min(bw,bh*1.85)*mix(.80,.35,layer.spacing/100);
     for(let i=0;i<w.count;i++){
       const k=i*10, x=ox+stream[k]*bw,y=oy+stream[k+1]*bh,r=stream[k+3]*scale;
       if(x<-r||y<-r||x>width+r||y>height+r)continue;
       const angle=stream[k+4]+.2*Math.sin(w.time*.4+stream[k+9]*6.28);
       const ax=r*Math.cos(angle),ay=r*Math.sin(angle),thin=stream[k+5]*.52;
       const lit=smooth((stream[k+6]-.2+(stream[k+8]-.5)*.13)/.6);
-      c.fillStyle='rgba('+Math.round(mix(110,252,lit))+','+Math.round(mix(80,204,lit))+','+Math.round(mix(87,156,lit))+','+(.20+.54*stream[k+7])+')';
+      const facing=.5+.5*Math.sin(w.time*(.39+.26*stream[k+9])+stream[k+8]*53+angle*1.8);
+      const glint=facing**10*smooth((lit-.35)/.38), reflection=mix(lit,1,glint);
+      c.fillStyle='rgba('+Math.round(mix(136,255,reflection))+','+Math.round(mix(98,222,reflection))+','+Math.round(mix(99,184,reflection))+','+(.08+.15*stream[k+7]+.49*glint*stream[k+7])+')';
       c.beginPath();c.moveTo(x+ax,y+ay);c.lineTo(x-.73*ax-ay*thin,y-.73*ay+ax*thin);
       c.lineTo(x-.51*ax+ay*thin,y-.51*ay-ax*thin);c.fill();
     }
@@ -497,7 +579,7 @@
     const c=ctx2d,{light,moon,galaxy}=state;
     const rgb=(a,b,t)=>'rgb('+a.map((v,i)=>Math.round(mix(v,b[i],t))).join(',')+')';
     const sky=c.createLinearGradient(0,0,0,height), d=light.dusk/100;
-    sky.addColorStop(0,rgb([82,100,117],[17,27,48],d));sky.addColorStop(.62,rgb([166,171,168],[80,99,123],d));
+    sky.addColorStop(0,rgb([99,115,125],[36,51,69],d));sky.addColorStop(.62,rgb([168,179,179],[92,120,135],d));
     sky.addColorStop(1,rgb([245,219,178],[184,163,163],d));c.fillStyle=sky;c.fillRect(0,0,width,height);
     if(galaxy.visible)softwareStars(c,galaxy);
     softwareMeteor(c);
@@ -507,10 +589,21 @@
       c.beginPath();c.rect(x-r,y-r,r*2,r*2);c.arc(x-r*.43,y-r*.14,r*.93,0,Math.PI*2);c.fill('evenodd');c.restore();
     }
     for(const i of bankOrder()){if(state[banks[i].id].visible)softwareBank(banks[i],i);}
-    for(let k=0;k<facetCount*6;k+=18){
-      c.fillStyle='rgba('+Math.round(255*facets[k+2])+','+Math.round(255*facets[k+3])+','+Math.round(255*facets[k+4])+','+facets[k+5]+')';
-      c.beginPath();c.moveTo(facets[k],facets[k+1]);c.lineTo(facets[k+6],facets[k+7]);
-      c.lineTo(facets[k+12],facets[k+13]);c.closePath();c.fill();
+    for(let k=0;k<facetCount*8;k+=24){
+      const x=facets[k],y=facets[k+1],ax=facets[k+8]-x,ay=facets[k+9]-y;
+      const bx=facets[k+16]-x,by=facets[k+17]-y,light=facets[k+2];
+      c.save();c.globalAlpha=facets[k+5];c.beginPath();c.moveTo(x,y);c.lineTo(x+ax,y+ay);c.lineTo(x+bx,y+by);c.closePath();c.clip();
+      c.fillStyle='rgb('+Math.round(109+140*light)+','+Math.round(63+123*light)+','+Math.round(47+99*light)+')';
+      c.fillRect(x-Math.abs(ax)-Math.abs(bx),y-Math.abs(ay)-Math.abs(by),2*(Math.abs(ax)+Math.abs(bx)),2*(Math.abs(ay)+Math.abs(by)));
+      const u=facets[k+6],v=facets[k+7],au=facets[k+14]-u,av=facets[k+15]-v,bu=facets[k+22]-u,bv=facets[k+23]-v;
+      const det=au*bv-av*bu;
+      if(facets[k+4]<.76 && Math.abs(det)>.0001){
+        const a=(ax*bv-bx*av)/det,b=(ay*bv-by*av)/det,d=(by*au-ay*bu)/det,e=(bx*au-ax*bu)/det;
+        c.transform(a,b,e,d,x-a*u-e*v,y-b*u-d*v);c.drawImage(copper,0,0,1,1);
+        c.fillStyle=light<.58?'rgba(46,31,33,'+(.52-light*.65)+')':'rgba(255,228,193,'+(.10+.46*facets[k+3])+')';
+        c.fillRect(0,0,1,1);
+      }
+      c.restore();
     }
   }
   function moveAllowed(){
@@ -528,9 +621,14 @@
         for(const w of weather)w.advance(dt);
         if(state.galaxy.visible&&state.galaxy.meteors)meteor=meteorClock.advance(dt,state.galaxy.meteors);
       }
+      for(let i=0;i<2;i++)look[i]=moving?mix(look[i],target[i],1-Math.exp(-dt*3.1)):0;
       views=cloudViews(state,weather,width/height);
+      for(const v of views){
+        const depth=(1-weather[v.index].profile.height)*.017;
+        v.cx+=look[0]*depth*height/width;v.cy+=look[1]*depth;
+      }
+      if(horizon)horizon.style.transform='translate('+(-look[0]*9)+'px,'+(-look[1]*2)+'px) scaleX(1.02)';
       flights.advance(dt,views,width/height);projectFlights();
-      for(let i=0;i<2;i++)look[i]+=((moving?target[i]:0)-look[i])*Math.min(1,dt*4);
       if(renderGL)renderGL();else if(ctx2d)fallback();
       dirty=false;last=now;
     }
@@ -562,11 +660,12 @@
     resize();
   }
   new ResizeObserver(resize).observe(host);
+  document.addEventListener('visibilitychange',sync);
   new MutationObserver(sync).observe(host,{attributes:true,attributeFilter:['motion','suspended']});
   reduced.addEventListener('change',sync);forced.addEventListener('change',sync);
   window.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&moveAllowed())target=[e.clientX/innerWidth-.5,e.clientY/innerHeight-.5];},{passive:true});
   window.SunsetScene.update=next=>{const horizonChanged=state.horizon.y!==next.horizon.y||state.horizon.visible!==next.horizon.visible;
-    if(banks.some(({id})=>['visible','type','x','y','scale'].some(key=>state[id][key]!==next[id][key])))flights.clear();
+    if((state.light.wind===0)!==(next.light.wind===0))last=0;
     state=structuredClone(next);
     banks.forEach((bank,i)=>weather[i].configure(state[bank.id].type,state.light.humidity,!moveAllowed()||!state.light.wind||!time));
     if(!state.galaxy.visible||!state.galaxy.meteors||!state.light.wind){meteor=null;meteorClock.clear();}
