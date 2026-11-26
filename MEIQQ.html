@@ -12409,6 +12409,9 @@ function simulationAnalyticsView(a,m){
     let water=new Float32Array(size), nextWater=new Float32Array(size);
     let vapor=new Float32Array(size), nextVapor=new Float32Array(size);
     const vx=new Float32Array(size), vy=new Float32Array(size), light=new Float32Array(size);
+    const curl=new Float32Array(size);
+    let flowX=new Float32Array(size), flowY=new Float32Array(size);
+    let nextFlowX=new Float32Array(size), nextFlowY=new Float32Array(size);
     const grain=new Float32Array(size);
     for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++)
       grain[j*COLS+i]=noise(i*.086+bank.seed,j*.12)+.37*noise(i*.25,j*.31+bank.seed);
@@ -12418,11 +12421,16 @@ function simulationAnalyticsView(a,m){
     const binsX=32,binsY=23,deposit=new Float32Array(binsX*binsY);
     const shapes=new Map(), parcels=[], stride=10;
     const columns=115, rows=58, stream=new Float32Array(columns*rows*stride);
-    let form='auto', time=0, debt=0, version=0, count=0, humidity=55;
+    let form='auto', time=0, debt=0, version=0, epoch=0, count=0, humidity=55;
+    // Let one bank solve at a time. The short initial interval integrates only
+    // elapsed weather time, then each bank keeps the same fixed period.
+    let interval=STEP*({west:1,east:2/3,low:1/3}[bank.id]??1);
     let profile=types[bank.cycle[0]];
     for(let j=0;j<rows;j++)for(let i=0;i<columns;i++){
       const x=(i+rand())/columns, y=(j+rand())/rows;
-      parcels.push({x,y,seed:rand(),depth:rand(),angle:rand()*TAU,mass:0,loose:0,home:y});
+      const seed=rand(),depth=rand(),angle=rand()*TAU;
+      parcels.push({x,y,seed,depth,angle,mass:0,loose:0,home:y,
+        dx:0,dy:0,heading:0,yawRate:0,roll:angle,spin:0});
     }
     function shape(name){
       if(!shapes.has(name)){
@@ -12464,6 +12472,16 @@ function simulationAnalyticsView(a,m){
       const updraftX=frontX+.18+.04*shear;
       const updraftY=curlY-.09-.11*lift+.045*Math.cos(wave+.9);
       const rx=.13+.07*shear, ry=.075+.095*lift;
+      // Broad rising and sinking rolls shear past one another. Their cores
+      // travel at different speeds, so a pocket of copper can form and unwind.
+      const billows=[];
+      for(let n=0;n<3;n++){
+        const t=time*(.12+.025*n)+bank.seed*.7+n*2.22;
+        billows.push({x:.18+.31*n+.085*Math.sin(t*.64),y:.51+.095*Math.sin(t*.78+n),
+          rx:.21+.055*shear,ry:.19+.085*lift,
+          turn:(n===1?-1:1)*(.41+.47*lift)*(.79+.21*Math.cos(t))});
+      }
+      const memory=Math.exp(-dt/3.2);
       if(!initialize)gatherParcels();
       for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
         const x=i/(COLS-1), y=j/(ROWS-1), k=j*COLS+i;
@@ -12486,7 +12504,16 @@ function simulationAnalyticsView(a,m){
         const up=lift*(source*.024+.014*eddy);
         vx[k]=w+.005*roll+(dy*.49-dx*.23)*vortex+.020*dry;
         vy[k]=.005*roll-up+.002+(-dx*.62-dy*.20)*vortex+.033*dry;
+        for(const cell of billows){
+          const ux=(x-cell.x)/cell.rx,uy=(y-cell.y)/cell.ry;
+          const inside=1-ux*ux-uy*uy;
+          if(inside<=0)continue;
+          const spin=cell.turn*inside*inside;
+          vx[k]-=uy*cell.rx*spin;vy[k]+=ux*cell.ry*spin;
+        }
         const upstreamX=x-vx[k]*dt, upstreamY=y-vy[k]*dt;
+        nextFlowX[k]=initialize?0:memory*(sample(flowX,upstreamX,upstreamY)+vx[k]*dt);
+        nextFlowY[k]=initialize?0:memory*(sample(flowY,upstreamX,upstreamY)+vy[k]*dt);
         const supply=moisture*(.27+source*.91+.055*eddy)*(1-.85*dry);
         const saturation=.43+.13*y-.10*profile.lift*source;
         if(initialize){
@@ -12502,6 +12529,7 @@ function simulationAnalyticsView(a,m){
         nextWater[k]*=smooth(Math.min(x,1-x)*22)*smooth(Math.min(y,1-y)*22);
       }
       [water,nextWater]=[nextWater,water];[vapor,nextVapor]=[nextVapor,vapor];
+      [flowX,nextFlowX]=[nextFlowX,flowX];[flowY,nextFlowY]=[nextFlowY,flowY];
       for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
         const k=j*COLS+i,x=i/(COLS-1),y=j/(ROWS-1), liquid=water[k];
         const gx=x*(binsX-1),gy=y*(binsY-1),ix=Math.min(binsX-2,Math.floor(gx)),iy=Math.min(binsY-2,Math.floor(gy));
@@ -12522,8 +12550,14 @@ function simulationAnalyticsView(a,m){
         const shade=clamp(.49+(liquid-lightSide)*1.65+.20*(.55-y)+.09*Math.sin(x*9+phase)*liquid);
         light[k]=shade;
         texture[k*4]=Math.round(clamp(q)*255);texture[k*4+1]=Math.round(shade*255);
-        texture[k*4+2]=Math.round(clamp((q-sample(water,x+.022,y+.034))*.9+.5)*255);
-        texture[k*4+3]=255;
+        texture[k*4+2]=Math.round(clamp(.5+flowX[k]*2)*255);
+        texture[k*4+3]=Math.round(clamp(.5+flowY[k]*2)*255);
+      }
+      for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
+        const k=j*COLS+i;
+        const left=i>0?k-1:k,right=i<COLS-1?k+1:k;
+        const above=j>0?k-COLS:k,below=j<ROWS-1?k+COLS:k;
+        curl[k]=.5*((vy[right]-vy[left])*(COLS-1)-(vx[below]-vx[above])*(ROWS-1));
       }
       version++;
     }
@@ -12531,10 +12565,11 @@ function simulationAnalyticsView(a,m){
       count=0;
       for(const p of parcels){
         if(p.inFlight)continue;
-        const dx=sample(vx,p.x,p.y), dy=sample(vy,p.x,p.y);
-        const spin=time*.20+p.angle, heightSpeed=.72+.55*p.depth;
-        p.x+=dt*(dx*heightSpeed+.0018*Math.sin(spin));
-        p.y+=dt*(dy*heightSpeed+.005*Math.cos(spin)+.025*(p.home-p.y));
+        const heightSpeed=.78+.43*p.depth;
+        const dx=sample(vx,p.x,p.y)*heightSpeed,dy=sample(vy,p.x,p.y)*heightSpeed+.018*(p.home-p.y);
+        const response=initialize?1:1-Math.exp(-dt*(2.7+2.4*p.depth));
+        p.dx+=response*(dx-p.dx);p.dy+=response*(dy-p.dy);
+        p.x+=dt*p.dx;p.y+=dt*p.dy;
         if(p.x<0||p.x>=1||p.y<0||p.y>=1){
           const crossedSide=p.x<0||p.x>=1;
           p.x=fract(p.x);p.y=crossedSide?p.home:fract(p.y);p.mass=0;p.loose=0;
@@ -12547,12 +12582,24 @@ function simulationAnalyticsView(a,m){
         p.loose=initialize?p.mass:Math.max(p.mass,p.loose*Math.exp(-dt*.24));
         const free=p.seed>.84?p.loose*(1-p.mass):0;
         const visible=(p.mass+.72*free)*smooth(Math.min(p.x,1-p.x,p.y,1-p.y)*32);
-        if(visible<.016)continue;
+        if(visible<.016&&!p.settling)continue;
         const k=count++*stride, lit=sample(light,p.x,p.y);
+        const shear=clamp(sample(curl,p.x,p.y),-2.6,2.6);
+        if(initialize)p.heading=Math.atan2(p.dy,p.dx)+(p.seed-.5)*1.5;
+        // A thin flake has no preferred nose. Torque aligns either end to the
+        // current, continuously through a reversal, while local curl turns it.
+        const ca=Math.cos(p.heading),sa=Math.sin(p.heading);
+        const along=ca*p.dx+sa*p.dy,across=ca*p.dy-sa*p.dx;
+        const align=2*along*across/(.00045+p.dx*p.dx+p.dy*p.dy);
+        const settle=1-Math.exp(-dt*(1.8+p.seed));
+        p.yawRate+=(.65*shear+1.05*align-p.yawRate)*settle;
+        const side=p.seed>.5?1:-1;
+        const turn=side*(.25+.58*p.depth+.38*free)+.85*shear+across*6;
+        p.spin+=(turn-p.spin)*settle;
+        p.heading+=dt*p.yawRate;p.roll+=dt*p.spin;
         stream[k]=p.x;stream[k+1]=p.y;stream[k+2]=p.depth*.095+.11*q;
         stream[k+3]=(.0015+.0079*p.seed*p.seed)*Math.sqrt(visible);
-        stream[k+4]=Math.atan2(dy*.67,dx)+.44*Math.sin(spin+p.x*7)+free*Math.sin(time*.9+p.angle)+.36*(p.seed-.5);
-        stream[k+5]=.23+.48*p.depth;stream[k+6]=clamp(lit+.57*free);stream[k+7]=visible;
+        stream[k+4]=p.heading;stream[k+5]=p.roll;stream[k+6]=clamp(lit+.32*free);stream[k+7]=visible*(p.settling?1-p.flightCover:1);
         stream[k+8]=p.seed;stream[k+9]=p.depth;
       }
     }
@@ -12560,21 +12607,21 @@ function simulationAnalyticsView(a,m){
       if(type===form&&humidity===wetness)return;
       const newForm=type!==form;
       form=type;humidity=wetness;
-      if(newForm||still){solve(0,true);transport(0,true);}
+      if(newForm||still){epoch++;solve(0,true);transport(0,true);}
     }
     function advance(dt){
       while(dt>1e-9){
-        const step=Math.min(dt,STEP-debt);
+        const step=Math.min(dt,interval-debt);
         time+=step;debt+=step;dt-=step;
         transport(step,false);
-        if(debt>=STEP-1e-9){solve(STEP,false);debt=0;}
+        if(debt>=interval-1e-9){solve(interval,false);debt=0;interval=STEP;}
       }
     }
     function release(x,y){
       let nearest=.08**2, slot=-1;
       for(let i=0;i<parcels.length;i++){
         const p=parcels[i], distance=(p.x-x)**2+(p.y-y)**2;
-        if(!p.inFlight && p.mass>.10 && distance<nearest){slot=i;nearest=distance;}
+        if(!p.inFlight && !p.settling && p.mass>.10 && distance<nearest){slot=i;nearest=distance;}
       }
       if(slot<0)return null;
       const parcel=parcels[slot];
@@ -12586,7 +12633,7 @@ function simulationAnalyticsView(a,m){
       // keeps its fixed buffer capacity and the airborne shard keeps its seed.
       let slot=-1;
       for(let i=0;i<parcels.length;i++){
-        if(parcels[i].inFlight)continue;
+        if(parcels[i].inFlight||parcels[i].settling)continue;
         if(slot<0||parcels[i].mass<parcels[slot].mass)slot=i;
         if(parcels[slot].mass===0)break;
       }
@@ -12601,6 +12648,7 @@ function simulationAnalyticsView(a,m){
     return {texture,stream,configure,advance,release,receive,densityAt:(x,y)=>sample(water,x,y),
       windAt:(x,y)=>[sample(vx,x,y),sample(vy,x,y)],
       get count(){return count;},get version(){return version;},
+      get epoch(){return epoch;},get blend(){return debt/STEP;},
       get profile(){return profile;},get time(){return time;}};
   }
 
@@ -12694,15 +12742,18 @@ function simulationAnalyticsView(a,m){
     }
     return best;
   }
-  function nearestCloud(weather,u,v){
-    if(weather.densityAt(u,v)>.26)return [u,v];
-    let score=-Infinity, best=[u,v];
+  function receivingPocket(weather,u,v){
+    // A soft centre of mass stays continuous as neighbouring wisps trade
+    // density. A single brightest-cell target jumps across the gap as they do.
+    let weight=.04,xsum=u*weight,ysum=v*weight;
     for(let j=-4;j<=4;j++)for(let i=-4;i<=4;i++){
-      const x=clamp(u+.033*i,.035,.965),y=clamp(v+.033*j,.035,.965);
-      const value=Math.min(.45,weather.densityAt(x,y))-.03*Math.hypot(i,j);
-      if(value>score){score=value;best=[x,y];}
+      const kernel=1-(i*i+j*j)/20;
+      if(kernel<=0)continue;
+      const x=clamp(u+.052*i,.04,.96),y=clamp(v+.055*j,.04,.96);
+      const density=weather.densityAt(x,y),w=kernel*density*density;
+      xsum+=w*x;ysum+=w*y;weight+=w;
     }
-    return best;
+    return [xsum/weight,ysum/weight];
   }
   function createShardFlights(weather){
     const shards=[];
@@ -12716,13 +12767,18 @@ function simulationAnalyticsView(a,m){
         const ticket=weather[a.view.index].release(u,v);
         if(!ticket)continue;
         const p=ticket.parcel;
-        const start=world(a.view,p.x,p.y), [wx,wy]=weather[a.view.index].windAt(p.x,p.y);
-        const vx=banks[a.view.index].drift+wx*a.view.sx, vy=wy*a.view.sy;
-        shards.push({ticket,from:a.view,to:b.view,u:b.u+(i-1)*.024,v:b.v+(1-i)*.029,
-          age:-i*(.93+.68*p.depth), duration:5.1+.83*p.depth+.42*i, landed:false,
-          x:start.x,y:start.y,vx,vy,focus:0,alpha:0,roll:p.angle,pitch:.18,angle:Math.atan2(vy,vx*aspect),
-          spin:(p.depth>.42?1:-1)*(.45+.55*p.seed), pitchSpeed:0, yawSpeed:0, near:0,depthSpeed:0,
-          approach:i===0?.75+.21*p.depth:i===1?.40+.13*p.seed:.17, lane:i-1});
+        const start=world(a.view,p.x,p.y);
+        const landing=receivingPocket(weather[b.view.index],b.u+(i-1)*.024,b.v+(1-i)*.029);
+        const vx=banks[a.view.index].drift+p.dx*a.view.sx,vy=p.dy*a.view.sy;
+        const yaw=Math.atan2(Math.sin(p.heading)*a.view.sy,Math.cos(p.heading)*a.view.sx*aspect);
+        const course=Math.atan2(b.y-start.y,(b.x-start.x)*aspect);
+        shards.push({ticket,from:a.view,to:b.view,u:landing[0],v:landing[1],rimU:landing[0],rimV:landing[1],du:0,dv:0,pocket:landing,pocketVersion:-1,
+          age:-i*(.88+.43*p.depth),duration:5.7+.75*p.depth+.32*i,landed:false,
+          x:start.x,y:start.y,vx,vy,startX:start.x,startY:start.y,startVX:vx,startVY:vy,
+          crossX:-Math.sin(course),crossY:Math.cos(course),twist:p.angle,
+          focus:0,alpha:0,roll:p.roll,pitch:.35*(p.seed-.5)+.31*Math.sin(p.roll*.72+p.depth*5),angle:yaw,
+          spin:p.spin,pitchSpeed:0,yawSpeed:p.yawRate,near:0,depthSpeed:0,
+          approach:i===0?.75+.21*p.depth:i===1?.40+.13*p.seed:.17,lane:i-1});
       }
       if(shards.length)lastSource=a.view.index;
     }
@@ -12738,71 +12794,86 @@ function simulationAnalyticsView(a,m){
         const s=shards[i], p=s.ticket.parcel;
         const matching=old=>views.find(v=>v.index===old.index&&v.copy===old.copy);
         const from=matching(s.from), to=matching(s.to);
-        if(!to||(!from&&!s.landed)){if(!s.landed)p.inFlight=false;shards.splice(i,1);continue;}
-        if(s.age<=0 && from){
-          const wait=Math.min(dt,-s.age), wind=weather[from.index].windAt(p.x,p.y);
-          p.x=clamp(p.x+wind[0]*wait);p.y=clamp(p.y+wind[1]*wait);
-          const start=world(from,p.x,p.y);
-          s.x=start.x;s.y=start.y;s.vx=banks[from.index].drift+wind[0]*from.sx;s.vy=wind[1]*from.sy;
+        if(!to||(!from&&!s.landed)){if(s.landed)p.settling=false;else p.inFlight=false;shards.splice(i,1);continue;}
+        // Re-sample only when the weather field advances; filter the pocket’s
+        // displacement and velocity at the same cadence as the flying plate.
+        const receiver=weather[to.index];
+        if(dt>0&&!s.landed&&s.pocketVersion!==receiver.version){
+          s.pocket=receivingPocket(receiver,s.rimU,s.rimV);s.pocketVersion=receiver.version;
         }
-        const [u,v]=nearestCloud(weather[to.index],s.u,s.v);
-        const follow=1-Math.exp(-dt*2.2);
-        s.u=mix(s.u,u,follow);s.v=mix(s.v,v,follow);
-        const goal=world(to,s.u,s.v);
-        const [localX,localY]=weather[to.index].windAt(s.u,s.v);
-        const rimVX=banks[to.index].drift, rimVY=0;
-        // The flake leaves with the velocity of the source. Broadside to
-        // the air it brakes and lifts; edge-on it carries its momentum.
+        const sourceWind=from&&s.age<=0?weather[from.index].windAt(p.x,p.y):null;
+        if(s.age<=0&&from){
+          const wait=Math.min(dt,-s.age);
+          p.x=clamp(p.x+sourceWind[0]*wait);p.y=clamp(p.y+sourceWind[1]*wait);
+          const start=world(from,p.x,p.y);
+          s.x=s.startX=start.x;s.y=s.startY=start.y;
+          s.vx=s.startVX=banks[from.index].drift+sourceWind[0]*from.sx;
+          s.vy=s.startVY=sourceWind[1]*from.sy;
+        }
         let remaining=dt;
         while(remaining>1e-7){
-          const h=Math.min(remaining,1/40);remaining-=h;s.age+=h;
-          if(s.age<=0)continue;
-          const progress=clamp(s.age/s.duration);
-          const capture=smooth((progress-.54)/.46);
+          const step=Math.min(remaining,1/60);remaining-=step;s.age+=step;
+          const h=Math.min(step,Math.max(0,s.age));
+          if(!h)continue;
+          s.du+=(4*(s.pocket[0]-s.u)-4*s.du)*h;
+          s.dv+=(4*(s.pocket[1]-s.v)-4*s.dv)*h;
+          s.u+=s.du*h;s.v+=s.dv*h;
+          const progress=clamp(s.age/s.duration),capture=smooth((progress-.57)/.43);
           const face=Math.cos(s.roll)*Math.cos(s.pitch);
-          const slip=Math.sin(s.roll)*Math.cos(s.roll);
           if(!s.landed){
-            const dx=(goal.x-s.x)*aspect,dy=goal.y-s.y;
-            const distance=Math.hypot(dx,dy);
-            const timeLeft=Math.max(.32,s.duration-s.age);
-            const drag=1.12+.77*Math.abs(face)+capture*3.0;
-            const gust=Math.sin(s.age*.88+p.angle)+.4*Math.sin(s.age*1.64+p.depth*8);
-            const lift=(1-capture)*(.035+.026*(1+s.lane))*(.45+Math.abs(face));
-            const side=(1-capture)*(.024*gust+.032*s.lane+.022*slip);
-            const targetX=mix(rimVX,rimVX+localX*to.sx,capture)+clamp(dx/timeLeft,-.40,.40)/aspect;
-            const targetY=mix(rimVY,localY*to.sy,capture)+clamp(dy/timeLeft,-.40,.40);
-            const response=1-Math.exp(-drag*h);
-            s.vx+=response*(targetX+side/aspect-s.vx);
-            s.vy+=response*(targetY-lift+(1-capture)*.025*(1-Math.abs(face))-s.vy);
+            const goal=world(to,s.u,s.v);
+            const rimVX=banks[to.index].drift+s.du*to.sx,rimVY=s.dv*to.sy;
+            const t=progress,ease=smooth(t),slope=6*t*(1-t)/s.duration;
+            const x0=s.startX+s.startVX*s.age,y0=s.startY+s.startVY*s.age;
+            // A rolling current bows across the gap. Its speed and offset join
+            // both banks continuously. Each flake slips relative to that air.
+            const bell=16*t*t*(1-t)*(1-t),bellRate=32*t*(1-t)*(1-2*t)/s.duration;
+            const phase=t*5.0+.43*s.twist+s.lane*.72,radius=.039+.025*p.depth;
+            const side=radius*Math.sin(phase),sideRate=radius*Math.cos(phase)*5/s.duration;
+            const rise=.024+.025*p.seed;
+            const x=mix(x0,goal.x,ease)+s.crossX*side*bell/aspect;
+            const y=mix(y0,goal.y,ease)+(s.crossY*side-rise)*bell;
+            const airX=mix(s.startVX,rimVX,ease)+(goal.x-x0)*slope+s.crossX*(sideRate*bell+side*bellRate)/aspect;
+            const airY=mix(s.startVY,rimVY,ease)+(goal.y-y0)*slope+s.crossY*sideRate*bell+(s.crossY*side-rise)*bellRate;
+            const drag=2.6+1.8*Math.abs(face)+2*capture;
+            s.vx+=h*(drag*(airX-s.vx)+3.8*(x-s.x));
+            s.vy+=h*(drag*(airY-s.vy)+3.8*(y-s.y)+.016*bell*(1-Math.abs(face)));
             s.x+=s.vx*h;s.y+=s.vy*h;
-            // Hand off in the moist air itself. The position is never snapped
-            // to a waypoint or reset to the centre of the destination cloud.
             const px=.5+(s.x-to.cx)/to.sx,py=.5+(s.y-to.cy)/to.sy;
-            if(progress>.82 && distance<.042 && px>0&&px<1&&py>0&&py<1 && (weather[to.index].densityAt(px,py)>.14 || s.age>s.duration+1.3)){
-              weather[to.index].receive(s.ticket,px,py);s.landed=true;s.touchdown=s.age;
+            const distance=Math.hypot((s.x-goal.x)*aspect,s.y-goal.y);
+            if(t>.88&&distance<.037&&px>0&&px<1&&py>0&&py<1&&(receiver.densityAt(px,py)>.11||s.age>s.duration+.8)){
+              receiver.receive(s.ticket,px,py);
+              p.roll=s.roll;p.spin=s.spin;p.yawRate=s.yawSpeed;
+              p.heading=Math.atan2(Math.sin(s.angle)/to.sy,Math.cos(s.angle)/(aspect*to.sx));
+              p.dx=(s.vx-banks[to.index].drift)/to.sx;p.dy=s.vy/to.sy;
+              s.landed=true;s.touchdown=s.age;p.settling=true;p.flightCover=1;
             }
           }
-          const speed=Math.hypot(s.vx*aspect,s.vy);
-          const free=s.landed?0:1-capture*.73;
-          const depthTarget=s.landed?0:s.approach*(1-smooth((progress-.48)/.43));
-          const depthRate=1.9+.57*capture;
+          const free=1-capture,depthTarget=s.landed?0:s.approach*(1-smooth((progress-.43)/.48));
+          const depthRate=2.1+.62*capture;
           s.depthSpeed+=(depthRate*depthRate*(depthTarget-s.near)-2*depthRate*s.depthSpeed)*h;
           s.near=clamp(s.near+s.depthSpeed*h,0,.96);
-          const handed=p.depth>.42?1:-1;
-          const torque=handed*(.70+speed*5.2)*free+.70*slip*free;
-          s.spin+=(torque-(.65+(1-free)*2.2)*s.spin)*h;
-          s.pitchSpeed+=((.58*Math.sin(s.roll+.7)*free-.54*s.pitch)-.95*s.pitchSpeed)*h;
-          const heading=Math.atan2(s.vy,s.vx*aspect);
-          const error=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
-          s.yawSpeed+=(error*(s.landed?2.3:.78)+slip*free*.70-1.15*s.yawSpeed)*h;
+          if(s.landed)continue;
+          const vx=s.vx*aspect,vy=s.vy,speed=Math.hypot(vx,vy);
+          const cross=vy*Math.cos(s.angle)-vx*Math.sin(s.angle);
+          const handed=p.seed>.5?1:-1;
+          const turn=handed*(.65+.75*p.depth+speed*4+.35*Math.sin(s.twist+s.age*.86));
+          s.spin+=(turn*(.28+.72*free)-s.spin)*(1-Math.exp(-1.6*h));
+          const pitchTarget=.13+.53*Math.sin(s.roll*.78+s.twist)*(.45+.55*free);
+          s.pitchSpeed+=(2.1*(pitchTarget-s.pitch)-1.8*s.pitchSpeed)*h;
+          s.yawSpeed+=((4.9*cross+.38*Math.sin(s.roll)*free)-1.25*s.yawSpeed)*h;
           s.roll+=s.spin*h;s.pitch+=s.pitchSpeed*h;s.angle+=s.yawSpeed*h;
         }
         if(s.landed){
           const position=world(to,p.x,p.y);s.x=position.x;s.y=position.y;
+          s.roll=p.roll;
+          const heading=Math.atan2(Math.sin(p.heading)*to.sy,Math.cos(p.heading)*aspect*to.sx);
+          s.angle+=Math.atan2(Math.sin(heading-s.angle),Math.cos(heading-s.angle));
           s.focus=1-smooth((s.age-s.touchdown)/1.55);
-          if(s.focus<=0){shards.splice(i,1);continue;}
-        }else{s.focus=smooth((s.age+.38)/1.4);}
-        s.alpha=.24+.73*s.focus;
+          p.flightCover=s.focus;
+          if(s.focus<=0){p.settling=false;shards.splice(i,1);continue;}
+        }else{s.focus=smooth(s.age/1.25);}
+        s.alpha=s.landed?.96*s.focus:.16+.80*s.focus;
       }
     }
     return {shards,advance};
@@ -12918,7 +12989,8 @@ function simulationAnalyticsView(a,m){
     // View-space slices resolve the front, core and back of each moist column.
     // The same wind that carries the metal parcels carries the fine cloud grain.
     float material(vec2 uv,float z){
-      vec2 travel=vec2(.008+.008*uAir.z,-.005*uAir.y)*uTime;
+      vec2 bend=(texture(uWater,uv).ba-vec2(128./255.))*.5;
+      vec2 travel=vec2(.005+.004*uAir.z,-.002*uAir.y)*uTime+bend;
       vec3 p=vec3((uv-travel)*vec2(1.23-.47*uAir.z,.86+.44*uAir.z),z*.24)+uSeed*.073;
       vec4 grains=texture(uGrain,p);
       vec3 finer=texture(uGrain,p*2.73+grains.g*.17).rgb;
@@ -12966,34 +13038,24 @@ function simulationAnalyticsView(a,m){
     }`;
   const shardVertex=`#version 300 es
     layout(location=0) in vec3 aCorner;
-    layout(location=1) in vec2 aFace;
     layout(location=2) in vec4 aParcel;
-    layout(location=3) in vec4 aShape;
-    layout(location=4) in vec2 aSeed;
+    layout(location=3) in vec4 aAxes;
+    layout(location=4) in vec4 aFold;
+    layout(location=5) in vec2 aOpacity;
     uniform vec2 uSize,uSpan,uPosition,uLook;
-    uniform float uTime,uSpace,uDusk;
+    uniform float uSpace;
     out vec4 vColor;
     void main(){
-      float scale=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.80,.35,uSpace);
-      vec2 chip=aCorner.xy;
-      chip.y*=aShape.y;
-      chip.x+=chip.y*(aSeed.x-.5)*1.17;
-      float flutter=.20*sin(uTime*(.28+.30*aSeed.x)+6.283*aSeed.y);
-      float turn=aShape.x+flutter;
-      vec2 offset=mat2(cos(turn),sin(turn),-sin(turn),cos(turn))*chip;
-      vec2 pos=uPosition+(aParcel.xy-.5)*uSpan+offset*scale;
-      pos.y-=aCorner.z*scale*.49;
-      pos+=uLook*aParcel.z*uSize.y*.022;
-      gl_Position=vec4(pos/uSize*vec2(2.,-2.)+vec2(-1.,1.),-aParcel.z-aCorner.z*scale/uSpan.y,1.);
-      float light=clamp(aShape.z+(aFace.x-.5)*.21+(aSeed.x-.5)*.12+flutter*.13,0.,1.);
-      vec3 shadow=mix(vec3(.64,.46,.45),vec3(.52,.39,.41),uDusk);
-      vec3 body=mix(shadow,vec3(.89,.62,.53),smoothstep(.14,.78,light));
-      body=mix(body,vec3(1.,.86,.67),smoothstep(.60,.96,light));
-      vec3 lip=mix(shadow*.89,vec3(1.,.87,.72),smoothstep(.42,.87,light));
-      float facing=.5+.5*sin(uTime*(.39+.26*aSeed.y)+aSeed.x*53.+aShape.x*1.8);
-      float glint=pow(facing,10.)*smoothstep(.35,.73,light);
-      vec3 reflection=mix(mix(body,lip,aFace.y),vec3(1.,.87,.72),glint*.87);
-      vColor=vec4(reflection,.08+.15*aShape.w+.49*glint*aShape.w);
+      bool lower=aCorner.z>.5;
+      vec2 wing=lower?aFold.xy:aAxes.zw;
+      float size=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.86,.42,uSpace);
+      vec2 offset=(aCorner.x*aAxes.xy+aCorner.y*wing)*size;
+      vec2 pos=uPosition+(aParcel.xy-.5)*uSpan+offset+uLook*aParcel.z*uSize.y*.022;
+      gl_Position=vec4(pos/uSize*vec2(2.,-2.)+vec2(-1.,1.),-aParcel.z,1.);
+      float shade=lower?aFold.w:aFold.z;
+      vec3 copper=mix(vec3(.49,.36,.36),vec3(.86,.58,.44),min(1.,shade*1.6));
+      copper=mix(copper,vec3(1.,.88,.69),smoothstep(.54,1.,shade));
+      vColor=vec4(copper,lower?aOpacity.y:aOpacity.x);
     }`;
   const shardFragment=`#version 300 es
     precision mediump float; in vec4 vColor; out vec4 color;
@@ -13015,18 +13077,48 @@ function simulationAnalyticsView(a,m){
     const u={};for(const name of names)u[name]=gl.getUniformLocation(p,name);
     return {p,u};
   }
-  function prism(){
-    // Shared bevelled AeroShards lance. Parcel attributes vary its aspect,
-    // shear and pitch so the formation can change without rebuilding a mesh.
-    const rim=[[1,0,0],[.08,.54,0],[-.70,.29,0],[-.81,-.16,0],[-.18,-.48,0]];
-    const data=[];
-    function face(a,b,c,light,edge){for(const p of [a,b,c])data.push(...p,light,edge);}
-    rim.forEach((a,i)=>{
-      const b=rim[(i+1)%rim.length], lowerA=[a[0],a[1],-.082], lowerB=[b[0],b[1],-.082];
-      const light=.5+.47*Math.sin(i*1.26+.8);
-      face(a,b,[0,0,.11],light,0);face(a,lowerA,b,light,1);face(b,lowerA,lowerB,light,1);
+  // Two facets meet at the long crease. The silhouette and reflections use the
+  // same orientation in Canvas and WebGL, including the narrow edge-on phase.
+  const wingTips=[[-.44,.29,.78],[-.21,.48,.64]];
+  function foldedFlake(){
+    const vertices=[];
+    wingTips.forEach(([back,front,breadth],wing)=>{
+      vertices.push(-.92,0,wing,back,1,wing,front,breadth,wing,
+        -.92,0,wing,front,breadth,wing,1,0,wing);
     });
-    return new Float32Array(data);
+    return new Float32Array(vertices);
+  }
+  const poseStride=14,poses=weather.map(w=>new Float32Array(w.stream.length/10*poseStride));
+  function projectBank(index,bw,bh){
+    const w=weather[index],stream=w.stream,out=poses[index];
+    for(let i=0;i<w.count;i++){
+      const k=i*10,j=i*poseStride,seed=stream[k+8],depth=stream[k+9];
+      out[j]=stream[k];out[j+1]=stream[k+1];out[j+2]=stream[k+2];out[j+3]=stream[k+3];
+      // Heading lives in bank coordinates. Correct for the bank's projected aspect.
+      const hx=bw*Math.cos(stream[k+4]),hy=bh*Math.sin(stream[k+4]);
+      const inverse=1/Math.sqrt(hx*hx+hy*hy),ca=hx*inverse,sa=hy*inverse;
+      const roll=stream[k+5],cr=Math.cos(roll),sr=Math.sin(roll);
+      const pitch=.35*(seed-.5)+.31*Math.sin(roll*.72+depth*5);
+      const cp=Math.cos(pitch),sp=Math.sin(pitch);
+      const lx=ca*cp,ly=sa*cp,tx=ca*sp*sr-sa*cr,ty=sa*sp*sr+ca*cr,tz=cp*sr;
+      const nx=ca*sp*cr+sa*sr,ny=sa*sp*cr-ca*sr,nz=cp*cr;
+      const fold=.18+.25*seed, halfWidth=.32+.29*depth, skew=(seed-.5)*.32;
+      const normalScale=1/Math.sqrt(1+fold*fold);
+      out[j+4]=lx;out[j+5]=ly;
+      for(let wing=0;wing<2;wing++){
+        const side=wing?1:-1,off=j+6+2*wing;
+        out[off]=halfWidth*(side*tx-fold*nx)+side*skew*lx;
+        out[off+1]=halfWidth*(side*ty-fold*ny)+side*skew*ly;
+        const z=nz+side*fold*tz, front=(z<0?-1:1)*normalScale;
+        const x=(nx+side*fold*tx)*front,y=(ny+side*fold*ty)*front;
+        const sun=clamp(-.51*x-.70*y+.50*z*front);
+        const spec=clamp(-.30*x-.40*y+.865*z*front)**8;
+        const light=stream[k+6];
+        out[j+10+wing]=clamp(.14+.45*light+.30*sun+.46*spec*light);
+        out[j+12+wing]=stream[k+7]*(.075+.085*depth+.15*sun*light+.60*spec*light);
+      }
+    }
+    return out;
   }
   function bankPositions(index){
     return views.filter(v=>v.index===index).map(v=>[v.cx*width,v.cy*height]);
@@ -13092,11 +13184,12 @@ function simulationAnalyticsView(a,m){
   }
   const flightMeshes=[foldedCopper(11),foldedCopper(32),foldedCopper(73)];
   const facets=new Float32Array(flightMeshes.reduce((n,mesh)=>n+mesh.length/5*8,0));
+  const projected=new Float32Array(facets.length),depths=new Float32Array(facets.length/24),faceOrder=[];
   let facetCount=0;
   function projectFlights(){
     // Rotate each folded sheet in three axes. Both renderers see the
     // same silhouette and copper reflections, including during an edge-on turn.
-    let out=0;
+    let out=0;faceOrder.length=0;
     const pixelRatio=width/Math.max(1,host.clientWidth);
     for(const s of flights.shards){
       const flightMesh=flightMeshes[s.lane+1];
@@ -13123,14 +13216,24 @@ function simulationAnalyticsView(a,m){
         const sun=clamp((-.55*nx-.72*ny+.42*nz)/n);
         const glint=Math.pow(clamp((-.33*nx-.42*ny+.845*nz)/n),12);
         const light=clamp(.13+.66*sun+.28*glint+.24*flightMesh[k+4]+.12*(flightMesh[k+3]-.5));
+        const tri=out/24;
+        depths[tri]=s.near+(face[2]+face[5]+face[8])*radius/(3*height);
+        faceOrder.push(tri);
         for(let i=0;i<3;i++){
           const j=k+i*5;
-          facets[out++]=centerX+radius*face[i*3];facets[out++]=centerY+radius*face[i*3+1];
-          facets[out++]=light;facets[out++]=glint;facets[out++]=1-s.near;facets[out++]=s.alpha;
-          facets[out++]=.43+flightMesh[j]*.38+.10*p.seed;
-          facets[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
+          projected[out++]=centerX+radius*face[i*3];projected[out++]=centerY+radius*face[i*3+1];
+          projected[out++]=light;projected[out++]=glint;projected[out++]=1-s.near;projected[out++]=s.alpha;
+          projected[out++]=.43+flightMesh[j]*.38+.10*p.seed;
+          projected[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
         }
       }
+    }
+    // The folded underside can overlap its rim while turning edge-on. Paint
+    // far to near in both backends so a rear facet never flashes through it.
+    faceOrder.sort((a,b)=>depths[a]-depths[b]);
+    for(let i=0;i<faceOrder.length;i++){
+      const start=faceOrder[i]*24;
+      for(let j=0;j<24;j++)facets[i*24+j]=projected[start+j];
     }
     facetCount=out/8;
   }
@@ -13167,10 +13270,15 @@ function simulationAnalyticsView(a,m){
     const volume=program(gl,volumeVertex,volumeFragment,['uSize','uSpan','uPosition','uWater','uGrain','uAir','uTime','uSeed','uDusk','uSpace']);
     const composite=program(gl,volumeVertex,`#version 300 es
       precision mediump float;
-      in vec2 vUV; uniform sampler2D uBody; out vec4 color;
-      void main(){color=texture(uBody,vec2(vUV.x,1.-vUV.y));}`,
-      ['uSize','uSpan','uPosition','uBody']);
-    const cloud=program(gl,shardVertex,shardFragment,['uSize','uTime','uDusk','uSpan','uPosition','uLook','uSpace']);
+      in vec2 vUV; uniform sampler2D uBody,uPrevious; uniform float uBlend; out vec4 color;
+      void main(){
+        vec2 uv=vec2(vUV.x,1.-vUV.y);
+        vec4 a=texture(uPrevious,uv),b=texture(uBody,uv);
+        float alpha=mix(a.a,b.a,uBlend);
+        color=vec4(mix(a.rgb*a.a,b.rgb*b.a,uBlend)/max(alpha,.0001),alpha);
+      }`,
+      ['uSize','uSpan','uPosition','uBody','uPrevious','uBlend']);
+    const cloud=program(gl,shardVertex,shardFragment,['uSize','uSpan','uPosition','uLook','uSpace']);
     const metal=program(gl,`#version 300 es
       layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aFinish;layout(location=2) in vec2 aUV;
       uniform vec2 uSize;out vec4 vFinish;out vec2 vUV;
@@ -13195,29 +13303,27 @@ function simulationAnalyticsView(a,m){
     }
     gl.bindVertexArray(null);
     const grain=grainTexture(gl);
-    const chip=prism(), vertices=gl.createBuffer();
+    const chip=foldedFlake(), vertices=gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER,vertices);gl.bufferData(gl.ARRAY_BUFFER,chip,gl.STATIC_DRAW);
-    const gpu=weather.map(w=>{
+    const gpu=weather.map((w,index)=>{
       const vao=gl.createVertexArray(), buffer=gl.createBuffer(), texture=gl.createTexture();
       gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,vertices);
-      for(const [loc,n,offset] of [[0,3,0],[1,2,12]]){
-        gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,20,offset);
-      }
-      gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,w.stream.byteLength,gl.DYNAMIC_DRAW);
-      for(const [loc,n,offset] of [[2,4,0],[3,4,16],[4,2,32]]){
-        gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,40,offset);gl.vertexAttribDivisor(loc,1);
+      gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0);
+      gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,poses[index].byteLength,gl.DYNAMIC_DRAW);
+      for(const [loc,n,offset] of [[2,4,0],[3,4,16],[4,4,32],[5,2,48]]){
+        gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,poseStride*4,offset);gl.vertexAttribDivisor(loc,1);
       }
       gl.bindTexture(gl.TEXTURE_2D,texture);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,cols,rows,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
-      const body=gl.createTexture(), framebuffer=gl.createFramebuffer();
-      gl.bindTexture(gl.TEXTURE_2D,body);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,body,0);
-      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-      return {vao,buffer,texture,body,framebuffer,version:-1,width:0,height:0,lastBodyTime:-1};
+      const bodies=[gl.createTexture(),gl.createTexture()],framebuffer=gl.createFramebuffer();
+      for(const body of bodies){
+        gl.bindTexture(gl.TEXTURE_2D,body);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      }
+      return {vao,buffer,texture,bodies,front:0,framebuffer,version:-1,width:0,height:0};
     });
     return ()=>{
       gl.viewport(0,0,width,height);
@@ -13243,13 +13349,20 @@ function simulationAnalyticsView(a,m){
         const bw=Math.max(1,Math.round(dimensions[0]*ratio)),bh=Math.max(1,Math.round(dimensions[1]*ratio));
         const resized=g.width!==bw||g.height!==bh, changed=g.version!==w.version;
         if(resized){
-          gl.bindTexture(gl.TEXTURE_2D,g.body);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,bw,bh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+          for(const body of g.bodies){
+            gl.bindTexture(gl.TEXTURE_2D,body);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,bw,bh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+          }
           g.width=bw;g.height=bh;
         }
-        if(resized||changed||g.dusk!==light.dusk||g.spacing!==layer.spacing||w.time-g.lastBodyTime>=.12){
+        const reset=resized||g.epoch!==w.epoch||g.dusk!==light.dusk||g.spacing!==layer.spacing;
+        if(reset||changed){
+          g.interpolate=!reset&&g.version+1===w.version;
+          g.front=1-g.front;
           gl.useProgram(volume.p);gl.bindTexture(gl.TEXTURE_2D,g.texture);
           if(changed)gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,cols,rows,gl.RGBA,gl.UNSIGNED_BYTE,w.texture);
-          gl.bindFramebuffer(gl.FRAMEBUFFER,g.framebuffer);gl.viewport(0,0,bw,bh);gl.disable(gl.BLEND);
+          gl.bindFramebuffer(gl.FRAMEBUFFER,g.framebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,g.bodies[g.front],0);
+          gl.viewport(0,0,bw,bh);gl.disable(gl.BLEND);
           gl.uniform1i(volume.u.uWater,0);gl.uniform1i(volume.u.uGrain,1);gl.uniform2f(volume.u.uSize,bw,bh);
           gl.uniform2f(volume.u.uPosition,bw*.5,bh*.5);gl.uniform2f(volume.u.uSpan,bw,bh);
           gl.uniform4f(volume.u.uAir,air.height,air.lift,air.shear,air.optical);
@@ -13257,21 +13370,23 @@ function simulationAnalyticsView(a,m){
           gl.uniform1f(volume.u.uDusk,light.dusk/100);gl.uniform1f(volume.u.uSpace,layer.spacing/100);
           gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
           gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,width,height);gl.enable(gl.BLEND);
-          g.lastBodyTime=w.time;g.version=w.version;g.spacing=layer.spacing;g.dusk=light.dusk;
+          g.epoch=w.epoch;g.version=w.version;g.spacing=layer.spacing;g.dusk=light.dusk;
         }
-        gl.useProgram(composite.p);gl.bindTexture(gl.TEXTURE_2D,g.body);gl.uniform1i(composite.u.uBody,0);
+        gl.useProgram(composite.p);
+        gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,g.bodies[1-g.front]);gl.uniform1i(composite.u.uPrevious,2);
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,g.bodies[g.front]);gl.uniform1i(composite.u.uBody,0);
+        gl.uniform1f(composite.u.uBlend,g.interpolate?w.blend:1);
         gl.uniform2f(composite.u.uSize,width,height);gl.uniform2fv(composite.u.uSpan,dimensions);
         gl.useProgram(cloud.p);gl.bindVertexArray(g.vao);gl.bindBuffer(gl.ARRAY_BUFFER,g.buffer);
-        if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,w.stream,0,w.count*10);
+        if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,projectBank(i,...dimensions),0,w.count*poseStride);
         gl.uniform2f(cloud.u.uSize,width,height);gl.uniform2fv(cloud.u.uLook,look);
-        gl.uniform1f(cloud.u.uTime,w.time);gl.uniform1f(cloud.u.uDusk,light.dusk/100);
         gl.uniform2fv(cloud.u.uSpan,dimensions);gl.uniform1f(cloud.u.uSpace,layer.spacing/100);
         for(const pos of positions){
           gl.disable(gl.DEPTH_TEST);gl.useProgram(composite.p);gl.uniform2fv(composite.u.uPosition,pos);
           gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
           gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
           gl.useProgram(cloud.p);gl.uniform2fv(cloud.u.uPosition,pos);
-          gl.drawArraysInstanced(gl.TRIANGLES,0,chip.length/5,w.count);
+          gl.drawArraysInstanced(gl.TRIANGLES,0,chip.length/3,w.count);
         }
       }
       if(facetCount){
@@ -13333,36 +13448,55 @@ function simulationAnalyticsView(a,m){
     if(!cache){
       const canvas=document.createElement('canvas');canvas.width=cols;canvas.height=rows;
       const ctx=canvas.getContext('2d');
-      cache={canvas,ctx,frame:ctx.createImageData(cols,rows),version:-1};softwareLayers.set(bank.id,cache);
+      const frame=ctx.createImageData(cols,rows);
+      cache={canvas,ctx,frame,previous:new Uint8ClampedArray(frame.data.length),current:new Uint8ClampedArray(frame.data.length),version:-1};softwareLayers.set(bank.id,cache);
     }
     const dusk=state.light.dusk/100;
-    if(cache.version!==w.version||cache.space!==layer.spacing||cache.dusk!==dusk){
-      const rgba=cache.frame.data;
+    const reset=cache.space!==layer.spacing||cache.dusk!==dusk||cache.epoch!==w.epoch;
+    if(reset||cache.version!==w.version){
+      cache.interpolate=!reset&&cache.version+1===w.version;
+      [cache.previous,cache.current]=[cache.current,cache.previous];
+      const rgba=cache.current;
       for(let k=0;k<rgba.length;k+=4){
         const q=w.texture[k]/255, lit=smooth((w.texture[k+1]/255-.21)/.60);
         rgba[k]=mix(135-46*dusk,255,lit);rgba[k+1]=mix(109-35*dusk,208,lit);rgba[k+2]=mix(115-17*dusk,159,lit);
         rgba[k+3]=255*(1-Math.exp(-3.5*q*w.profile.optical*(1-.68*layer.spacing/100)));
       }
-      cache.ctx.putImageData(cache.frame,0,0);cache.version=w.version;cache.space=layer.spacing;cache.dusk=dusk;
+      cache.version=w.version;cache.space=layer.spacing;cache.dusk=dusk;cache.epoch=w.epoch;
     }
-    for(const [x,y] of positions)paintSoftwareBank(w,layer,cache.canvas,x-bw/2,y-bh/2,bw,bh);
+    const blend=cache.interpolate?w.blend:1;
+    if(blend===1)cache.frame.data.set(cache.current);
+    else for(let k=0;k<cache.current.length;k+=4){
+      const a=cache.previous[k+3]*(1-blend),b=cache.current[k+3]*blend,alpha=a+b;
+      cache.frame.data[k+3]=alpha;
+      if(alpha>0)for(let ch=0;ch<3;ch++)cache.frame.data[k+ch]=(a*cache.previous[k+ch]+b*cache.current[k+ch])/alpha;
+    }
+    cache.ctx.putImageData(cache.frame,0,0);
+    const posed=projectBank(index,bw,bh);
+    for(const [x,y] of positions)paintSoftwareBank(w,layer,cache.canvas,posed,x-bw/2,y-bh/2,bw,bh);
   }
-  function paintSoftwareBank(w,layer,body,ox,oy,bw,bh){
-    const c=ctx2d, stream=w.stream;
+  const bankTones=Array.from({length:96},(_,i)=>{
+    const shade=i/95,warm=Math.min(1,shade*1.6),glow=smooth((shade-.54)/.46);
+    const tone=(a,b,c)=>Math.round(255*mix(mix(a,b,warm),c,glow));
+    return 'rgb('+tone(.49,.86,1)+','+tone(.36,.58,.88)+','+tone(.36,.44,.69)+')';
+  });
+  function paintSoftwareBank(w,layer,body,posed,ox,oy,bw,bh){
+    const c=ctx2d;
     c.drawImage(body,ox,oy,bw,bh);
-    const scale=Math.min(bw,bh*1.85)*mix(.80,.35,layer.spacing/100);
+    const scale=Math.min(bw,bh*1.85)*mix(.86,.42,layer.spacing/100);
     for(let i=0;i<w.count;i++){
-      const k=i*10, x=ox+stream[k]*bw,y=oy+stream[k+1]*bh,r=stream[k+3]*scale;
+      const k=i*poseStride,r=posed[k+3]*scale,shift=posed[k+2]*height*.022;
+      const x=ox+posed[k]*bw+look[0]*shift,y=oy+posed[k+1]*bh+look[1]*shift;
       if(x<-r||y<-r||x>width+r||y>height+r)continue;
-      const angle=stream[k+4]+.2*Math.sin(w.time*.4+stream[k+9]*6.28);
-      const ax=r*Math.cos(angle),ay=r*Math.sin(angle),thin=stream[k+5]*.52;
-      const lit=smooth((stream[k+6]-.2+(stream[k+8]-.5)*.13)/.6);
-      const facing=.5+.5*Math.sin(w.time*(.39+.26*stream[k+9])+stream[k+8]*53+angle*1.8);
-      const glint=facing**10*smooth((lit-.35)/.38), reflection=mix(lit,1,glint);
-      c.fillStyle='rgba('+Math.round(mix(136,255,reflection))+','+Math.round(mix(98,222,reflection))+','+Math.round(mix(99,184,reflection))+','+(.08+.15*stream[k+7]+.49*glint*stream[k+7])+')';
-      c.beginPath();c.moveTo(x+ax,y+ay);c.lineTo(x-.73*ax-ay*thin,y-.73*ay+ax*thin);
-      c.lineTo(x-.51*ax+ay*thin,y-.51*ay-ax*thin);c.fill();
+      const ax=r*posed[k+4],ay=r*posed[k+5];
+      for(let wing=0;wing<2;wing++){
+        const wx=r*posed[k+6+2*wing],wy=r*posed[k+7+2*wing],[back,front,breadth]=wingTips[wing];
+        c.fillStyle=bankTones[Math.round(posed[k+10+wing]*95)];c.globalAlpha=posed[k+12+wing];
+        c.beginPath();c.moveTo(x-.92*ax,y-.92*ay);c.lineTo(x+ax*back+wx,y+ay*back+wy);
+        c.lineTo(x+ax*front+wx*breadth,y+ay*front+wy*breadth);c.lineTo(x+ax,y+ay);c.fill();
+      }
     }
+    c.globalAlpha=1;
   }
   function softwareStars(c,galaxy){
     const angle=celestial*.0038, ca=Math.cos(angle),sa=Math.sin(angle),aspect=width/height;
@@ -13408,7 +13542,9 @@ function simulationAnalyticsView(a,m){
       c.fillRect(x-Math.abs(ax)-Math.abs(bx),y-Math.abs(ay)-Math.abs(by),2*(Math.abs(ax)+Math.abs(bx)),2*(Math.abs(ay)+Math.abs(by)));
       const u=facets[k+6],v=facets[k+7],au=facets[k+14]-u,av=facets[k+15]-v,bu=facets[k+22]-u,bv=facets[k+23]-v;
       const det=au*bv-av*bu;
-      if(facets[k+4]<.76 && Math.abs(det)>.0001){
+      const surface=smooth((.93-facets[k+4])/.24);
+      if(surface>.001&&Math.abs(det)>.0001){
+        c.globalAlpha=facets[k+5]*surface;
         const a=(ax*bv-bx*av)/det,b=(ay*bv-by*av)/det,d=(by*au-ay*bu)/det,e=(bx*au-ax*bu)/det;
         c.transform(a,b,e,d,x-a*u-e*v,y-b*u-d*v);c.drawImage(copper,0,0,1,1);
         c.fillStyle=light<.58?'rgba(46,31,33,'+(.52-light*.65)+')':'rgba(255,228,193,'+(.10+.46*facets[k+3])+')';
@@ -13424,7 +13560,7 @@ function simulationAnalyticsView(a,m){
   function frame(now){
     raf=0;if(forced.matches||document.hidden||host.hasAttribute('suspended'))return;
     const moving=moveAllowed()&&state.light.wind>0;
-    const interval=renderGL?1000/30:1000/16;
+    const interval=renderGL?1000/(location.hash==='#sky'?60:30):1000/24;
     if(dirty||!last||now-last>=interval-1){
       const dt=moving&&last?Math.min((now-last)/1000,.35)*state.light.wind/45:0;
       if(dt){

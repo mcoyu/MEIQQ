@@ -107,7 +107,8 @@
     // View-space slices resolve the front, core and back of each moist column.
     // The same wind that carries the metal parcels carries the fine cloud grain.
     float material(vec2 uv,float z){
-      vec2 travel=vec2(.008+.008*uAir.z,-.005*uAir.y)*uTime;
+      vec2 bend=(texture(uWater,uv).ba-vec2(128./255.))*.5;
+      vec2 travel=vec2(.005+.004*uAir.z,-.002*uAir.y)*uTime+bend;
       vec3 p=vec3((uv-travel)*vec2(1.23-.47*uAir.z,.86+.44*uAir.z),z*.24)+uSeed*.073;
       vec4 grains=texture(uGrain,p);
       vec3 finer=texture(uGrain,p*2.73+grains.g*.17).rgb;
@@ -155,34 +156,24 @@
     }`;
   const shardVertex=`#version 300 es
     layout(location=0) in vec3 aCorner;
-    layout(location=1) in vec2 aFace;
     layout(location=2) in vec4 aParcel;
-    layout(location=3) in vec4 aShape;
-    layout(location=4) in vec2 aSeed;
+    layout(location=3) in vec4 aAxes;
+    layout(location=4) in vec4 aFold;
+    layout(location=5) in vec2 aOpacity;
     uniform vec2 uSize,uSpan,uPosition,uLook;
-    uniform float uTime,uSpace,uDusk;
+    uniform float uSpace;
     out vec4 vColor;
     void main(){
-      float scale=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.80,.35,uSpace);
-      vec2 chip=aCorner.xy;
-      chip.y*=aShape.y;
-      chip.x+=chip.y*(aSeed.x-.5)*1.17;
-      float flutter=.20*sin(uTime*(.28+.30*aSeed.x)+6.283*aSeed.y);
-      float turn=aShape.x+flutter;
-      vec2 offset=mat2(cos(turn),sin(turn),-sin(turn),cos(turn))*chip;
-      vec2 pos=uPosition+(aParcel.xy-.5)*uSpan+offset*scale;
-      pos.y-=aCorner.z*scale*.49;
-      pos+=uLook*aParcel.z*uSize.y*.022;
-      gl_Position=vec4(pos/uSize*vec2(2.,-2.)+vec2(-1.,1.),-aParcel.z-aCorner.z*scale/uSpan.y,1.);
-      float light=clamp(aShape.z+(aFace.x-.5)*.21+(aSeed.x-.5)*.12+flutter*.13,0.,1.);
-      vec3 shadow=mix(vec3(.64,.46,.45),vec3(.52,.39,.41),uDusk);
-      vec3 body=mix(shadow,vec3(.89,.62,.53),smoothstep(.14,.78,light));
-      body=mix(body,vec3(1.,.86,.67),smoothstep(.60,.96,light));
-      vec3 lip=mix(shadow*.89,vec3(1.,.87,.72),smoothstep(.42,.87,light));
-      float facing=.5+.5*sin(uTime*(.39+.26*aSeed.y)+aSeed.x*53.+aShape.x*1.8);
-      float glint=pow(facing,10.)*smoothstep(.35,.73,light);
-      vec3 reflection=mix(mix(body,lip,aFace.y),vec3(1.,.87,.72),glint*.87);
-      vColor=vec4(reflection,.08+.15*aShape.w+.49*glint*aShape.w);
+      bool lower=aCorner.z>.5;
+      vec2 wing=lower?aFold.xy:aAxes.zw;
+      float size=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.86,.42,uSpace);
+      vec2 offset=(aCorner.x*aAxes.xy+aCorner.y*wing)*size;
+      vec2 pos=uPosition+(aParcel.xy-.5)*uSpan+offset+uLook*aParcel.z*uSize.y*.022;
+      gl_Position=vec4(pos/uSize*vec2(2.,-2.)+vec2(-1.,1.),-aParcel.z,1.);
+      float shade=lower?aFold.w:aFold.z;
+      vec3 copper=mix(vec3(.49,.36,.36),vec3(.86,.58,.44),min(1.,shade*1.6));
+      copper=mix(copper,vec3(1.,.88,.69),smoothstep(.54,1.,shade));
+      vColor=vec4(copper,lower?aOpacity.y:aOpacity.x);
     }`;
   const shardFragment=`#version 300 es
     precision mediump float; in vec4 vColor; out vec4 color;
@@ -204,18 +195,48 @@
     const u={};for(const name of names)u[name]=gl.getUniformLocation(p,name);
     return {p,u};
   }
-  function prism(){
-    // Shared bevelled AeroShards lance. Parcel attributes vary its aspect,
-    // shear and pitch so the formation can change without rebuilding a mesh.
-    const rim=[[1,0,0],[.08,.54,0],[-.70,.29,0],[-.81,-.16,0],[-.18,-.48,0]];
-    const data=[];
-    function face(a,b,c,light,edge){for(const p of [a,b,c])data.push(...p,light,edge);}
-    rim.forEach((a,i)=>{
-      const b=rim[(i+1)%rim.length], lowerA=[a[0],a[1],-.082], lowerB=[b[0],b[1],-.082];
-      const light=.5+.47*Math.sin(i*1.26+.8);
-      face(a,b,[0,0,.11],light,0);face(a,lowerA,b,light,1);face(b,lowerA,lowerB,light,1);
+  // Two facets meet at the long crease. The silhouette and reflections use the
+  // same orientation in Canvas and WebGL, including the narrow edge-on phase.
+  const wingTips=[[-.44,.29,.78],[-.21,.48,.64]];
+  function foldedFlake(){
+    const vertices=[];
+    wingTips.forEach(([back,front,breadth],wing)=>{
+      vertices.push(-.92,0,wing,back,1,wing,front,breadth,wing,
+        -.92,0,wing,front,breadth,wing,1,0,wing);
     });
-    return new Float32Array(data);
+    return new Float32Array(vertices);
+  }
+  const poseStride=14,poses=weather.map(w=>new Float32Array(w.stream.length/10*poseStride));
+  function projectBank(index,bw,bh){
+    const w=weather[index],stream=w.stream,out=poses[index];
+    for(let i=0;i<w.count;i++){
+      const k=i*10,j=i*poseStride,seed=stream[k+8],depth=stream[k+9];
+      out[j]=stream[k];out[j+1]=stream[k+1];out[j+2]=stream[k+2];out[j+3]=stream[k+3];
+      // Heading lives in bank coordinates. Correct for the bank's projected aspect.
+      const hx=bw*Math.cos(stream[k+4]),hy=bh*Math.sin(stream[k+4]);
+      const inverse=1/Math.sqrt(hx*hx+hy*hy),ca=hx*inverse,sa=hy*inverse;
+      const roll=stream[k+5],cr=Math.cos(roll),sr=Math.sin(roll);
+      const pitch=.35*(seed-.5)+.31*Math.sin(roll*.72+depth*5);
+      const cp=Math.cos(pitch),sp=Math.sin(pitch);
+      const lx=ca*cp,ly=sa*cp,tx=ca*sp*sr-sa*cr,ty=sa*sp*sr+ca*cr,tz=cp*sr;
+      const nx=ca*sp*cr+sa*sr,ny=sa*sp*cr-ca*sr,nz=cp*cr;
+      const fold=.18+.25*seed, halfWidth=.32+.29*depth, skew=(seed-.5)*.32;
+      const normalScale=1/Math.sqrt(1+fold*fold);
+      out[j+4]=lx;out[j+5]=ly;
+      for(let wing=0;wing<2;wing++){
+        const side=wing?1:-1,off=j+6+2*wing;
+        out[off]=halfWidth*(side*tx-fold*nx)+side*skew*lx;
+        out[off+1]=halfWidth*(side*ty-fold*ny)+side*skew*ly;
+        const z=nz+side*fold*tz, front=(z<0?-1:1)*normalScale;
+        const x=(nx+side*fold*tx)*front,y=(ny+side*fold*ty)*front;
+        const sun=clamp(-.51*x-.70*y+.50*z*front);
+        const spec=clamp(-.30*x-.40*y+.865*z*front)**8;
+        const light=stream[k+6];
+        out[j+10+wing]=clamp(.14+.45*light+.30*sun+.46*spec*light);
+        out[j+12+wing]=stream[k+7]*(.075+.085*depth+.15*sun*light+.60*spec*light);
+      }
+    }
+    return out;
   }
   function bankPositions(index){
     return views.filter(v=>v.index===index).map(v=>[v.cx*width,v.cy*height]);
@@ -281,11 +302,12 @@
   }
   const flightMeshes=[foldedCopper(11),foldedCopper(32),foldedCopper(73)];
   const facets=new Float32Array(flightMeshes.reduce((n,mesh)=>n+mesh.length/5*8,0));
+  const projected=new Float32Array(facets.length),depths=new Float32Array(facets.length/24),faceOrder=[];
   let facetCount=0;
   function projectFlights(){
     // Rotate each folded sheet in three axes. Both renderers see the
     // same silhouette and copper reflections, including during an edge-on turn.
-    let out=0;
+    let out=0;faceOrder.length=0;
     const pixelRatio=width/Math.max(1,host.clientWidth);
     for(const s of flights.shards){
       const flightMesh=flightMeshes[s.lane+1];
@@ -312,14 +334,24 @@
         const sun=clamp((-.55*nx-.72*ny+.42*nz)/n);
         const glint=Math.pow(clamp((-.33*nx-.42*ny+.845*nz)/n),12);
         const light=clamp(.13+.66*sun+.28*glint+.24*flightMesh[k+4]+.12*(flightMesh[k+3]-.5));
+        const tri=out/24;
+        depths[tri]=s.near+(face[2]+face[5]+face[8])*radius/(3*height);
+        faceOrder.push(tri);
         for(let i=0;i<3;i++){
           const j=k+i*5;
-          facets[out++]=centerX+radius*face[i*3];facets[out++]=centerY+radius*face[i*3+1];
-          facets[out++]=light;facets[out++]=glint;facets[out++]=1-s.near;facets[out++]=s.alpha;
-          facets[out++]=.43+flightMesh[j]*.38+.10*p.seed;
-          facets[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
+          projected[out++]=centerX+radius*face[i*3];projected[out++]=centerY+radius*face[i*3+1];
+          projected[out++]=light;projected[out++]=glint;projected[out++]=1-s.near;projected[out++]=s.alpha;
+          projected[out++]=.43+flightMesh[j]*.38+.10*p.seed;
+          projected[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
         }
       }
+    }
+    // The folded underside can overlap its rim while turning edge-on. Paint
+    // far to near in both backends so a rear facet never flashes through it.
+    faceOrder.sort((a,b)=>depths[a]-depths[b]);
+    for(let i=0;i<faceOrder.length;i++){
+      const start=faceOrder[i]*24;
+      for(let j=0;j<24;j++)facets[i*24+j]=projected[start+j];
     }
     facetCount=out/8;
   }
@@ -356,10 +388,15 @@
     const volume=program(gl,volumeVertex,volumeFragment,['uSize','uSpan','uPosition','uWater','uGrain','uAir','uTime','uSeed','uDusk','uSpace']);
     const composite=program(gl,volumeVertex,`#version 300 es
       precision mediump float;
-      in vec2 vUV; uniform sampler2D uBody; out vec4 color;
-      void main(){color=texture(uBody,vec2(vUV.x,1.-vUV.y));}`,
-      ['uSize','uSpan','uPosition','uBody']);
-    const cloud=program(gl,shardVertex,shardFragment,['uSize','uTime','uDusk','uSpan','uPosition','uLook','uSpace']);
+      in vec2 vUV; uniform sampler2D uBody,uPrevious; uniform float uBlend; out vec4 color;
+      void main(){
+        vec2 uv=vec2(vUV.x,1.-vUV.y);
+        vec4 a=texture(uPrevious,uv),b=texture(uBody,uv);
+        float alpha=mix(a.a,b.a,uBlend);
+        color=vec4(mix(a.rgb*a.a,b.rgb*b.a,uBlend)/max(alpha,.0001),alpha);
+      }`,
+      ['uSize','uSpan','uPosition','uBody','uPrevious','uBlend']);
+    const cloud=program(gl,shardVertex,shardFragment,['uSize','uSpan','uPosition','uLook','uSpace']);
     const metal=program(gl,`#version 300 es
       layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aFinish;layout(location=2) in vec2 aUV;
       uniform vec2 uSize;out vec4 vFinish;out vec2 vUV;
@@ -384,29 +421,27 @@
     }
     gl.bindVertexArray(null);
     const grain=grainTexture(gl);
-    const chip=prism(), vertices=gl.createBuffer();
+    const chip=foldedFlake(), vertices=gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER,vertices);gl.bufferData(gl.ARRAY_BUFFER,chip,gl.STATIC_DRAW);
-    const gpu=weather.map(w=>{
+    const gpu=weather.map((w,index)=>{
       const vao=gl.createVertexArray(), buffer=gl.createBuffer(), texture=gl.createTexture();
       gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,vertices);
-      for(const [loc,n,offset] of [[0,3,0],[1,2,12]]){
-        gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,20,offset);
-      }
-      gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,w.stream.byteLength,gl.DYNAMIC_DRAW);
-      for(const [loc,n,offset] of [[2,4,0],[3,4,16],[4,2,32]]){
-        gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,40,offset);gl.vertexAttribDivisor(loc,1);
+      gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0);
+      gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,poses[index].byteLength,gl.DYNAMIC_DRAW);
+      for(const [loc,n,offset] of [[2,4,0],[3,4,16],[4,4,32],[5,2,48]]){
+        gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,poseStride*4,offset);gl.vertexAttribDivisor(loc,1);
       }
       gl.bindTexture(gl.TEXTURE_2D,texture);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,cols,rows,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
-      const body=gl.createTexture(), framebuffer=gl.createFramebuffer();
-      gl.bindTexture(gl.TEXTURE_2D,body);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,body,0);
-      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-      return {vao,buffer,texture,body,framebuffer,version:-1,width:0,height:0,lastBodyTime:-1};
+      const bodies=[gl.createTexture(),gl.createTexture()],framebuffer=gl.createFramebuffer();
+      for(const body of bodies){
+        gl.bindTexture(gl.TEXTURE_2D,body);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      }
+      return {vao,buffer,texture,bodies,front:0,framebuffer,version:-1,width:0,height:0};
     });
     return ()=>{
       gl.viewport(0,0,width,height);
@@ -432,13 +467,20 @@
         const bw=Math.max(1,Math.round(dimensions[0]*ratio)),bh=Math.max(1,Math.round(dimensions[1]*ratio));
         const resized=g.width!==bw||g.height!==bh, changed=g.version!==w.version;
         if(resized){
-          gl.bindTexture(gl.TEXTURE_2D,g.body);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,bw,bh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+          for(const body of g.bodies){
+            gl.bindTexture(gl.TEXTURE_2D,body);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,bw,bh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+          }
           g.width=bw;g.height=bh;
         }
-        if(resized||changed||g.dusk!==light.dusk||g.spacing!==layer.spacing||w.time-g.lastBodyTime>=.12){
+        const reset=resized||g.epoch!==w.epoch||g.dusk!==light.dusk||g.spacing!==layer.spacing;
+        if(reset||changed){
+          g.interpolate=!reset&&g.version+1===w.version;
+          g.front=1-g.front;
           gl.useProgram(volume.p);gl.bindTexture(gl.TEXTURE_2D,g.texture);
           if(changed)gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,cols,rows,gl.RGBA,gl.UNSIGNED_BYTE,w.texture);
-          gl.bindFramebuffer(gl.FRAMEBUFFER,g.framebuffer);gl.viewport(0,0,bw,bh);gl.disable(gl.BLEND);
+          gl.bindFramebuffer(gl.FRAMEBUFFER,g.framebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,g.bodies[g.front],0);
+          gl.viewport(0,0,bw,bh);gl.disable(gl.BLEND);
           gl.uniform1i(volume.u.uWater,0);gl.uniform1i(volume.u.uGrain,1);gl.uniform2f(volume.u.uSize,bw,bh);
           gl.uniform2f(volume.u.uPosition,bw*.5,bh*.5);gl.uniform2f(volume.u.uSpan,bw,bh);
           gl.uniform4f(volume.u.uAir,air.height,air.lift,air.shear,air.optical);
@@ -446,21 +488,23 @@
           gl.uniform1f(volume.u.uDusk,light.dusk/100);gl.uniform1f(volume.u.uSpace,layer.spacing/100);
           gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
           gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,width,height);gl.enable(gl.BLEND);
-          g.lastBodyTime=w.time;g.version=w.version;g.spacing=layer.spacing;g.dusk=light.dusk;
+          g.epoch=w.epoch;g.version=w.version;g.spacing=layer.spacing;g.dusk=light.dusk;
         }
-        gl.useProgram(composite.p);gl.bindTexture(gl.TEXTURE_2D,g.body);gl.uniform1i(composite.u.uBody,0);
+        gl.useProgram(composite.p);
+        gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,g.bodies[1-g.front]);gl.uniform1i(composite.u.uPrevious,2);
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,g.bodies[g.front]);gl.uniform1i(composite.u.uBody,0);
+        gl.uniform1f(composite.u.uBlend,g.interpolate?w.blend:1);
         gl.uniform2f(composite.u.uSize,width,height);gl.uniform2fv(composite.u.uSpan,dimensions);
         gl.useProgram(cloud.p);gl.bindVertexArray(g.vao);gl.bindBuffer(gl.ARRAY_BUFFER,g.buffer);
-        if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,w.stream,0,w.count*10);
+        if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,projectBank(i,...dimensions),0,w.count*poseStride);
         gl.uniform2f(cloud.u.uSize,width,height);gl.uniform2fv(cloud.u.uLook,look);
-        gl.uniform1f(cloud.u.uTime,w.time);gl.uniform1f(cloud.u.uDusk,light.dusk/100);
         gl.uniform2fv(cloud.u.uSpan,dimensions);gl.uniform1f(cloud.u.uSpace,layer.spacing/100);
         for(const pos of positions){
           gl.disable(gl.DEPTH_TEST);gl.useProgram(composite.p);gl.uniform2fv(composite.u.uPosition,pos);
           gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
           gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
           gl.useProgram(cloud.p);gl.uniform2fv(cloud.u.uPosition,pos);
-          gl.drawArraysInstanced(gl.TRIANGLES,0,chip.length/5,w.count);
+          gl.drawArraysInstanced(gl.TRIANGLES,0,chip.length/3,w.count);
         }
       }
       if(facetCount){
@@ -522,36 +566,55 @@
     if(!cache){
       const canvas=document.createElement('canvas');canvas.width=cols;canvas.height=rows;
       const ctx=canvas.getContext('2d');
-      cache={canvas,ctx,frame:ctx.createImageData(cols,rows),version:-1};softwareLayers.set(bank.id,cache);
+      const frame=ctx.createImageData(cols,rows);
+      cache={canvas,ctx,frame,previous:new Uint8ClampedArray(frame.data.length),current:new Uint8ClampedArray(frame.data.length),version:-1};softwareLayers.set(bank.id,cache);
     }
     const dusk=state.light.dusk/100;
-    if(cache.version!==w.version||cache.space!==layer.spacing||cache.dusk!==dusk){
-      const rgba=cache.frame.data;
+    const reset=cache.space!==layer.spacing||cache.dusk!==dusk||cache.epoch!==w.epoch;
+    if(reset||cache.version!==w.version){
+      cache.interpolate=!reset&&cache.version+1===w.version;
+      [cache.previous,cache.current]=[cache.current,cache.previous];
+      const rgba=cache.current;
       for(let k=0;k<rgba.length;k+=4){
         const q=w.texture[k]/255, lit=smooth((w.texture[k+1]/255-.21)/.60);
         rgba[k]=mix(135-46*dusk,255,lit);rgba[k+1]=mix(109-35*dusk,208,lit);rgba[k+2]=mix(115-17*dusk,159,lit);
         rgba[k+3]=255*(1-Math.exp(-3.5*q*w.profile.optical*(1-.68*layer.spacing/100)));
       }
-      cache.ctx.putImageData(cache.frame,0,0);cache.version=w.version;cache.space=layer.spacing;cache.dusk=dusk;
+      cache.version=w.version;cache.space=layer.spacing;cache.dusk=dusk;cache.epoch=w.epoch;
     }
-    for(const [x,y] of positions)paintSoftwareBank(w,layer,cache.canvas,x-bw/2,y-bh/2,bw,bh);
+    const blend=cache.interpolate?w.blend:1;
+    if(blend===1)cache.frame.data.set(cache.current);
+    else for(let k=0;k<cache.current.length;k+=4){
+      const a=cache.previous[k+3]*(1-blend),b=cache.current[k+3]*blend,alpha=a+b;
+      cache.frame.data[k+3]=alpha;
+      if(alpha>0)for(let ch=0;ch<3;ch++)cache.frame.data[k+ch]=(a*cache.previous[k+ch]+b*cache.current[k+ch])/alpha;
+    }
+    cache.ctx.putImageData(cache.frame,0,0);
+    const posed=projectBank(index,bw,bh);
+    for(const [x,y] of positions)paintSoftwareBank(w,layer,cache.canvas,posed,x-bw/2,y-bh/2,bw,bh);
   }
-  function paintSoftwareBank(w,layer,body,ox,oy,bw,bh){
-    const c=ctx2d, stream=w.stream;
+  const bankTones=Array.from({length:96},(_,i)=>{
+    const shade=i/95,warm=Math.min(1,shade*1.6),glow=smooth((shade-.54)/.46);
+    const tone=(a,b,c)=>Math.round(255*mix(mix(a,b,warm),c,glow));
+    return 'rgb('+tone(.49,.86,1)+','+tone(.36,.58,.88)+','+tone(.36,.44,.69)+')';
+  });
+  function paintSoftwareBank(w,layer,body,posed,ox,oy,bw,bh){
+    const c=ctx2d;
     c.drawImage(body,ox,oy,bw,bh);
-    const scale=Math.min(bw,bh*1.85)*mix(.80,.35,layer.spacing/100);
+    const scale=Math.min(bw,bh*1.85)*mix(.86,.42,layer.spacing/100);
     for(let i=0;i<w.count;i++){
-      const k=i*10, x=ox+stream[k]*bw,y=oy+stream[k+1]*bh,r=stream[k+3]*scale;
+      const k=i*poseStride,r=posed[k+3]*scale,shift=posed[k+2]*height*.022;
+      const x=ox+posed[k]*bw+look[0]*shift,y=oy+posed[k+1]*bh+look[1]*shift;
       if(x<-r||y<-r||x>width+r||y>height+r)continue;
-      const angle=stream[k+4]+.2*Math.sin(w.time*.4+stream[k+9]*6.28);
-      const ax=r*Math.cos(angle),ay=r*Math.sin(angle),thin=stream[k+5]*.52;
-      const lit=smooth((stream[k+6]-.2+(stream[k+8]-.5)*.13)/.6);
-      const facing=.5+.5*Math.sin(w.time*(.39+.26*stream[k+9])+stream[k+8]*53+angle*1.8);
-      const glint=facing**10*smooth((lit-.35)/.38), reflection=mix(lit,1,glint);
-      c.fillStyle='rgba('+Math.round(mix(136,255,reflection))+','+Math.round(mix(98,222,reflection))+','+Math.round(mix(99,184,reflection))+','+(.08+.15*stream[k+7]+.49*glint*stream[k+7])+')';
-      c.beginPath();c.moveTo(x+ax,y+ay);c.lineTo(x-.73*ax-ay*thin,y-.73*ay+ax*thin);
-      c.lineTo(x-.51*ax+ay*thin,y-.51*ay-ax*thin);c.fill();
+      const ax=r*posed[k+4],ay=r*posed[k+5];
+      for(let wing=0;wing<2;wing++){
+        const wx=r*posed[k+6+2*wing],wy=r*posed[k+7+2*wing],[back,front,breadth]=wingTips[wing];
+        c.fillStyle=bankTones[Math.round(posed[k+10+wing]*95)];c.globalAlpha=posed[k+12+wing];
+        c.beginPath();c.moveTo(x-.92*ax,y-.92*ay);c.lineTo(x+ax*back+wx,y+ay*back+wy);
+        c.lineTo(x+ax*front+wx*breadth,y+ay*front+wy*breadth);c.lineTo(x+ax,y+ay);c.fill();
+      }
     }
+    c.globalAlpha=1;
   }
   function softwareStars(c,galaxy){
     const angle=celestial*.0038, ca=Math.cos(angle),sa=Math.sin(angle),aspect=width/height;
@@ -597,7 +660,9 @@
       c.fillRect(x-Math.abs(ax)-Math.abs(bx),y-Math.abs(ay)-Math.abs(by),2*(Math.abs(ax)+Math.abs(bx)),2*(Math.abs(ay)+Math.abs(by)));
       const u=facets[k+6],v=facets[k+7],au=facets[k+14]-u,av=facets[k+15]-v,bu=facets[k+22]-u,bv=facets[k+23]-v;
       const det=au*bv-av*bu;
-      if(facets[k+4]<.76 && Math.abs(det)>.0001){
+      const surface=smooth((.93-facets[k+4])/.24);
+      if(surface>.001&&Math.abs(det)>.0001){
+        c.globalAlpha=facets[k+5]*surface;
         const a=(ax*bv-bx*av)/det,b=(ay*bv-by*av)/det,d=(by*au-ay*bu)/det,e=(bx*au-ax*bu)/det;
         c.transform(a,b,e,d,x-a*u-e*v,y-b*u-d*v);c.drawImage(copper,0,0,1,1);
         c.fillStyle=light<.58?'rgba(46,31,33,'+(.52-light*.65)+')':'rgba(255,228,193,'+(.10+.46*facets[k+3])+')';
@@ -613,7 +678,7 @@
   function frame(now){
     raf=0;if(forced.matches||document.hidden||host.hasAttribute('suspended'))return;
     const moving=moveAllowed()&&state.light.wind>0;
-    const interval=renderGL?1000/30:1000/16;
+    const interval=renderGL?1000/(location.hash==='#sky'?60:30):1000/24;
     if(dirty||!last||now-last>=interval-1){
       const dt=moving&&last?Math.min((now-last)/1000,.35)*state.light.wind/45:0;
       if(dt){

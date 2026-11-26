@@ -188,3 +188,42 @@ test('a close shard carries momentum into the gap and returns continuously to cl
   }
   assert.ok(contact && peak>.61 && rotation>Math.PI);
 });
+
+test('flakes in the lower bank curve and turn without snapping at a weather update',()=>{
+  const w=createWeather(banks[2]),dt=1/30,tracks=new Map();
+  let longestTurn=0,banking=0,checks=0;
+  for(let tick=0;tick<130;tick++){
+    w.advance(dt);
+    for(let i=0;i<w.count;i++){
+      const k=i*10,stream=w.stream;
+      if(stream[k+7]<.18||stream[k+9]<.55)continue;
+      const id=stream[k+8],x=stream[k],y=stream[k+1],heading=stream[k+4],roll=stream[k+5];
+      let t=tracks.get(id);
+      if(!t||t.tick!==tick-1)t={firstRoll:roll,firstHeading:heading,samples:0};
+      else{
+        const dx=(x-t.x)/dt,dy=(y-t.y)/dt;
+        assert.ok(Math.abs(heading-t.heading)<3*dt,'bounded yaw through flow reversals');
+        assert.ok(Math.abs(roll-t.roll)<4*dt,'continuous face rotation');
+        if(t.samples>1)assert.ok(Math.hypot(dx-t.dx,dy-t.dy)<.75*dt,'no velocity step as a fresh wind field arrives');
+        t.dx=dx;t.dy=dy;
+        longestTurn=Math.max(longestTurn,Math.abs(roll-t.firstRoll));
+        if(t.samples>60&&Math.abs(heading-t.firstHeading)>.45)banking++;
+        checks++;
+      }
+      Object.assign(t,{x,y,roll,heading,tick,samples:t.samples+1});tracks.set(id,t);
+    }
+  }
+  assert.ok(checks>1000&&longestTurn>Math.PI&&banking>100,'visible flakes roll and bank through sustained turns');
+  const before=w.stream.slice(0,w.count*10),phase=w.blend;
+  w.advance(0);assert.equal(w.blend,phase);assert.deepEqual(w.stream.subarray(0,w.count*10),before);
+});
+
+test('cloud shading has a continuous interpolation interval between staggered weather solves',()=>{
+  const all=banks.map(createWeather),versions=all.map(w=>w.version);
+  for(const w of all)w.advance(.09);
+  assert.deepEqual(all.map((w,i)=>w.version-versions[i]),[0,0,1]);
+  const low=all[2],phase=low.blend,frame=low.version;
+  low.advance(.04);assert.equal(low.version,frame);assert.ok(low.blend>phase&&low.blend<1);
+  const epoch=low.epoch;low.configure('cirrus',60,true);
+  assert.ok(low.epoch>epoch,'an editor change invalidates the previous optical frame');
+});
