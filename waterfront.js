@@ -7,26 +7,32 @@
   if(!canvas)return;
   const viewer=document.querySelector('#waterfront-view');
   const forced=matchMedia('(forced-colors:active)');
-  let model,painter,width=1,height=1,ratio=1,time=0,raf=0,last=0,active=false;
-  let route='',travel=-1.55,speed=0,reveal=0,revealSpeed=0;
+  const {lunar,createDaylight}=window.SunsetScene;
+  const daylight=createDaylight();
+  let sunlight=daylight(0);
+  let model,painter,width=1,height=1,ratio=1,time=Math.random()*900,raf=0,last=0,active=false;
+  let route='',travel=-1.55,speed=0,reveal=0;
   const marks={studio:0,planner:1,jobs:2};
+  // Select the scale and sightline together, like changing lenses at the quay.
+  const shots=[{zoom:1,yaw:0,horizon:0},{zoom:1.42,yaw:-.19,horizon:.07},
+    {zoom:1.65,yaw:.13,horizon:.035},{zoom:1.12,yaw:-.045,horizon:-.12}];
+  const flight=window.StudioFlight,pan=flight.createShotClock(shots);
+  let shot=shots[0],revealSpeed=0;
   const moving=()=>document.documentElement.dataset.uiMotion==='on';
-  const fluid=(x,velocity,target,dt,rate)=>{
-    const difference=x-target,k=velocity+rate*difference,decay=Math.exp(-rate*dt);
-    return [target+(difference+k*dt)*decay,(velocity-rate*k*dt)*decay];
-  };
   function camera(){
-    const passage=window.StudioFlight;
-    const aloft=passage?.active?1-passage.phase(.18,.92,passage.progress):0;
-    const glide=passage?.active?1-passage.phase(.24,1,passage.progress):0;
-    const x=travel*2.65-.85+1.15*Math.sin(time*.105)+.26*Math.sin(time*.247)-13.5*glide;
-    const focal=Math.min(Math.max(width*.95,height*.62),height*1.52);
-    const z=4.05+.86*x-(focal/height)*(4.74+1.69*reveal)+.34*Math.sin(time*.087+.22)-10*aloft;
-    const eye=3.16+.06*Math.sin(time*.15)+.16*reveal+27.5*aloft;
-    const yaw=-.025+.017*travel+.013*Math.sin(time*.082)+.032*glide;
+    const aloft=flight.active?1-flight.progress:0;
+    const x=travel*2.65-.85+.16*Math.sin(time*.033)-2.6*aloft;
+    const focal=Math.min(Math.max(width*.95,height*.62),height*1.52)*(1+(shot.zoom-1)*reveal);
+    const z=4.05+.86*x-(focal/height)*(4.2+1.69*reveal)+.09*Math.sin(time*.087+.22)-3.4*aloft;
+    // The paving is at -0.10 m. Settle at standing eye height above it.
+    const eye=1.57+9.144*aloft+.022*Math.sin(time*.14);
+    const yaw=-.025+.017*travel+.006*Math.sin(time*.047)+.105*aloft+shot.yaw*reveal;
     const framing=width/height<.85?.264:.296;
-    const level=passage?.active?passage.phase(.20,.50,passage.progress)*(1-passage.phase(.59,.99,passage.progress)):0;
-    return {x,z,eye,yaw,focal,aloft,horizon:framing+(.618-framing)*reveal+.16*level};
+    const settled=framing+(.60+shot.horizon-framing)*reveal;
+    // The gimbal starts skyward, levels as the far shore enters the frame,
+    // and then holds the horizon while the nearby railing rises into view.
+    const horizon=settled+(.96-settled)*flight.phase(.15,.95,aloft);
+    return {x,z,eye,yaw,focal,aloft,horizon};
   }
   const screenVS=`
     attribute vec2 aCorner;varying vec2 uv;
@@ -43,7 +49,8 @@
       return v;
     }`;
   const atmosphereFS=`
-    precision highp float;varying vec2 uv;uniform vec4 uLens;uniform float uTime;
+    precision highp float;varying vec2 uv;uniform vec4 uLens;uniform float uTime,uSunlight,uNight;
+    uniform vec3 uMoon;uniform vec2 uSize;uniform sampler2D uLunar;
     ${noise}
     void main(){
       float az=(uv.x-.5)*2./uLens.x+uLens.w;
@@ -59,6 +66,18 @@
       sky=mix(sky,vec3(.108,.106,.128)+ember*vec3(.135,.068,.038),vapour*.84);
       sky+=vec3(.067,.038,.022)*smoothstep(.46,.8,body)*(1.-vapour)*exp(-el*2.);
       sky=mix(sky,vec3(.137,.116,.132),.46*exp(-el*17.));
+      sky+=vec3(.16,.076,.024)*max(0.,uSunlight)*ember*(1.-.56*vapour);
+      sky=mix(sky,sky*vec3(.66,.85,1.18),max(0.,-uSunlight));
+      sky=mix(sky,sky*vec3(.27,.42,.70)+vec3(.006,.009,.024),uNight*.85);
+      if(uMoon.z>0.){
+        float horizon=(1.-uLens.z)*.5;
+        vec2 screen=vec2(uv.x,horizon-abs(1.-uv.y-horizon));
+        vec2 p=(screen-uMoon.xy)*uSize/uMoon.z;
+        if(dot(p,p)<1.){
+          vec4 moon=texture2D(uLunar,.5+.5*p);
+          sky=mix(sky,moon.rgb,moon.a*(1.-.43*vapour));
+        }
+      }
       gl_FragColor=vec4(sky,1.);
     }`;
   const geometryVS=`
@@ -166,6 +185,7 @@
       for(let i=0;i<gl.getProgramParameter(p,gl.ACTIVE_ATTRIBUTES);i++){const n=gl.getActiveAttrib(p,i).name;attribute[n]=gl.getAttribLocation(p,n);}
       return {p,uniform,attribute};
     }
+    const lunarTexture=lunar.texture(gl);
     const backdrop=program(screenVS,atmosphereFS),river=program(screenVS,riverFS),mesh=program(geometryVS,geometryFS),glint=program(glintVS,glintFS);
     function upload(data,stride){
       const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
@@ -230,6 +250,11 @@
         if(u.uTime)gl.uniform1f(u.uTime,t);
         if(u.uSize)gl.uniform2f(u.uSize,w,h);
       }
+      gl.useProgram(backdrop.p);gl.uniform1f(backdrop.uniform.uSunlight,sunlight);
+      lunarTexture();gl.uniform1i(backdrop.uniform.uLunar,3);
+      gl.uniform1f(backdrop.uniform.uNight,lunar.world.night);
+      const [mx,my,r]=lunar.disc(flight.active?flight.progress:1);
+      gl.uniform3f(backdrop.uniform.uMoon,mx,my,lunar.settings.visible?r*h:0);
       gl.useProgram(mesh.p);gl.uniform2f(mesh.uniform.uSpin,Math.cos(t*.061),Math.sin(t*.061));gl.uniform1f(mesh.uniform.uPixels,cam.focal*ratio*.62);
       gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.bindTexture(gl.TEXTURE_2D,null);gl.viewport(0,0,rw,rh);
       gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -312,6 +337,20 @@
       const h=cam.horizon*height,shift=width*(.13+.025*Math.sin(t*.055)+cam.yaw);
       c.drawImage(atmosphere,-shift,h-height,width*1.33,height);
       c.save();c.translate(0,2*h);c.scale(1,-1);c.drawImage(atmosphere,-shift,h-height,width*1.33,height);c.restore();
+      const glow=c.createLinearGradient(0,0,0,height);
+      const tint=sunlight>0?'233,149,84':'54,80,126';
+      glow.addColorStop(0,'transparent');
+      glow.addColorStop(cam.horizon,'rgba('+tint+','+Math.abs(sunlight)*.24+')');
+      glow.addColorStop(1,'transparent');
+      c.fillStyle=glow;c.fillRect(0,0,width,height);
+      c.fillStyle='rgba(9,17,37,'+lunar.world.night*.56+')';c.fillRect(0,0,width,height);
+      if(lunar.settings.visible){
+        const [mx,my,radius]=lunar.disc(flight.active?flight.progress:1);
+        const r=radius*height,x=mx*width-r,y=my*height;
+        const disc=lunar.sprite();
+        c.drawImage(disc,x,y-r,2*r,2*r);
+        c.save();c.translate(0,2*h);c.scale(1,-1);c.drawImage(disc,x,y-r,2*r,2*r);c.restore();
+      }
     }
     return (cam,t)=>{
       if(mirror.width!==Math.round(width*.55)||mirror.height!==Math.round(height*.55)){
@@ -372,14 +411,23 @@
   }
   function frame(now){
     raf=0;if(!active||!painter)return;
-    const animated=moving(),target=marks[route]??0,open=viewer.open?1:0;
+    const animated=moving(),target=marks[route]??0;
     if(!last||now-last>=1000/(window.StudioFlight?.active?60:30)-1||!animated){
       const dt=last?Math.min(.15,(now-last)/1000):0;
       if(animated){
-        time+=dt;[travel,speed]=fluid(travel,speed,target,dt,2.8);
-        [reveal,revealSpeed]=fluid(reveal,revealSpeed,open,dt,3.1);
-      }else{travel=target;reveal=open;speed=revealSpeed=0;}
-      painter(camera(),time);last=now;
+        shot=pan(dt,viewer.open);
+        time+=dt*.78;sunlight=daylight(dt);
+        [travel,speed]=flight.glide(travel,speed,target,dt,1.15);
+        [reveal,revealSpeed]=flight.glide(reveal,revealSpeed,Number(viewer.open),dt,1.35);
+      }else{travel=target;reveal=Number(viewer.open);speed=revealSpeed=0;}
+      const cam=camera();
+      lunar.tick(now,animated,host);
+      const {x,y,scale}=lunar.settings;
+      const azimuth=(x/100-.5)*1.13+.12+lunar.world.x;
+      const elevation=(.62-y/100-lunar.world.y)*.78+.07;
+      lunar.riverDisc=[.5+cam.focal/width*Math.tan(azimuth-cam.yaw),
+        cam.horizon-cam.focal/height*Math.tan(elevation),.016*scale/100*cam.focal/height];
+      painter(cam,time);last=now;
     }
     if(animated)raf=requestAnimationFrame(frame);
   }
@@ -389,7 +437,7 @@
     const visible=Object.hasOwn(marks,next)&&!document.hidden&&!host.hasAttribute('suspended')&&!forced.matches;
     if(!visible){cancelAnimationFrame(raf);raf=0;last=0;active=false;return;}
     if(!model)initialize();
-    if(!active&&!document.hidden&&route!==next){travel=marks[next]-(window.StudioFlight?.active?0:1.4);speed=0;}
+    if(!active&&route!==next){travel=marks[next];speed=0;}
     route=next;active=true;size();last=0;
     if(!raf)raf=requestAnimationFrame(frame);
   }

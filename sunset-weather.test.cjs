@@ -38,11 +38,14 @@ test('wind carries shards while dry air dissipates condensed water', () => {
   assert.ok(water(weather)>initialMass);
 });
 
-test('an automatic bank blends into the next genus and a pinned bank retains its profile', () => {
-  const bank=banks[0], weather=createWeather(bank), period=54+bank.seed%13;
-  const initial=weather.profile.lift;
-  for(let t=0;t<period*.85;t+=.24)weather.advance(.24);
-  assert.ok(weather.profile.lift>initial && weather.profile.lift<types.cumulonimbus.lift);
+test('long weather passages hold, dissolve continuously, and select a new genus at the boundary', () => {
+  const passage=sceneWindow.SunsetScene.createPassages(['cumulus','cirrus','stratus'],()=>.5,105,205);
+  passage.advance(75);assert.equal(passage.blend,0);
+  passage.advance(50);assert.ok(passage.blend>0&&passage.blend<1);
+  const next=passage.to;
+  passage.advance(30);assert.equal(passage.from,next);assert.notEqual(passage.to,next);
+  assert.equal(passage.blend,0);
+  const weather=createWeather(banks[0]);
   weather.configure('stratus',55);
   for(let i=0;i<8;i++)weather.advance(.24);
   assert.equal(weather.profile.shear, types.stratus.shear);

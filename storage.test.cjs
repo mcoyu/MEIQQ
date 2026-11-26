@@ -1,5 +1,32 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const storage=require('./storage.js'),{database}=require('./storage-test-host.cjs'),{setup}=require('./ui-test-host.cjs');
+test('factory reset clears app storage, preserves unrelated data, and rejects stale writes',async()=>{
+  const db=database(),ui=setup([['unrelated','keep'],['qq-studio-setup-mode','analyst']],{indexedDB:db.factory});
+  const read=code=>vm.runInContext(code,ui.ctx);
+  await read('Promise.all([appReady,studioReady,jobsReady,plannerReady])');
+  ui.click('reset-app');
+  assert.match(ui.elements['#modal'].innerHTML,/Erase progress and reset/);
+  ui.click('close');
+  assert.equal(ui.storage.get('qq-studio-setup-mode'),'analyst');
+  const keys=read('[KEY,QQStudio.STORAGE_KEY,QQJobs.STORAGE_KEY,QQPlanner.STORAGE_KEY]');
+  const stale=await storage.connect(db.factory,keys[0]);
+  await stale.write('old progress');
+  ui.storage.set(keys[0],'old fallback');
+  const session=new Map([['meiqq-last-page','map'],['unrelated','keep']]);
+  const browser=ui.ctx.window;
+  let hash,reloaded=false;
+  browser.location={reload(){reloaded=true;}};
+  browser.history={replaceState(_state,_title,url){hash=url;}};
+  browser.sessionStorage={getItem:key=>session.get(key)??null,removeItem:key=>session.delete(key)};
+  ui.ctx.localStorage.removeItem=key=>ui.storage.delete(key);
+  ui.click('reset-app');
+  await read('resetApp()');
+  assert.equal(hash,'#sky');assert.equal(reloaded,true);
+  assert.deepEqual([...ui.storage],[['unrelated','keep']]);
+  assert.deepEqual([...session],[['unrelated','keep']]);
+  for(const key of keys)assert.equal((await storage.connect(db.factory,key)).raw,undefined);
+  await assert.rejects(stale.write('resurrected progress'),{code:'STALE_WORKSPACE'});
+});
 test('failed atomic writes retain the previous committed workspace',async()=>{
   const db=database(),backend=await storage.connect(db.factory,'test');await backend.write('old');
   db.options.failWrites=true;await assert.rejects(backend.write('new'),/Quota/);assert.equal(db.records.get('test').text,'old');

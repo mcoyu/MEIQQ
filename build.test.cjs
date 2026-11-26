@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ui-test-host.cjs');
 test('distributed HTML exactly matches the source modules and has no external assets',()=>{
   let expected=fs.readFileSync('index.template.html','utf8');
-  for(const [tag,file]of [['STYLE','style.css'],['CHINESE','zh-CN.js'],['I18N','i18n.js'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['STUDIO_FLIGHT','studio-flight.js'],['APP','app.js'],['SUNSET_SCENE','sunset-scene.js'],['SHARD_FLIGHT','shard-flight.js'],['SKY_CAMERA','sky-camera.js'],['GALAXY','galaxy.js'],['WATERFRONT_MODEL','waterfront-model.js'],['WATERFRONT','waterfront.js'],['SKY_EDITOR','sky-editor.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
+  for(const [tag,file]of [['STYLE','style.css'],['CHINESE','zh-CN.js'],['I18N','i18n.js'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['STUDIO_FLIGHT','studio-flight.js'],['APP','app.js'],['SUNSET_SCENE','sunset-scene.js'],['SHARD_FLIGHT','shard-flight.js'],['SKY_CAMERA','sky-camera.js'],['LUNAR_SKY','lunar-sky.js'],['GALAXY','galaxy.js'],['WATERFRONT_MODEL','waterfront-model.js'],['WATERFRONT','waterfront.js'],['SKY_EDITOR','sky-editor.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
   let theme=fs.readFileSync('themes.css','utf8');
   for(const sector of ['food','retail','services']){
     const file='assets/client-menus/'+sector+'.jpg';
@@ -84,7 +84,7 @@ test('packaged HTML includes preset evidence and preserves composed values',()=>
   assert.equal(JSON.stringify(exported.draft),expected);
 });
 
-test('the permanent backdrop switches between Studio waterfront and simulator sky and remembers motion', async () => {
+test('the permanent backdrop switches between Studio waterfront and simulator sky and uses device motion', async () => {
   const contents = fs.readFileSync('MEIQQ.html','utf8');
   const sky = contents.match(/<body><aero-shards aria-hidden="true">([\s\S]*?)<\/aero-shards><div id="root">/);
   assert.ok(sky);
@@ -93,8 +93,14 @@ test('the permanent backdrop switches between Studio waterfront and simulator sk
   assert.match(sky[1], /class="studio-waterfront"/);
   assert.doesNotMatch(sky[1], /<img|<picture/);
   assert.doesNotMatch(contents,/function loadAeroShardsGPU\(|function mountAeroShards\(/);
-  const ui = setup(undefined,{built:true});
-  const settings = value => ui.handlers.change({target:{id:'shard-motion',value}});
+  const ui = setup([['qq-studio-appearance','dark'],['qq-studio-shard-motion','still']],{built:true});
+  assert.equal(ui.ctx.document.documentElement.dataset.theme,'terminal');
+  assert.equal(ui.ctx.document.documentElement.dataset.uiMotion,'on');
+  const home=vm.runInContext('skyHome()',ui.ctx);
+  assert.match(home,/<h2>Studio<\/h2>[\s\S]*<h2>Simulator<\/h2>/);
+  const header=vm.runInContext('skyHeader()',ui.ctx);
+  assert.doesNotMatch(header,/id="(?:appearance|shard-motion)"/);
+  assert.match(header,/data-edit-sky/);
   const host = ui.elements['aero-shards'];
   let suspended;
   host.toggleAttribute = (key,value) => {if(key==='suspended') suspended=value;};
@@ -103,11 +109,6 @@ test('the permanent backdrop switches between Studio waterfront and simulator sk
     ui.handlers.visibilitychange();
     assert.equal(suspended,hidden);
   }
-  let applied;
-  host.setAttribute = (key,value) => {if (key==='motion') applied=value;};
-  settings('animate');
-  assert.equal(applied,'animate');
-  assert.equal(ui.storage.get('qq-studio-shard-motion'),'animate');
   await vm.runInContext('Promise.all([studioReady,jobsReady,plannerReady])',ui.ctx);
   const attributes=new Map();
   host.getAttribute=key=>attributes.get(key)??null;
@@ -118,11 +119,8 @@ test('the permanent backdrop switches between Studio waterfront and simulator sk
     assert.equal(host.getAttribute('waterfront'),view==='setup'?null:view);
     assert.equal(ui.elements['#root'].innerHTML.includes('data-action="view-waterfront"'),view!=='setup');
     assert.doesNotMatch(ui.elements['#root'].innerHTML,/<aero-shards|class="studio-waterfront"/);
-    assert.match(ui.elements['#root'].innerHTML,/<option value="animate" selected>Animate<\/option>/);
+    assert.doesNotMatch(ui.elements['#root'].innerHTML,/id="(?:appearance|shard-motion)"/);
   }
-  settings('unsupported');
-  assert.equal(applied,'animate');
-  settings('still');
-  const restored=setup(ui.storage,{built:true});
-  assert.match(restored.elements['#root'].innerHTML,/<option value="still" selected>Still<\/option>/);
+  vm.runInContext('applyShardMotion()',ui.ctx);
+  assert.equal(host.getAttribute('motion'),'system');
 });

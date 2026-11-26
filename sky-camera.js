@@ -39,7 +39,9 @@
   function createSkyCamera(initial){
     let position=stops[initial]??0,target=position,velocity=0,elapsed=0,duration=0,start=position,entryVelocity=0;
     let aspect=1,width=1,height=1;
-    const lens=1.04,pose=new Float64Array(6),axes=new Float32Array(9);
+    const wideLens=1.04;
+    let lens=wideLens;
+    const pose=new Float64Array(6),axes=new Float32Array(9);
     let shortcut=null;
     function sampleMark(p,out){
       const i=Math.max(0,marks.findIndex((m,j)=>j>0&&m[0]>=p)-1),a=marks[i],b=marks[i+1];
@@ -57,8 +59,10 @@
         out[1]-=.10*bank;out[2]+=.065*bank;out[4]-=.018*bank;out[5]-=.66*bank;
       }
     }
-    function aim(w,h,descent){
+    function aim(w,h,descent,shot){
       width=w;height=h;aspect=w/h;samplePose(pose);
+      lens=wideLens/(shot?.zoom??1);
+      if(shot){pose[0]+=shot.track??0;pose[1]-=shot.lift??0;pose[3]+=shot.x;pose[4]+=shot.y;}
       if(descent){
         // Fly toward the actual lower bank. Once inside its shoulder, cross
         // beneath it so the near edge sweeps up while the distant sky barely turns.
@@ -88,7 +92,7 @@
       start=position;target=to;elapsed=0;entryVelocity=velocity;
       const distance=Math.abs(to-start);
       const crossesTwilight=Math.min(start,to)<2&&Math.max(start,to)>1;
-      duration=Math.min(shortcut?1.85:2.75,.46+.72*Math.sqrt(distance)+(crossesTwilight?.92:0));
+      duration=crossesTwilight?7.8:Math.min(5.4,2.4+1.25*Math.sqrt(distance));
       // Keep the current velocity if a nearer mark is selected while in flight.
       if(velocity*(to-start)>0)duration=Math.min(duration,2.6*distance/Math.abs(velocity));
     }
@@ -104,29 +108,29 @@
     // This homography projects a world plane straight into clip space, including
     // the perspective divide. Cloud bodies and their copper parcels share it.
     function plane(depth){
-      const k=depth*lens/height,X=-width*.5*k-pose[0],Y=-height*.5*k-pose[1],Z=depth-pose[2];
+      const k=depth*wideLens/height,X=-width*.5*k-pose[0],Y=-height*.5*k-pose[1],Z=depth-pose[2];
       const sx=2/(aspect*lens),sy=-2/lens;
       return [k*axes[0]*sx,k*axes[3]*sy,k*axes[6],k*axes[1]*sx,k*axes[4]*sy,k*axes[7],
         (X*axes[0]+Y*axes[1]+Z*axes[2])*sx,(X*axes[3]+Y*axes[4]+Z*axes[5])*sy,X*axes[6]+Y*axes[7]+Z*axes[8]];
     }
     function project(x,y,depth=Infinity){
       const k=Number.isFinite(depth)?1/depth:0;
-      const X=(x-.5)*aspect*lens-pose[0]*k,Y=(y-.5)*lens-pose[1]*k,Z=1-pose[2]*k;
+      const X=(x-.5)*aspect*wideLens-pose[0]*k,Y=(y-.5)*wideLens-pose[1]*k,Z=1-pose[2]*k;
       const z=X*axes[6]+Y*axes[7]+Z*axes[8],scale=1/Math.max(.025,z);
       return [width*.5+height*(X*axes[0]+Y*axes[1]+Z*axes[2])*scale/lens,
-        height*.5+height*(X*axes[3]+Y*axes[4]+Z*axes[5])*scale/lens,scale];
+        height*.5+height*(X*axes[3]+Y*axes[4]+Z*axes[5])*scale/lens,scale*wideLens/lens];
     }
     function unproject(x,y,depth=Infinity){
       const u=(x-.5)*aspect*lens,v=(y-.5)*lens,k=Number.isFinite(depth)?1/depth:0;
       const dx=u*axes[0]+v*axes[3]+axes[6],dy=u*axes[1]+v*axes[4]+axes[7],dz=u*axes[2]+v*axes[5]+axes[8];
       const scale=(1-pose[2]*k)/Math.max(.10,dz);
-      return [.5+(pose[0]*k+dx*scale)/(aspect*lens),.5+(pose[1]*k+dy*scale)/lens];
+      return [.5+(pose[0]*k+dx*scale)/(aspect*wideLens),.5+(pose[1]*k+dy*scale)/wideLens];
     }
     function coverage(depth){
       const xs=[unproject(0,0,depth)[0],unproject(1,0,depth)[0],unproject(0,1,depth)[0],unproject(1,1,depth)[0]];
       return [Math.min(0,...xs)-.025,Math.max(1,...xs)+.025];
     }
-    return {aim,go,advance,project,unproject,plane,coverage,axes,lens,get position(){return position;},get moving(){return duration>0;}};
+    return {aim,go,advance,project,unproject,plane,coverage,axes,get lens(){return lens;},get position(){return position;},get moving(){return duration>0;}};
   }
   window.SunsetScene.createSkyCamera=createSkyCamera;
 })();

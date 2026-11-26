@@ -17,17 +17,15 @@ test('invalid backup is rejected before touching the active workspace',()=>{cons
 test('an unreadable browser save is preserved rather than overwritten',()=>{const bad='{broken';const {storage,elements}=setup([['qq-studio-lab-v1',bad]]);assert.equal(storage.get('qq-studio-lab-v1'),bad);assert.match(elements['#root'].innerHTML,/Saved workspace needs recovery/);assert.match(elements['#root'].innerHTML,/changes here will not save/);});
 test('a persisted draft survives reload without becoming applied settings',()=>{const {ctx,storage}=setup();vm.runInContext('draft.ownerHours=22;save()',ctx);const next=setup([...storage]);assert.equal(vm.runInContext('draft.ownerHours',next.ctx),22);assert.equal(vm.runInContext('state.config.ownerHours',next.ctx),15);});
 test('service shares must total 100 before applying; balancing fixes them',()=>{const {ctx,click}=setup();vm.runInContext('draft.services[0].weight=10',ctx);assert.match(vm.runInContext('draftError()',ctx),/100%/);click('balance');assert.equal(vm.runInContext('draftError()',ctx),'');});
-test('Terminal replaces Light by default, and a chosen Dark theme persists independently of scenario data',()=>{
- const key='qq-studio-appearance';
+test('fresh and returning workspaces open in Terminal with their scenario data',()=>{
  const fresh=setup();
  assert.equal(fresh.ctx.document.documentElement.dataset.theme,'terminal');
- const {ctx,handlers,storage,elements}=setup([[key,'light']]);
- assert.equal(ctx.document.documentElement.dataset.theme,'terminal');
- assert.equal(storage.get(key),'terminal');
- const options=elements['#root'].innerHTML.match(/<select id="appearance"[^>]*>(.*?)<\/select>/)[1];
- assert.equal(options,'<option value="terminal" selected>Terminal</option><option value="dark">Dark</option>');
- handlers.change({target:{id:'appearance',value:'dark',dataset:{}}});
- assert.equal(storage.get(key),'dark');
- assert.equal(vm.runInContext('state.cash',ctx),6000);
- assert.equal(setup([...storage]).ctx.document.documentElement.dataset.theme,'dark');
+ vm.runInContext('draft.ownerHours=22;save()',fresh.ctx);
+ for(const previous of ['light','dark']){
+  const restored=setup([...fresh.storage,['qq-studio-appearance',previous]]);
+  assert.equal(restored.ctx.document.documentElement.dataset.theme,'terminal');
+  assert.doesNotMatch(restored.elements['#root'].innerHTML,/id="appearance"/);
+  assert.equal(vm.runInContext('draft.ownerHours',restored.ctx),22);
+  assert.equal(vm.runInContext('state.cash',restored.ctx),6000);
+ }
 });

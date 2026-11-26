@@ -223,8 +223,8 @@ test('the app home and setup chapters have restorable addresses, and browser Bac
  const ui=setup(),url=new URL('file:///MEIQQ.html#'),entries=[url.href],session=new Map();
  ui.ctx.window.location=url;
  ui.ctx.window.history={
-  pushState(_state,_title,hash){url.hash=hash;entries.push(url.href);},
-  replaceState(_state,_title,hash){url.hash=hash;entries[entries.length-1]=url.href;}
+  pushState(state,_title,hash){this.state=state;url.hash=hash;entries.push(url.href);},
+  replaceState(state,_title,hash){this.state=state;url.hash=hash;entries[entries.length-1]=url.href;}
  };
  ui.ctx.window.sessionStorage={setItem:(k,v)=>session.set(k,v),getItem:k=>session.get(k)};
  await read(ui,'appReady');
@@ -237,15 +237,47 @@ test('the app home and setup chapters have restorable addresses, and browser Bac
  read(ui,"draft.services[0].name='Local design';save()");
  ui.click('setup-step',{step:'2'});assert.equal(url.hash,'#setup/edit/people');
  const saved=read(ui,'JSON.stringify(currentWorkspace())');
+ const peopleEntry=ui.ctx.window.history.state;
+ assert.deepEqual([...peopleEntry.workspaceTrail],['sky','setup/style','setup/edit/offers','setup/edit/people']);
  for(const page of ['#sky','#jobs','#planner','#studio','#setup/style'])visit(page);
  ui.click('enter-setup',{mode:'analyst'});
  assert.equal(url.hash,'#setup/edit/people');assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),saved);
  visit('#setup');assert.equal(url.hash,'#setup/edit/people');
  assert.equal(read(ui,'archives.length'),0);assert.equal(read(ui,'draft.services[0].name'),'Local design');
+ ui.ctx.window.history.state=peopleEntry;
+ visit('#setup/edit/people');
+ const path=read(ui,'workspaceBreadcrumb()');
+ assert.match(path,/Home<\/a>.*Choose your setup style<\/a>.*Offers<\/a>.*aria-current="page">People/);
+ assert.doesNotMatch(path,/Demand|Jobs/);
+ ui.handlers.click({preventDefault(){},target:{closest:()=>({dataset:{action:'breadcrumb-stop',index:'2'}})}});
+ assert.equal(url.hash,'#setup/edit/offers');
+ assert.deepEqual([...ui.ctx.window.history.state.workspaceTrail],['sky','setup/style','setup/edit/offers']);
  visit('#setup/new/business');ui.click('enter-setup',{mode:'guided'});
  assert.equal(read(ui,'archives.length'),1);assert.equal(read(ui,'archives[0].workspace.draft.services[0].name'),'Local design');
  assert.equal(read(ui,'draft.services[0].name'),'');
  const reopened=setup([...ui.storage]);assert.equal(read(reopened,'setupOrigin'),'business');
+});
+
+test('return visits shorten the breadcrumb and old history entries restore a clean path',async()=>{
+ const ui=setup(),url=new URL('http://localhost/MEIQQ.html#sky');
+ const history={state:{workspaceTrail:['sky','studio','sky','setup','sky','studio','sky']},
+  replaceState(state,_title,hash){this.state=state;if(hash!==undefined)url.hash=hash;},
+  pushState(state,title,hash){this.replaceState(state,title,hash);}
+ };
+ Object.assign(ui.ctx.window,{location:url,history});
+ await read(ui,'appReady');
+ const trail=()=>Array.from(history.state.workspaceTrail);
+ const visit=(route,entry=null)=>{history.state=entry;url.hash=route;read(ui,'readWorkspaceRoute()');};
+ assert.deepEqual(trail(),['sky']);
+ assert.match(read(ui,'workspaceBreadcrumb()'),/aria-current="page">Home/);
+ visit('studio');visit('planner');
+ const plannerEntry=history.state;
+ assert.deepEqual(trail(),['sky','studio','planner']);
+ visit('studio');assert.deepEqual(trail(),['sky','studio']);
+ visit('sky');assert.deepEqual(trail(),['sky']);
+ visit('planner',plannerEntry);assert.deepEqual(trail(),['sky','studio','planner']);
+ visit('sky/view');assert.match(read(ui,'workspaceBreadcrumb()'),/aria-current="page">Sky view/);
+ visit('sky');assert.deepEqual(trail(),['sky']);
 });
 
 test('every workspace uses the shared navigator, identifies its location and offers its own backup', async () => {
@@ -257,8 +289,17 @@ test('every workspace uses the shared navigator, identifies its location and off
     ui.ctx.testRoute=route;
     const nav=read(ui,'view=testRoute;render();workspaceNavigator()');
     const html=ui.elements['#root'].innerHTML;
+    assert.match(nav,/<h3>Studio<\/h3>[\s\S]*<h3>Simulator<\/h3>/);
+    assert.equal((nav.match(/href="#sky"/g)||[]).length,1);
+    if(route==='sky')assert.match(nav,/href="#sky" aria-current="page"/);
     assert.match(html,/<header class="sky-header">/);
     assert.equal((html.match(/id="navigator-trigger"/g)||[]).length,1);
+    assert.match(html,/<div class="sky-identity">[\s\S]*?id="navigator-trigger"[\s\S]*?<\/div><div class="sky-tools">/);
+    const path=html.match(/<nav class="workspace-breadcrumb"[^>]*>(.*?)<\/nav>/)[1];
+    assert.equal((path.match(/aria-current="page"/g)||[]).length,1);
+    if(route==='planner')assert.match(path,/aria-current="page">Planner/);
+    if(route==='finances')assert.match(path,/aria-current="page">Scenario results/);
+    if(route==='setup')assert.match(path,/aria-current="page">Offers/);
     assert.doesNotMatch(html,/<aside class="sidebar"|data-action="mobile-nav"/);
     for(const id of ['sky',...routes])assert.ok(nav.includes('href="#'+id+'"'),id+' from '+route);
     if(routes.includes(route)){
@@ -270,6 +311,29 @@ test('every workspace uses the shared navigator, identifies its location and off
       assert.ok(nav.includes('data-action="'+action+'"'),route+' '+action);
     }
   }
+});
+
+test('hover opens the shared navigator only while the mouse stays on the trigger',()=>{
+ const ui=setup();
+ ui.drainTimers();
+ const dialog=ui.elements['#workspace-navigator'];
+ let opens=0,hovered=false;
+ dialog.showModal=()=>{opens++;dialog.open=true;};
+ const target={id:'navigator-trigger',isConnected:true,matches:()=>hovered};
+ ui.handlers.pointerenter({pointerType:'mouse',target});
+ ui.drainTimers();
+ assert.equal(opens,0);
+ hovered=true;
+ ui.handlers.pointerenter({pointerType:'touch',target});
+ ui.drainTimers();
+ assert.equal(opens,0);
+ ui.handlers.pointerenter({pointerType:'mouse',target});
+ ui.handlers.pointerleave({pointerType:'mouse',target});
+ ui.drainTimers();
+ assert.equal(opens,0);
+ ui.handlers.pointerenter({pointerType:'mouse',target});
+ ui.drainTimers();
+ assert.equal(opens,1);
 });
 
 test('starting with the default business exposes the first offer and links missing groups to their fields',()=>{

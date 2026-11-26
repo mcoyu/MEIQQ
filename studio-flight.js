@@ -13,13 +13,39 @@
   }
   const state={active:false,progress:0,sequence:0,phase};
   let previous=null,previousStage='home',goal=0,velocity=0,raf=0,last=0,departure=null;
+  // Exact integration of a critically damped spring. Retargeting preserves
+  // velocity, even if another route is selected halfway through the move.
+  function glide(position,velocity,target,dt,rate){
+    const offset=position-target,impulse=velocity+rate*offset,decay=Math.exp(-rate*dt);
+    return [target+(offset+impulse*dt)*decay,(velocity-impulse*rate*dt)*decay];
+  }
+  state.glide=glide;
+  state.createShotClock=shots=>{
+    let remaining=45+Math.random()*40,index=0;
+    const pose={...shots[0]},keys=Object.keys(pose),speeds=keys.map(()=>0);
+    return (dt,watching)=>{
+      if(watching&&!state.active){
+        remaining-=dt;
+        if(remaining<=0){
+          index=(index+1+Math.floor(Math.random()*(shots.length-1)))%shots.length;
+          remaining=55+Math.random()*70;
+        }
+      }
+      const next=shots[watching?index:0];
+      for(let i=0;i<keys.length;i++){
+        const key=keys[i];
+        [pose[key],speeds[i]]=glide(pose[key],speeds[i],next[key],dt,.48);
+      }
+      return pose;
+    };
+  };
   function presentFrame(){
     const p=state.progress;
-    const ui=goal?phase(.57,.97,p):1-phase(0,.34,p);
+    const ui=goal?phase(.02,.17,p):1-phase(.82,.98,p);
     root.style.setProperty('--studio-shell-visibility',String(ui));
     root.style.setProperty('--studio-shell-lift',(goal?17:-10)*(1-ui)+'px');
-    host.style.setProperty('--sky-bank-visibility',String(1-phase(.58,.83,p)));
-    host.style.setProperty('--sky-ridge-visibility',String(1-phase(.08,.36,p)));
+    host.style.setProperty('--sky-bank-visibility',String(1-phase(.46,.86,p)));
+    host.style.setProperty('--sky-ridge-visibility',String(1-phase(.10,.42,p)));
     root.toggleAttribute('data-flight-revealing',ui<.15);
   }
   function settle(){
@@ -37,11 +63,9 @@
     // Integrate the directed speed so Back or Forward turns from the current
     // position, including when either renderer is using software painting.
     const dt=last?Math.max(0,(now-last)/1000):0;last=now;
-    const desired=goal?1/2.95:-1/2.55,decay=Math.exp(-dt*15);
-    state.progress=Math.max(0,Math.min(1,state.progress+desired*dt+(velocity-desired)*(1-decay)/15));
-    velocity=desired+(velocity-desired)*decay;
+    [state.progress,velocity]=glide(state.progress,velocity,goal,dt,.92);
     presentFrame();
-    if(state.progress===goal&&dt>0){settle();return;}
+    if(Math.abs(state.progress-goal)<.001&&Math.abs(velocity)<.001){settle();return;}
     raf=requestAnimationFrame(tick);
   }
   function retireWorkspace(){
@@ -64,8 +88,9 @@
     exit.finished.then(()=>shell.remove(),()=>shell.remove());
   }
   state.route=(view,stage)=>{
-    const from=previous,fromStage=previousStage;previous=view;previousStage=stage;
-    if(from===view||from!==null&&isStudio(from)===isStudio(view)){
+    const from=previous,fromStage=previousStage;previous=view;previousStage=stage;state.view=view;
+    if(from===view&&stage===fromStage)return;
+    if(from!==null&&isStudio(from)===isStudio(view)){
       if(state.active){
         if(isStudio(view))host.setAttribute('studio-flight',view);
         else state.skyStage=stage;
@@ -96,7 +121,8 @@
   document.addEventListener('pointerdown',e=>{
     if(state.active&&!e.target.closest?.('a[href^="#"]'))settle();
   },true);
-  reducedColors.addEventListener('change',()=>{if(!enabled())settle();});
-  new MutationObserver(()=>{if(!enabled())settle();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-ui-motion']});
+  function motionChanged(){if(!enabled())settle();}
+  reducedColors.addEventListener('change',motionChanged);
+  new MutationObserver(motionChanged).observe(document.documentElement,{attributes:true,attributeFilter:['data-ui-motion']});
   window.StudioFlight=state;
 })();

@@ -1,5 +1,5 @@
 /* Sunset glass, oxidized copper and cream lettering share an incidence of
-   warm light from the upper left. The cool appearance deepens the same dusk. */
+   warm light from the upper left. */
 :root[data-theme] {
   color-scheme:dark;--paper:#191d21;--surface:#27292b;--raised:#333438;--ink:#f6eee3;
   --muted:#c0b9b3;--line:#585451;--nav:#1a1e22;--nav-text:#d6d1ca;--accent:#f2bd9b;
@@ -8,10 +8,6 @@
   --shadow:0 8px 28px #10111738;--title-font:Baskervville,Baskerville,"Iowan Old Style",Georgia,serif;
   --ui-font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
   font-family:var(--ui-font);font-variant-numeric:tabular-nums;
-}
-:root[data-theme="dark"] {
-  --paper:#151c25;--surface:#232e38;--raised:#2d3943;--line:#465660;
-  --nav:#15202a;--nav-text:#d0dadd;--muted:#b6c3c9;--selected:#364447;--accent:#efc2aa;
 }
 /* The sky and horizon are drawn from the editable scene model. */
 body {isolation:isolate; background:var(--paper)}
@@ -97,7 +93,6 @@ body:has(#sky-editor[open]) aero-shards::after {display:none}
   color:#27150e; border-radius:0; clip-path:polygon(0 0,76% 0,100% 23%,100% 100%,20% 100%,0 80%);
 }
 :root[data-theme] .navbutton.active {box-shadow:inset 3px 0 #e5a378}
-.motion-picker select {max-width:100%}
 @media (max-width:780px) {
   .workspace .workspace-heading {min-height:45px; margin-bottom:14px}
   .workspace .workspace-heading h1 {font-size:clamp(22px,5.5vw,28px)}
@@ -310,8 +305,12 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
 .sky-identity,.sky-trail,.editor-trail {display:flex;flex-direction:row;align-items:center;gap:11px;flex-wrap:wrap}
 .sky-identity {min-height:38px;color:#fff2df;text-shadow:0 1px 10px #10182399}
 .sky-identity .sky-wordmark {font:500 22px/1 var(--title-font);letter-spacing:.06em;color:#fff2df}
-.sky-identity>a,.sky-identity>b {color:inherit;text-decoration:none;font:500 13px var(--ui-font)}
-.sky-identity>span[aria-hidden],.sky-trail>span,.editor-trail>span {opacity:.6}
+.sky-identity>a,.workspace-breadcrumb a {color:inherit;text-decoration:none;font:500 13px var(--ui-font)}
+.workspace-breadcrumb,.breadcrumb-current {display:flex;flex-direction:row;align-items:center;gap:8px;font:500 13px var(--ui-font)}
+.workspace-breadcrumb {min-width:0;overflow:auto;white-space:nowrap;scrollbar-width:thin;padding-block:3px}
+.workspace-breadcrumb a {color:var(--muted);flex:none}
+.sky-identity .navigator-trigger {flex:none}
+.breadcrumb-separator,.sky-trail>span,.editor-trail>span {opacity:.6}
 .sky-preferences {position:relative}
 .sky-preferences summary {
   list-style:none;cursor:pointer;background:#212a32c4;border:1px solid #d9c4af66;border-radius:4px;
@@ -339,7 +338,8 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
   font:600 12px var(--ui-font);text-decoration:none;
 }
 .setup-story .scene-action.primary {background:linear-gradient(112deg,#f6d5b5,#e4ae8d);border-color:#ebc5a6;color:#30231f}
-.setup-story .scene-action.primary::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
+.setup-story .studio-destinations .scene-action {background:transparent;border-color:#ebc5a6;color:#f6d5b5}
+.setup-story :is(.scene-action.primary,.studio-destinations .scene-action)::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
 .scene-action:hover {filter:brightness(1.12)}
 .studio-destinations {display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin-top:auto}
 .sky-resume {display:flex;align-items:baseline;gap:8px 18px;flex-wrap:wrap;margin-top:clamp(20px,3vh,36px);font-size:13px}
@@ -389,20 +389,20 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
   background:linear-gradient(135deg,#303235f2,#25292cf7);border-color:#d9bda650;
 }
 .sky-tools {display:flex;align-items:flex-start;gap:8px}
-.sky-tools .navigator-trigger,.sky-tools .sky-preferences summary {
+.sky-header .navigator-trigger,.sky-tools .sky-preferences summary {
   display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;border-radius:5px;
   font:550 13px/1.2 var(--ui-font);padding:0 13px;color:#f6eadb;
 }
-.sky-tools .navigator-trigger {background:#2b303aeb;border:1px solid #e3be937a}
-.sky-tools .icon {width:16px;height:16px}
+.sky-header .navigator-trigger {background:#2b303aeb;border:1px solid #e3be937a}
+.sky-header .navigator-trigger .icon,.sky-tools .icon {width:16px;height:16px}
 .sky-tools .sky-preferences summary {background:#17202bb8;border-color:#bbc6d33d}
-.sky-tools :is(.navigator-trigger,.sky-preferences summary):hover {border-color:#e7c2a1;background:#303844}
+.sky-header :is(.navigator-trigger,.sky-preferences summary):hover {border-color:#e7c2a1;background:#303844}
 #workspace-navigator {
   width:min(590px,calc(100vw - 40px));padding:0;margin:auto;max-height:calc(100dvh - 48px);overflow:hidden;
-  color:var(--ink);background:linear-gradient(145deg,#242c36,#1b2028 59%,#1a1d24);
+  color:var(--ink);background:#22262c;
   border:1px solid #acb3c14a;border-radius:12px;box-shadow:0 24px 100px #0308129c,0 1px 0 #f4ddc51a inset;
 }
-#workspace-navigator::backdrop {background:#070b14a3;backdrop-filter:blur(3px)}
+#workspace-navigator::backdrop {background:#070b147d}
 @media(min-width:601px) {html {scrollbar-gutter:stable}}
 html:has(#workspace-navigator[open]) {overflow:hidden}
 .navigator-shell {display:flex;flex-direction:column;max-height:calc(100dvh - 52px);font-family:var(--ui-font)}
@@ -410,45 +410,35 @@ html:has(#workspace-navigator[open]) {overflow:hidden}
 .navigator-heading h2 {margin:0;font:400 35px/1.1 var(--title-font);letter-spacing:-.04em;color:#fff1df;outline:0}
 .navigator-close {width:44px;height:44px;padding:0;background:transparent;color:#e5dace;border:1px solid #b5b8c03d;border-radius:50%}
 .navigator-body {min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 25px 19px;scroll-padding:10px}
-.navigator-current {display:flex;align-items:center;text-align:start;gap:13px;width:100%;padding:13px 16px;min-height:76px;
-  border:1px solid #e7bd8e4a;border-radius:6px;background:linear-gradient(108deg,#53423a99,#323234 68%,#2f3035);color:#f4e5d3}
-.navigator-current>.icon {margin-inline-start:auto;flex:none;color:#edc5a1}
-.navigator-current-icon {display:grid;place-items:center;width:40px;height:40px;border:1px solid #d8b39350;border-radius:8px;color:#f4c6a1;background:#dac1a00a;flex:none}
-.navigator-location {display:grid;gap:3px;min-width:0}
-.navigator-location small,.navigator-group h3 {font:650 11px/1.3 var(--ui-font);letter-spacing:.095em;text-transform:uppercase}
-.navigator-location small {color:#e8c5a7}
-.navigator-location strong {font:500 18px/1.25 var(--ui-font);overflow-wrap:anywhere}
-.navigator-location>span {font-size:13px;color:#cec3b9}
-.navigator-groups {display:grid;grid-template-columns:1fr 1.12fr;gap:22px;margin-top:23px}
-.navigator-group h3 {margin:0 0 7px;padding-inline:9px;color:#c5bdba}
+.navigator-home {padding-bottom:10px;border-bottom:1px solid #b9b9b52b}
+.navigator-groups {display:grid;grid-template-columns:1fr 1.12fr;gap:22px;margin-top:16px}
+.navigator-group h3 {margin:0 0 7px;padding-inline:9px;color:#c5bdba;font:650 12px/1.3 var(--ui-font)}
 .navigator-link {display:flex;align-items:center;gap:11px;min-height:44px;padding:8px 9px;color:#eee7dd;text-decoration:none;
   border:1px solid transparent;border-radius:5px;font:500 14px/1.3 var(--ui-font)}
 .navigator-link .icon,.navigator-footer .icon,#workspace-navigator .icon {flex:none;width:17px;height:17px}
 .navigator-link .icon {color:#c8b9a9}
-.navigator-link i {margin-inline-start:auto;font:400 21px/1 var(--ui-font);color:#d2b99d;opacity:0}
 .navigator-link:is(:hover,:focus-visible) {background:#b8c6d110;border-color:#d9c0a147;color:#fff4e5}
-.navigator-link:is(:hover,:focus-visible) i {opacity:1}
 .navigator-footer {display:flex;flex-wrap:wrap;gap:6px 18px;border-top:1px solid #b9b9b52b;padding:8px 27px;background:#11182159}
 .navigator-footer button {display:inline-flex;gap:8px;align-items:center;min-height:44px;padding:5px 2px;border:0;background:none;color:#d8d0c7;font:500 13px var(--ui-font)}
 #workspace-navigator :is(button,a):focus-visible {outline:2px solid #f5c89e;outline-offset:-2px}
-.navigator-footer button:hover,.navigator-close:hover,.navigator-current:hover {color:#ffefd9;border-color:#d2ae8a;background-color:#e4c8a710}
+.navigator-footer button:hover,.navigator-close:hover {color:#ffefd9;border-color:#d2ae8a;background-color:#e4c8a710}
 :root[data-ui-motion="on"] #workspace-navigator[open] {animation:navigator-arrives .24s cubic-bezier(.16,.8,.28,1) both}
 :root[data-ui-motion="on"] #workspace-navigator[open]::backdrop {animation:backdrop-arrives .20s ease-out}
 @keyframes navigator-arrives {from {opacity:0;transform:translateY(12px)}to {opacity:1;transform:none}}
 @media(max-width:600px) {
-  .sky-tools .navigator-trigger,.sky-tools .sky-preferences summary {min-height:44px}
-  .sky-tools:has(.navigator-trigger) .sky-preferences summary {width:44px;padding:0}
-  .sky-tools:has(.navigator-trigger) .sky-preferences summary span {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .sky-header .navigator-trigger,.sky-tools .sky-preferences summary {min-height:44px}
+  .sky-header .sky-tools .sky-preferences summary {width:44px;padding:0}
+  .sky-header .sky-tools .sky-preferences summary span {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
   #workspace-navigator {inset:auto 0 0;width:100%;max-width:none;max-height:calc(100dvh - 20px);margin:0;border-radius:14px 14px 0 0;border-bottom:0}
   .navigator-shell {max-height:calc(100dvh - 22px)}
   .navigator-heading {padding:15px 17px 11px}.navigator-heading h2 {font-size:30px}
-  .navigator-body {padding:0 16px 12px}.navigator-current {padding:10px 12px}
-  .navigator-groups {gap:9px;margin-top:17px;grid-template-columns:.9fr 1.13fr}
+  .navigator-body {padding:0 16px 12px}
+  .navigator-groups {gap:9px;margin-top:14px;grid-template-columns:.9fr 1.13fr}
   .navigator-group h3 {padding-inline:4px}.navigator-link {gap:7px;padding-inline:4px}
-  .navigator-link i {display:none}.navigator-footer {padding:5px 20px max(5px,env(safe-area-inset-bottom))}
+  .navigator-footer {padding:5px 20px max(5px,env(safe-area-inset-bottom))}
 }
-@media(max-width:350px) {.sky-header:has(.navigator-trigger) {padding-inline:12px;gap:8px}.sky-tools {gap:4px}.sky-tools .navigator-trigger {padding-inline:9px}.navigator-link {font-size:13px}}
-@media(forced-colors:active){#workspace-navigator,.navigator-current,.navigator-close {border:1px solid ButtonText}.navigator-link {color:LinkText}}
+@media(max-width:350px) {.sky-header:has(.navigator-trigger) {padding-inline:12px;gap:8px}.sky-tools {gap:4px}.sky-header .navigator-trigger {padding-inline:9px}.navigator-link {font-size:13px}}
+@media(forced-colors:active){#workspace-navigator,.navigator-close {border:1px solid ButtonText}.navigator-link {color:LinkText}}
 @media(max-width:780px) {
   .setup-entrance .workspace.setup-editing {padding:clamp(102px,15svh,138px) clamp(18px,5.3vw,40px) 46px}
   .setup-sheet .setup-modebar {gap:8px}
@@ -516,7 +506,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 }
 .sky-identity a.sky-wordmark {font:500 22px/1 var(--title-font);letter-spacing:.035em}
-.sky-identity {gap:12px}.sky-tools {align-items:center}
+.sky-identity {gap:12px;flex-wrap:nowrap}.sky-tools {align-items:center}
 .sky-preferences.workspace-options {position:relative;inset:auto}
 .sky-preferences.workspace-options>div {max-height:calc(100dvh - var(--header-height) - 12px);overflow-y:auto}
 .sky-preferences.workspace-options>summary {list-style:none}
@@ -536,10 +526,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 .app .shell>#save-status:not(.negative) {position:absolute;z-index:2;top:6px;right:var(--frame-gutter);max-width:calc(100% - 2 * var(--frame-gutter));
   padding:4px 10px;border:0;border-radius:4px;background:#1a2029db;color:#f1deca;pointer-events:none}
 .sky-identity,.sky-tools {min-width:0}
-.navigator-link[aria-current] {background:#e8c49e12;color:#ffdab5}
-.navigator-link[aria-current] i {opacity:1}
-.navigator-home {color:#f3d3b4;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;margin-right:auto;font-size:13px}
-.navigator-home:hover {text-decoration:underline}
+.navigator-link[aria-current] {background:#e8c49e18;border-color:#d2ae8a61;color:#ffdab5}
 .navigator-footer {align-items:center;column-gap:14px}
 
 /* The three setup chapters orient the visitor; the tabs below them move
@@ -610,7 +597,12 @@ html:has(#waterfront-view[open]) {overflow:hidden}
   .setup-resume .scene-action {min-height:36px}
   .setup-trail {gap:7px;font-size:11px}
   .app[data-screen] .sky-tools {gap:5px}
-  .app[data-screen] .sky-identity {gap:6px;flex-wrap:nowrap;white-space:nowrap}
+}
+@media(max-width:780px) {
+ .app[data-screen]>.sky-header {height:auto;padding-block:8px;align-items:flex-start}
+ .app[data-screen] .sky-identity {gap:5px 8px;flex-wrap:wrap}
+ .workspace-breadcrumb {order:1;flex-basis:100%}
+ .workspace-breadcrumb>.breadcrumb-separator:first-child {display:none}
 }
 @media(forced-colors:active) {
  .app[data-screen]>.sky-header {background:Canvas}.setup-sheet .setup-steps button.active,.navigator-link[aria-current] {outline:2px solid Highlight}
@@ -679,15 +671,8 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 .offer-menu-heading h2 {margin:0;color:#f2e7da;font:550 17px/1.4 var(--ui-font)}
 .offer-menu-heading .offer-menu-actions {margin:0;gap:6px}
 .offer-menu-heading .offer-menu-actions button {font-size:13px;padding-inline:12px}
-.offer-menu-actions button,.offer-shortlist button {min-height:44px}
-.offer-shortlist {margin:0 0 24px;border-block:1px solid var(--setup-rule)}
-.offer-shortlist summary {padding:13px 0;color:#f3dcc2;font:550 14px/1.4 var(--ui-font);cursor:pointer}
-.offer-shortlist article {display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #d4c5ad25;padding:11px 0}
-.offer-shortlist article>div {display:grid;gap:3px;min-width:0}
-.offer-shortlist article small {color:var(--setup-copper);font:500 12px/1.4 var(--ui-font)}
-.offer-shortlist article strong {color:#f5ebdf;font:550 15px/1.35 var(--ui-font)}
-.offer-shortlist article p,.offer-unit-result small {margin:0;color:var(--setup-muted);font:400 12px/1.45 var(--ui-font)}
-.offer-shortlist button {flex-shrink:0}
+.offer-menu-actions button {min-height:44px}
+.offer-unit-result small {margin:0;color:var(--setup-muted);font:400 12px/1.45 var(--ui-font)}
 .offer-work-hours {margin-block:12px}
 .offer-unit-result {display:flex;align-items:center;justify-content:space-between;gap:14px;margin:16px 0;padding:12px 0;border-block:1px solid var(--setup-rule)}
 .offer-unit-result div {display:grid;gap:3px}
@@ -772,7 +757,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 @media(max-width:370px) {
  .app[data-screen]>.sky-header {padding-inline:12px;gap:5px}
  .app[data-screen] .sky-identity a.sky-wordmark {font-size:19px}
- .app[data-screen] .sky-identity>a:not(.sky-wordmark),.app[data-screen] .sky-identity>b {font-size:11px}
+ .workspace-breadcrumb a,.breadcrumb-current {font-size:12px}
 }
 @media(max-width:600px) and (max-height:720px) {
  .app[data-screen] .workspace.setup-landing:has(.setup-entry) {padding-top:18px;padding-bottom:20px}

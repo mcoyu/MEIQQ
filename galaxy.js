@@ -6,18 +6,21 @@
   let canvas=host?.querySelector?.('.sunset-environment');
   if(!canvas)return;
   const {banks,cloudViews,defaults,createWeather,createShardFlights,createMeteors,cols,rows,hash,clamp,mix,smooth}=window.SunsetScene;
-  const weather=banks.map(createWeather);
+  const lunar=window.SunsetScene.lunar;
+  const weather=banks.map(bank=>createWeather({...bank,seed:Math.floor(Math.random()*30000),
+    frontPhase:Math.random()}));
   const flights=createShardFlights(weather);
   let views=[];
-  const meteorClock=createMeteors();
-  let meteor=null, celestial=0;
+  const meteorClock=createMeteors(Math.floor(Math.random()*0x100000000));
+  const daylight=window.SunsetScene.createDaylight();
+  let sunlight=daylight(0),meteor=null,celestial=Math.random()*280;
   const streak=new Float32Array(4);
   const screenVertex=`#version 300 es
     void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.-1.,0,1);}`;
   const skyFragment=`#version 300 es
     precision highp float;
     uniform vec2 uSize;
-    uniform vec3 uGalaxy, uMoon;
+    uniform vec3 uGalaxy, uMoon;uniform sampler2D uLunar;uniform float uMoonlight;
     uniform float uTime,uDusk,uOrbit,uBurst;
     uniform vec4 uStreak;
     uniform float uNight,uLens,uRiverAir;uniform mat3 uSkyAxes;
@@ -61,7 +64,7 @@
       sky+=vec3(.10,.043,.018)*(1.-.85*night)*exp(-length((uv-vec2(.21,.87))*vec2(1.5,3.)));
       vec3 atmosphere=sky;
       vec3 ray=uSkyAxes*vec3((uv-.5)*aspect*uLens,1.);
-      vec2 skyUV=.5+ray.xy/(max(.06,ray.z)*uLens*aspect);
+      vec2 skyUV=.5+ray.xy/(max(.06,ray.z)*1.04*aspect);
       vec2 pole=vec2(.07,-.72), relative=(skyUV-uGalaxy.xy)*aspect-pole;
       float angle=uOrbit*.0038;
       vec2 skyPos=pole+mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*relative;
@@ -73,7 +76,7 @@
       for(int k=0;k<3;k++){
         float layer=float(k)/3.;
         sky+=StarLayer(skyPos+vec2(.0010,-.00024)*uOrbit*(layer+.3),
-          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer)*(1.+.23*night);
+          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer)*mix(.12,1.18,night);
       }
       if(uBurst>0.){
         vec2 path=uStreak.zw*uSize, delta=(uv-uStreak.xy)*uSize;
@@ -90,14 +93,12 @@
       if(radius>.1){
         vec2 p=moon/radius;
         float d=length(moon),disk=1.-smoothstep(radius-aa,radius+aa,d);
-        vec3 normal=vec3(p.x,-p.y,sqrt(max(0.,1.-dot(p,p))));
-        float incidence=dot(normal,normalize(vec3(.82,.24,-.54)));
-        float maria=.92+.08*mist(p*3.1+7.);
-        vec3 ivory=mix(vec3(1.,.925,.76),vec3(.98,.965,.89),night);
-        sky+=mix(vec3(.11,.079,.045),vec3(.074,.096,.13),night)*exp(-d/(radius*1.68));
-        vec3 earthshine=mix(atmosphere,vec3(.10,.126,.157),.36*night)+vec3(.014,.019,.024)*night*normal.z;
-        vec3 lit=ivory*maria*(.84+.16*max(0.,incidence));
-        sky=mix(sky,mix(earthshine,lit,smoothstep(-.015,.065,incidence)),disk);
+        sky+=mix(vec3(.09,.066,.04),vec3(.084,.097,.13),night)*uMoonlight*exp(-d/(radius*1.68));
+        if(d<=radius+aa){
+          vec4 lunar=texture(uLunar,p*.5+.5);
+          sky=mix(sky,atmosphere,disk);
+          sky=mix(sky,lunar.rgb,lunar.a);
+        }
       }
       sky+=(Hash21(gl_FragCoord.xy)-.5)*.004;
       // The air under the cloud opens first. Cloud volumes, their lit
@@ -414,7 +415,8 @@
     return tex;
   }
   function prepareGL(gl){
-    const sky=program(gl,screenVertex,skyFragment,['uSize','uTime','uDusk','uMoon','uGalaxy','uOrbit','uBurst','uStreak','uNight','uSkyAxes','uLens','uRiverAir']);
+    const lunarTexture=lunar.texture(gl);
+    const sky=program(gl,screenVertex,skyFragment,['uSize','uTime','uDusk','uMoon','uGalaxy','uOrbit','uBurst','uStreak','uNight','uSkyAxes','uLens','uRiverAir','uLunar','uMoonlight']);
     const volume=program(gl,volumeVertex,volumeFragment,['uSize','uSpan','uPosition','uWater','uGrain','uAir','uTime','uSeed','uDusk','uSpace']);
     const composite=program(gl,`#version 300 es
       uniform vec2 uSpan,uPosition;uniform mat3 uProjection;out vec2 vUV;
@@ -487,9 +489,11 @@
       const {moon,galaxy,light}=state;
       gl.uniform1f(sky.u.uRiverAir,riverAir);gl.uniform1f(sky.u.uNight,night);gl.uniform1f(sky.u.uLens,camera.lens);gl.uniformMatrix3fv(sky.u.uSkyAxes,false,camera.axes);
       gl.uniform2f(sky.u.uSize,width,height);gl.uniform1f(sky.u.uTime,time);gl.uniform1f(sky.u.uOrbit,celestial);
-      gl.uniform1f(sky.u.uDusk,light.dusk/100);
-      const [mx,my]=camera.project(moon.x/100,moon.y/100);
-      gl.uniform3f(sky.u.uMoon,mx/width,my/height,moon.visible?moonRadius():0);
+      gl.uniform1f(sky.u.uDusk,skyDusk());
+      const [mx,my,r]=lunar.disc(passage.active?passage.progress:0);
+      lunarTexture();
+      gl.uniform1i(sky.u.uLunar,3);gl.uniform1f(sky.u.uMoonlight,lunar.world.light.fraction);
+      gl.uniform3f(sky.u.uMoon,mx,my,moon.visible?r*height:0);
       gl.uniform3f(sky.u.uGalaxy,galaxy.x/100,galaxy.y/100,galaxy.visible?galaxy.density/100:0);
       gl.uniform1f(sky.u.uBurst,meteorLight());gl.uniform4fv(sky.u.uStreak,streak);
       gl.drawArrays(gl.TRIANGLES,0,3);
@@ -534,7 +538,7 @@
         gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,g.bodies[1-g.front]);gl.uniform1i(composite.u.uPrevious,2);
         gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,g.bodies[g.front]);gl.uniform1i(composite.u.uBody,0);
         gl.uniform1f(composite.u.uBlend,g.interpolate?w.blend:1);gl.uniform1f(composite.u.uCloudLight,cloudLight);
-        gl.uniform1f(composite.u.uImmersion,immersion(i));gl.uniform1f(composite.u.uNight,cloudNight);gl.uniform1f(composite.u.uMoonlight,moon.visible?1:0);
+        gl.uniform1f(composite.u.uImmersion,immersion(i));gl.uniform1f(composite.u.uNight,cloudNight);gl.uniform1f(composite.u.uMoonlight,moon.visible?lunar.world.light.fraction:0);
         gl.uniformMatrix3fv(composite.u.uProjection,false,projection);gl.uniform2fv(composite.u.uSpan,dimensions);
         gl.useProgram(cloud.p);gl.bindVertexArray(g.vao);gl.bindBuffer(gl.ARRAY_BUFFER,g.buffer);
         if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,projectBank(i,...dimensions),0,w.count*poseStride);
@@ -572,7 +576,7 @@
     const size=state[bank.id].scale/100;
     return [bank.width*Math.max(width,height*.95)*size,bank.height*height*size];
   }
-  function moonRadius(){return Math.max(4,height*mix(.0145,.018,night))*state.moon.scale/100;}
+  function moonRadius(){return Math.max(4,height*mix(.0145,.018,night))*state.moon.scale/100*1.04/camera.lens;}
   function paintHorizon(){
     const layer=state.horizon;
     horizon.hidden=!layer.visible;
@@ -631,7 +635,7 @@
       const rgba=cache.current;
       for(let k=0;k<rgba.length;k+=4){
         const q=w.texture[k]/255, lit=smooth((w.texture[k+1]/255-.21)/.60);
-        const rim=lit*lit*(state.moon.visible?1:.68);
+        const rim=lit*lit*(.68+(state.moon.visible?.32*lunar.world.light.fraction:0));
         rgba[k]=mix(mix(135-46*dusk,255,lit),7+37*rim,exposure);
         rgba[k+1]=mix(mix(109-35*dusk,208,lit),11+44*rim,exposure);
         rgba[k+2]=mix(mix(115-17*dusk,159,lit),18+53*rim,exposure);
@@ -689,7 +693,7 @@
   function softwareStars(c,galaxy){
     const angle=celestial*.0038,ca=Math.cos(angle),sa=Math.sin(angle),aspect=width/height;
     const centerX=galaxy.x/100,centerY=galaxy.y/100,{moon}=state;
-    const [mx,my]=camera.project(moon.x/100,moon.y/100),r=moon.visible?moonRadius():0;
+    const [u,v,radius]=lunar.disc(passage.active?passage.progress:0),mx=u*width,my=v*height,r=moon.visible?radius*height:0;
     c.fillStyle='#e3e9ef';
     for(const star of softwareStarField){
       const u=star.x-.07,v=star.y+.72;
@@ -698,33 +702,18 @@
       const [px,py]=camera.project(x,y);
       if(px<0||px>width||py<0||py>height||(px-mx)**2+(py-my)**2<r*r)continue;
       const elevation=py/height,air=mix(1-smooth((elevation-.40)/.55),1-.78*smooth((elevation-.66)/.34),night);
-      c.globalAlpha=star.flux*air*(.91+.09*Math.sin(time*.68+star.phase));
+      c.globalAlpha=star.flux*air*mix(.12,1,night)*(.91+.09*Math.sin(time*.68+star.phase));
       c.beginPath();c.arc(px,py,star.radius,0,Math.PI*2);c.fill();
     }
     c.globalAlpha=1;
   }
-  let lunarDisc,lunarKey='';
-  function softwareMoon(c,moon){
-    const r=moonRadius(),[x,y]=camera.project(moon.x/100,moon.y/100);
+  function softwareMoon(c){
+    const [u,v,radius]=lunar.disc(passage.active?passage.progress:0),r=radius*height,x=u*width,y=v*height;
+    if(r<=0)return;
     const halo=c.createRadialGradient(x,y,0,x,y,r*5.5);
-    halo.addColorStop(0,'rgba(165,175,189,.16)');halo.addColorStop(.32,'rgba(145,156,171,.065)');halo.addColorStop(1,'rgba(145,156,171,0)');
+    halo.addColorStop(0,'rgba(165,175,189,'+.16*lunar.world.light.fraction+')');halo.addColorStop(1,'rgba(145,156,171,0)');
     c.fillStyle=halo;c.fillRect(x-r*5.5,y-r*5.5,r*11,r*11);
-    const radius=Math.ceil(r),exposure=Math.round(night*32)/32,key=radius+'/'+exposure;
-    if(key!==lunarKey){
-      if(!lunarDisc)lunarDisc=document.createElement('canvas');
-      const size=2*radius+2;lunarDisc.width=lunarDisc.height=size;
-      const ctx=lunarDisc.getContext('2d'),frame=ctx.createImageData(size,size);
-      for(let iy=0,k=0;iy<size;iy++)for(let ix=0;ix<size;ix++,k+=4){
-        const px=(ix+.5-size/2)/radius,py=(iy+.5-size/2)/radius,d=px*px+py*py;
-        const cover=clamp((1-Math.sqrt(d))*radius+.5);if(!cover)continue;
-        const light=.82*px-.24*py-.54*Math.sqrt(Math.max(0,1-d));
-        const lit=smooth((light+.015)/.08),shade=(.84+.16*Math.max(0,light))*(.94+.06*hash(ix+.3,iy+.9));
-        frame.data[k]=mix(25,252*shade,lit);frame.data[k+1]=mix(32,(236+10*exposure)*shade,lit);
-        frame.data[k+2]=mix(40,(194+33*exposure)*shade,lit);frame.data[k+3]=255*cover*mix(.26*exposure,1,lit);
-      }
-      ctx.putImageData(frame,0,0);lunarKey=key;
-    }
-    c.drawImage(lunarDisc,x-r-1,y-r-1,2*r+2,2*r+2);
+    c.drawImage(lunar.sprite(),x-r,y-r,2*r,2*r);
   }
   function softwareMeteor(c){
     const strength=meteorLight();if(!strength)return;
@@ -734,8 +723,12 @@
     c.strokeStyle=grad;c.lineWidth=Math.max(1.1,height*.0018);c.beginPath();c.moveTo(tx,ty);c.lineTo(x,y);c.stroke();
     c.fillStyle='rgba(255,245,222,'+strength+')';c.beginPath();c.arc(x,y,c.lineWidth,0,Math.PI*2);c.fill();
   }
+  function skyDusk(){
+    const base=state.light.dusk/100;
+    return base-sunlight*.85*base*(1-base);
+  }
   function fallback(){
-    const c=ctx2d,{light,moon,galaxy}=state,d=light.dusk/100;
+    const c=ctx2d,{moon,galaxy}=state,d=skyDusk();
     const rgb=(a,b,twilight,n)=>'rgb('+a.map((v,i)=>Math.round(mix(mix(mix(v,b[i],d),twilight[i],smooth(night/.64)),n[i],smooth((night-.32)/.68)))).join(',')+')';
     const sky=c.createLinearGradient(0,0,0,height);
     sky.addColorStop(0,rgb([99,115,125],[36,51,69],[27,41,65],[5,9,18]));
@@ -743,7 +736,7 @@
     sky.addColorStop(1,rgb([245,219,178],[184,163,163],[166,122,108],[43,48,57]));c.fillStyle=sky;c.fillRect(0,0,width,height);
     if(galaxy.visible)softwareStars(c,galaxy);
     softwareMeteor(c);
-    if(moon.visible)softwareMoon(c,moon);
+    if(moon.visible)softwareMoon(c);
     if(riverAir>0){
       // Mask only the distant air. Draw all foreground banks after the mask.
       const opening=c.createLinearGradient(0,0,0,height);
@@ -776,6 +769,13 @@
     return mode==='animate'||(mode==='system'&&!reduced.matches);
   }
   const passage=window.StudioFlight;
+  const pan=passage.createShotClock([
+    {zoom:1,x:0,y:0,track:0,lift:0},
+    {zoom:1.18,x:.14,y:.06,track:.32,lift:.18},
+    {zoom:1.32,x:-.09,y:.04,track:-.43,lift:.52},
+    {zoom:1.12,x:.04,y:-.13,track:.19,lift:-.38}
+  ]);
+  const editor=document.querySelector('#sky-editor');
   let riverAir=0,passSequence=-1,descent=null;
   function skyHidden(){return forced.matches||document.hidden||host.hasAttribute('suspended')||(host.hasAttribute('waterfront')&&!passage?.active);}
   function immersion(index){return passage?.active&&descent?.index===index?descent.thickness:0;}
@@ -804,19 +804,26 @@
     descent.approach=phase(0,.61,p);descent.drop=phase(.34,.84,p);
     descent.thickness=phase(.09,.33,p)*(1-phase(.43,.70,p));
     descent.bank=descent.approach*(1-phase(.46,.89,p));
-    riverAir=phase(.22,.66,p);
+    riverAir=phase(.06,.72,p);
     return descent;
   }
   function frame(now){
     raf=0;if(skyHidden())return;
-    const moving=moveAllowed()&&state.light.wind>0;
+    const moving=moveAllowed();
     const interval=renderGL?1000/(camera.moving||passage?.active||location.hash.startsWith('#sky')?60:30):1000/24;
     if(dirty||!last||now-last>=interval-1){
-      updateCameraClock(now);camera.aim(width,height,descentPose());
+      const elapsed=moving&&last?Math.min((now-last)/1000,.35):0;
+      const watching=(passage.view==='sky'||passage.view==='sky/view')&&!passage.active;
+      const shot=pan(editor?.open?0:elapsed,watching);
+      updateCameraClock(now);camera.aim(width,height,descentPose(),shot);
       // Let the foreground keep its last warm rim as the higher sky darkens.
-      night=clamp((camera.position-.94)/1.06);cloudNight=Math.max(smooth((camera.position-1.20)/.80),riverAir*.58);
-      cloudLight=mix(1,.52,cloudNight);shardLight=mix(1,.012,cloudNight);
-      const dt=moving&&last?Math.min((now-last)/1000,.35)*state.light.wind/45:0;
+      lunar.tick(now,moving,host);night=lunar.world.night;
+      cloudNight=Math.max(smooth((night-.14)/.86),riverAir*.58);
+      const [mx,my]=camera.project(state.moon.x/100+lunar.world.x,state.moon.y/100+lunar.world.y);
+      lunar.skyDisc=[mx/width,my/height,moonRadius()/height];
+      sunlight=daylight(elapsed);
+      cloudLight=mix(1,.52,cloudNight)*(1+.15*sunlight);shardLight=mix(1,.012,cloudNight);
+      const dt=elapsed*state.light.wind/64;
       if(dt){
         time+=dt;celestial+=dt*state.galaxy.drift/50*(1-.93*night);
         for(const w of weather)w.advance(dt);
@@ -869,7 +876,7 @@
     resize();
   }
   new ResizeObserver(resize).observe(host);
-  document.addEventListener('visibilitychange',sync);
+  document.addEventListener('visibilitychange',()=>{lunar.suspend();sync();});
   new MutationObserver(sync).observe(host,{attributes:true,attributeFilter:['motion','suspended','sky-stage','waterfront','studio-flight']});
   reduced.addEventListener('change',sync);forced.addEventListener('change',sync);
   window.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&moveAllowed())target=[e.clientX/innerWidth-.5,e.clientY/innerHeight-.5];},{passive:true});
@@ -879,7 +886,7 @@
   };
   window.SunsetScene.update=next=>{const horizonChanged=state.horizon.y!==next.horizon.y||state.horizon.visible!==next.horizon.visible;
     if((state.light.wind===0)!==(next.light.wind===0))last=0;
-    state=structuredClone(next);
+    state=structuredClone(next);lunar.settings=state.moon;
     banks.forEach((bank,i)=>weather[i].configure(state[bank.id].type,state.light.humidity,!moveAllowed()||!state.light.wind||!time));
     if(!state.galaxy.visible||!state.galaxy.meteors||!state.light.wind){meteor=null;meteorClock.clear();}
     if(horizonChanged)paintHorizon();wake();};

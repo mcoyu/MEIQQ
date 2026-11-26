@@ -4,7 +4,7 @@
   if(!dialog?.showModal)return;
   const {defaults,types,update,clamp}=window.SunsetScene;
   const key='qq-studio-sunset-v1';
-  const layers={west:'Western cloud bank',east:'Eastern cloud bank',low:'Low cloud bank',galaxy:'Stars',moon:'Crescent moon',horizon:'Horizon',light:'Atmosphere'};
+  const layers={west:'Western cloud bank',east:'Eastern cloud bank',low:'Low cloud bank',galaxy:'Stars',moon:'Moon',horizon:'Horizon',light:'Atmosphere'};
   const fields={
     x:['Horizontal position',-35,135],y:['Vertical position',-25,125],scale:['Scale',20,185],
     spacing:['Shard spacing',0,100],density:['Star density',0,100],dusk:['Twilight',0,100],wind:['Motion speed',0,100],

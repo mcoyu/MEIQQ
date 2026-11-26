@@ -1,4 +1,4 @@
-<!doctype html><html lang="en" data-theme="terminal"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="MEIQQ — an offline studio workspace and business simulator. Research services, manage jobs and explore business scenarios."><title>MEIQQ — Studio & Simulator</title><style>:root{color-scheme:dark;--green:var(--accent);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:var(--ink)}
+<!doctype html><html lang="en" data-theme="terminal"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="MEIQQ — an offline studio workspace and business simulator. Research services, manage jobs and explore business scenarios."><title>美QQ — Studio & Simulator</title><style>:root{color-scheme:dark;--green:var(--accent);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:var(--ink)}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}button,input,select{font:inherit}button,select,summary{cursor:pointer}button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink);font-weight:550;font-size:12px;line-height:1.4}button:hover{background:var(--raised);border-color:var(--accent)}button:disabled{opacity:.45;cursor:not-allowed}.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}button.primary:hover{background:var(--accent);filter:brightness(1.12)}.soft{background:var(--selected);color:var(--accent)}.ghost{background:transparent;border-color:transparent}.small{padding:6px 9px;font-size:11px}.full{width:100%;margin-top:9px}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.icon{width:17px;height:17px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.app{display:grid;grid-template-columns:180px minmax(0,1fr);min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:180px;padding:25px 14px;background:var(--nav);color:var(--nav-text);display:flex;flex-direction:column;z-index:5}.brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:650;letter-spacing:.4px;color:#f1f6e6}.brandmark{width:33px;height:33px;display:grid;place-items:center;border-radius:8px;background:#d7e9aa;color:#1d3526;font-size:21px}.subbrand{font-size:8px;letter-spacing:1.4px;margin:11px 0 34px 1px;color:var(--nav-text)}nav{display:flex;flex-direction:column;gap:5px}.navbutton{width:100%;justify-content:flex-start;background:transparent;border:0;color:var(--nav-text);padding:12px 10px;font-size:12px}.navbutton:hover,.navbutton.active{background:#ffffff12;color:#fff}.navbutton.active{box-shadow:inset 3px 0 #cfe79e}.navlabel{font-size:9px;letter-spacing:1.7px;margin:25px 10px 8px;color:#a6baa8}.sidebottom{margin-top:auto;padding-top:24px}.sideinfo{border:1px solid #ffffff25;border-radius:7px;padding:12px;font-size:11px;line-height:1.6}.sideinfo p{font-size:11px;color:var(--nav-text)}.sideinfo button{padding:5px;font-size:10px;background:transparent;color:var(--nav-text);border-color:#ffffff30}.shell{grid-column:2;min-width:0}.topbar{height:70px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:15px}.crumb{display:flex;align-items:center;gap:12px;min-width:0}.crumb b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}.tag{padding:5px 7px;background:var(--raised);color:var(--muted);border:1px solid var(--line);border-radius:4px;font-size:9px;font-weight:550;white-space:nowrap}.topactions{display:flex;align-items:center;gap:8px}.theme-picker{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px}.theme-picker select{padding:7px;border:1px solid var(--line);border-radius:5px;color:var(--ink);background:var(--surface)}.workspace{padding:26px 24px 110px;max-width:1700px;margin:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:23px}.heading p{margin-bottom:0;font-size:12px}h1{font-size:29px;line-height:1.2;font-weight:560;letter-spacing:-.8px;margin:0}h2{font-size:17px;font-weight:600;line-height:1.4;margin:0}h3{font-size:13px;font-weight:650;margin:0}p{line-height:1.65;margin:10px 0;font-size:13px}.muted,.helper{color:var(--muted)}.helper{font-size:11px;line-height:1.65}.eyebrow{font-size:9px;letter-spacing:1.4px;font-weight:650;color:var(--muted);margin-bottom:9px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);min-width:0;overflow:hidden}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}.panelhead p{margin:4px 0 0}.padded{padding:22px}.banner{padding:14px 16px;border:1px solid var(--line);border-radius:7px;background:var(--selected);font-size:12px;line-height:1.7;margin-bottom:18px}.banner button{margin-left:6px}.banner.compact{font-size:11px;padding:10px 12px}.banner.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--ink)}.banner.danger{background:var(--danger-bg);border-color:var(--negative)}.badge{display:inline-flex;padding:5px 8px;border-radius:5px;background:var(--selected);color:var(--accent);font-size:10px;font-weight:550}.badge.warn{background:var(--warn-bg);color:var(--warn)}.positive{color:var(--positive)}.negative,.error-text{color:var(--negative)}.divider{height:1px;background:var(--line);margin:19px 0}.minirow{display:flex;justify-content:space-between;align-items:baseline;gap:15px;font-size:12px;padding:10px 0;border-bottom:1px solid var(--line)}.minirow span{color:var(--muted)}.minirow b{white-space:nowrap;font-variant-numeric:tabular-nums}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:28px 15px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}.setup-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}.setup-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:16px}.setup-steps button{padding:11px 6px;font-size:11px;background:transparent;border:1px solid var(--line)}.setup-steps button span{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:var(--raised);font-size:10px;flex-shrink:0}.setup-steps button.active{background:var(--selected);border-color:var(--accent);color:var(--accent)}.setup-steps button.active span{background:var(--accent);color:var(--accent-ink)}.setup-body{padding:24px}.section-heading{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:18px}.section-heading p{color:var(--muted);font-size:12px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:15px 18px;margin-top:20px}.input-field{min-width:0;display:block}.input-field label,.input-field>label{display:block;font-size:12px;font-weight:550;margin-bottom:7px}.input-field input,.input-field select,.search-label input,.search-label select{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);padding:11px;font-size:13px;height:42px}.input-wrap{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}.input-wrap input{border:0;border-radius:0;flex:1;width:50px}.input-wrap:focus-within{outline:2px solid var(--accent);outline-offset:1px}.input-wrap input:focus-visible{outline:none}.input-wrap>span{font-size:10px;color:var(--muted);padding:0 9px;white-space:nowrap;flex-shrink:0}.input-field>small{display:block;font-size:10px;line-height:1.6;color:var(--muted);margin-top:5px;min-height:16px}.field-error{display:block;color:var(--negative);font-size:10px;margin-top:3px}.input-wrap:has(input:invalid){border-color:var(--negative)}.mix-status{font-size:11px;font-weight:550;margin:10px 0}.service-editor{border:1px solid var(--line);border-radius:7px;margin-top:12px;overflow:hidden;background:var(--surface)}.service-editor summary{padding:16px 14px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;list-style:none}.service-editor summary::-webkit-details-marker{display:none}.service-editor summary small{margin-left:auto;font-size:10px;color:var(--muted);font-weight:500}.service-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.service-editor[open] summary{background:var(--raised);border-bottom:1px solid var(--line)}.service-fields{padding:0 17px 17px}.service-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:15px}.step-footer{display:flex;justify-content:space-between;margin-top:25px;padding-top:17px;border-top:1px solid var(--line)}.setup-summary{position:sticky;top:20px}.summary-card{padding:20px}.summary-card h2{font-size:18px}.summary-numbers{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:17px 0}.summary-numbers strong{font-size:24px;letter-spacing:-.5px;font-weight:550;display:block}.summary-numbers small{font-size:10px;display:block;color:var(--muted);line-height:1.5;margin-top:5px}.capacity-row{padding:14px 0}.capacity-row>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:11px}.capacity-row span{font-size:10px;color:var(--muted)}.capacity-row small{font-size:10px;color:var(--muted);display:block;margin-top:6px}.track{height:5px;border-radius:5px;background:var(--raised);overflow:hidden;margin-top:8px}.fill{height:100%;background:var(--accent);border-radius:5px}.fill.warn{background:var(--warn)}.save-note{font-size:10px;color:var(--muted);text-align:center;margin-top:13px}.checkrow{display:flex;align-items:flex-start;gap:10px;margin:14px 0;font-size:12px;cursor:pointer}.checkrow input{accent-color:var(--accent);width:17px;height:17px;margin:0;flex-shrink:0}.checkrow small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.checkrow b{font-weight:500}.advanced{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}.advanced summary{font-size:12px;font-weight:600}.uncertainty-grid{display:grid;grid-template-columns:1fr 1fr}.welcome-run{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:18px 22px;background:var(--selected);border:1px solid var(--line);border-radius:8px;margin-bottom:18px}.welcome-run p{font-size:12px;margin-bottom:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.metric{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:17px}.metric.accent{background:var(--selected)}.metric label{font-size:11px;color:var(--muted)}.metric strong{display:block;font-size:27px;font-weight:550;letter-spacing:-.5px;margin:10px 0 7px;font-variant-numeric:tabular-nums}.metric small{font-size:10px;display:block;color:var(--muted);line-height:1.5}.workgrid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.flow-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:14px;background:var(--raised);border-bottom:1px solid var(--line)}.flow-step{font-size:10px;justify-content:flex-start;padding:7px 5px;background:var(--surface);border-radius:4px}.flow-step span{color:var(--accent);font-size:11px;font-weight:700}.flow-step.selected{border-color:var(--accent);background:var(--selected)}.work-lane{padding:17px;border-bottom:1px solid var(--line)}.work-lane:last-child{border-bottom:0}.lane-heading{display:flex;align-items:center;gap:9px;margin-bottom:12px}.lane-heading .icon{color:var(--muted)}.lane-heading div{display:flex;align-items:baseline;gap:12px}.lane-heading small{font-size:10px;color:var(--muted)}.stage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stage-grid.single{grid-template-columns:1fr}.stage-card{border:1px solid var(--line);border-radius:6px;background:var(--raised);padding:9px;min-width:0}.stage-card.bottleneck{border-color:var(--warn-line);background:var(--warn-bg)}.stage-card.selected{outline:2px solid var(--accent);outline-offset:1px}.stage-title{border:0;padding:0;background:transparent;justify-content:space-between;font-size:10px;width:100%;margin-bottom:8px}.stage-title>span{display:flex;align-items:center;gap:5px}.stage-title i{font-style:normal;color:var(--muted);font-size:10px}.stage-title>b{background:var(--surface);border-radius:4px;min-width:18px;padding:3px}.projectchip{display:flex;width:100%;justify-content:space-between;text-align:left;gap:6px;padding:9px 7px;font-size:11px;border:1px solid var(--line);border-left:3px solid var(--svc);border-radius:5px;background:var(--surface);margin-top:7px;min-width:0}.projectchip>span:first-child{min-width:0;flex:1}.projectchip b{font-size:11px;font-weight:550;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.projectchip small{display:block;font-size:9px;color:var(--muted);margin-top:4px;line-height:1.4}.project-status{font-size:9px;color:var(--muted);white-space:nowrap;align-self:flex-start}.projectchip.selected{background:var(--selected);outline:1px solid var(--accent)}.stage-grid.single .stage-card{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.stage-grid.single .stage-title{grid-column:1/-1}.stage-grid.single .emptyqueue{grid-column:1/-1}.emptyqueue{font-size:10px;color:var(--muted);padding:13px 0;margin:0}.mapfooter{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted);padding:12px 16px;border-top:1px solid var(--line)}.inspector{position:sticky;top:18px}.inspector .panelhead h2{font-size:16px}.inspectbody{padding:19px}.inspectbody>p{font-size:12px}.hint-number{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--selected);color:var(--accent);font-size:12px;margin-bottom:9px}.hint-number:not(:first-child){margin-top:20px}.inspectbody p{font-size:12px}.next-step{background:var(--selected);padding:14px;border-radius:6px;margin:15px 0}.next-step>b{font-size:11px}.next-step p{font-size:11px;margin:7px 0 0}.kvs{display:grid;grid-template-columns:1fr 1fr;gap:18px 10px;margin:20px 0}.kvs label{display:block;font-size:10px;color:var(--muted);margin-bottom:6px}.kvs strong{font-size:16px;font-weight:550}.timeline{border-left:1px solid var(--line);margin:17px 0 0 4px;padding-left:14px;max-height:360px;overflow:auto}.event{position:relative;padding-bottom:17px;font-size:11px;line-height:1.5}.event small{display:block;font-size:9px;color:var(--muted);margin-bottom:3px}.event:before{content:'';position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent);left:-17px;top:4px}.insight-card{padding:20px;margin-top:18px}.insight-card p{font-size:12px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}.chart{width:100%;height:190px;display:block;margin-top:15px}.axislabel{font-size:10px;fill:var(--muted)}.section-title{margin:25px 0 15px}.monthgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}.monthgrid p{font-size:12px}.project-tools{display:flex;gap:16px;margin-bottom:18px}.search-label{display:block;min-width:0;font-size:11px;color:var(--muted)}.search-label:first-child{flex:1}.search-label input,.search-label select{display:block;margin-top:7px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:10px;font-weight:550;color:var(--muted);background:var(--raised)}td small{display:block;font-size:9px;color:var(--muted);margin-top:5px}tr:last-child td{border-bottom:0}.table-link{border:0;background:transparent;color:var(--accent);padding:0;font-size:12px}.table-link:hover{background:transparent;text-decoration:underline}.clock{position:fixed;left:180px;right:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:12px;height:78px;padding:12px 24px;background:var(--surface);border-top:1px solid var(--line)}.clockgroup{display:flex;align-items:center;gap:8px}.clockday{min-width:85px;margin-right:7px}.clockday b{display:block;font-size:13px}.clockday span{color:var(--muted);font-weight:400}.clockday small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.clock-select{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:7px}.clock-select select{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:8px;font-size:11px}.modalback{position:fixed;inset:0;background:#001b1b88;z-index:20;display:grid;place-items:center;padding:20px;backdrop-filter:blur(3px)}.modal{width:570px;max-width:100%;max-height:88vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px;box-shadow:0 18px 90px #0004}.modal h2{font-size:23px;margin-bottom:12px}.modal>p{font-size:12px;color:var(--muted)}.modal .actions{justify-content:flex-end;margin-top:23px}.modal .input-field{font-size:12px;margin-top:18px}.modal .input-field input{margin-top:8px}.choice-explain{border-top:1px solid var(--line);padding:15px 0 0;margin-top:15px;font-size:12px}.choice-explain p{font-size:11px;color:var(--muted)}.change-list{font-size:12px;line-height:1.8;padding-left:18px;max-height:160px;overflow:auto}.modal-error{color:var(--negative);font-size:12px;line-height:1.6;margin-top:15px}.modal-error:empty{display:none}.toast{position:fixed;bottom:94px;left:50%;transform:translateX(-50%);max-width:min(640px,85vw);padding:15px 20px;border:1px solid var(--accent);border-radius:8px;background:var(--surface);color:var(--ink);box-shadow:0 5px 25px #0002;z-index:30;font-size:12px;line-height:1.6}.two-col ol{padding-left:19px;font-size:13px;line-height:1.9}.two-col h2:not(:first-child){margin-top:25px}
 @media(min-width:1600px){.setup-layout{grid-template-columns:minmax(0,1fr) 350px}.workgrid{grid-template-columns:minmax(0,1fr) 350px}.flow-strip{grid-template-columns:repeat(8,1fr)}}
 @media(max-width:1200px){.workspace{padding:22px 18px 110px}.setup-layout,.workgrid{grid-template-columns:minmax(0,1fr) 270px;gap:14px}.setup-body{padding:18px}.formgrid{gap:13px}.input-wrap>span{font-size:9px;padding:0 6px}.stage-grid{grid-template-columns:1fr}.stage-card:not(:only-child){display:grid;grid-template-columns:1fr 1fr;gap:0 8px}.stage-title,.emptyqueue{grid-column:1/-1}.theme-picker>span{display:none}.metric strong{font-size:23px}.topbar .tag{display:none}.clock{padding:12px 18px}.clock-select>span{display:none}}
@@ -831,7 +831,7 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
  .planner-remove-service {min-height:44px}
 }
 /* Sunset glass, oxidized copper and cream lettering share an incidence of
-   warm light from the upper left. The cool appearance deepens the same dusk. */
+   warm light from the upper left. */
 :root[data-theme] {
   color-scheme:dark;--paper:#191d21;--surface:#27292b;--raised:#333438;--ink:#f6eee3;
   --muted:#c0b9b3;--line:#585451;--nav:#1a1e22;--nav-text:#d6d1ca;--accent:#f2bd9b;
@@ -840,10 +840,6 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
   --shadow:0 8px 28px #10111738;--title-font:Baskervville,Baskerville,"Iowan Old Style",Georgia,serif;
   --ui-font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
   font-family:var(--ui-font);font-variant-numeric:tabular-nums;
-}
-:root[data-theme="dark"] {
-  --paper:#151c25;--surface:#232e38;--raised:#2d3943;--line:#465660;
-  --nav:#15202a;--nav-text:#d0dadd;--muted:#b6c3c9;--selected:#364447;--accent:#efc2aa;
 }
 /* The sky and horizon are drawn from the editable scene model. */
 body {isolation:isolate; background:var(--paper)}
@@ -929,7 +925,6 @@ body:has(#sky-editor[open]) aero-shards::after {display:none}
   color:#27150e; border-radius:0; clip-path:polygon(0 0,76% 0,100% 23%,100% 100%,20% 100%,0 80%);
 }
 :root[data-theme] .navbutton.active {box-shadow:inset 3px 0 #e5a378}
-.motion-picker select {max-width:100%}
 @media (max-width:780px) {
   .workspace .workspace-heading {min-height:45px; margin-bottom:14px}
   .workspace .workspace-heading h1 {font-size:clamp(22px,5.5vw,28px)}
@@ -1142,8 +1137,12 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
 .sky-identity,.sky-trail,.editor-trail {display:flex;flex-direction:row;align-items:center;gap:11px;flex-wrap:wrap}
 .sky-identity {min-height:38px;color:#fff2df;text-shadow:0 1px 10px #10182399}
 .sky-identity .sky-wordmark {font:500 22px/1 var(--title-font);letter-spacing:.06em;color:#fff2df}
-.sky-identity>a,.sky-identity>b {color:inherit;text-decoration:none;font:500 13px var(--ui-font)}
-.sky-identity>span[aria-hidden],.sky-trail>span,.editor-trail>span {opacity:.6}
+.sky-identity>a,.workspace-breadcrumb a {color:inherit;text-decoration:none;font:500 13px var(--ui-font)}
+.workspace-breadcrumb,.breadcrumb-current {display:flex;flex-direction:row;align-items:center;gap:8px;font:500 13px var(--ui-font)}
+.workspace-breadcrumb {min-width:0;overflow:auto;white-space:nowrap;scrollbar-width:thin;padding-block:3px}
+.workspace-breadcrumb a {color:var(--muted);flex:none}
+.sky-identity .navigator-trigger {flex:none}
+.breadcrumb-separator,.sky-trail>span,.editor-trail>span {opacity:.6}
 .sky-preferences {position:relative}
 .sky-preferences summary {
   list-style:none;cursor:pointer;background:#212a32c4;border:1px solid #d9c4af66;border-radius:4px;
@@ -1171,7 +1170,8 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
   font:600 12px var(--ui-font);text-decoration:none;
 }
 .setup-story .scene-action.primary {background:linear-gradient(112deg,#f6d5b5,#e4ae8d);border-color:#ebc5a6;color:#30231f}
-.setup-story .scene-action.primary::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
+.setup-story .studio-destinations .scene-action {background:transparent;border-color:#ebc5a6;color:#f6d5b5}
+.setup-story :is(.scene-action.primary,.studio-destinations .scene-action)::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
 .scene-action:hover {filter:brightness(1.12)}
 .studio-destinations {display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin-top:auto}
 .sky-resume {display:flex;align-items:baseline;gap:8px 18px;flex-wrap:wrap;margin-top:clamp(20px,3vh,36px);font-size:13px}
@@ -1221,20 +1221,20 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
   background:linear-gradient(135deg,#303235f2,#25292cf7);border-color:#d9bda650;
 }
 .sky-tools {display:flex;align-items:flex-start;gap:8px}
-.sky-tools .navigator-trigger,.sky-tools .sky-preferences summary {
+.sky-header .navigator-trigger,.sky-tools .sky-preferences summary {
   display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;border-radius:5px;
   font:550 13px/1.2 var(--ui-font);padding:0 13px;color:#f6eadb;
 }
-.sky-tools .navigator-trigger {background:#2b303aeb;border:1px solid #e3be937a}
-.sky-tools .icon {width:16px;height:16px}
+.sky-header .navigator-trigger {background:#2b303aeb;border:1px solid #e3be937a}
+.sky-header .navigator-trigger .icon,.sky-tools .icon {width:16px;height:16px}
 .sky-tools .sky-preferences summary {background:#17202bb8;border-color:#bbc6d33d}
-.sky-tools :is(.navigator-trigger,.sky-preferences summary):hover {border-color:#e7c2a1;background:#303844}
+.sky-header :is(.navigator-trigger,.sky-preferences summary):hover {border-color:#e7c2a1;background:#303844}
 #workspace-navigator {
   width:min(590px,calc(100vw - 40px));padding:0;margin:auto;max-height:calc(100dvh - 48px);overflow:hidden;
-  color:var(--ink);background:linear-gradient(145deg,#242c36,#1b2028 59%,#1a1d24);
+  color:var(--ink);background:#22262c;
   border:1px solid #acb3c14a;border-radius:12px;box-shadow:0 24px 100px #0308129c,0 1px 0 #f4ddc51a inset;
 }
-#workspace-navigator::backdrop {background:#070b14a3;backdrop-filter:blur(3px)}
+#workspace-navigator::backdrop {background:#070b147d}
 @media(min-width:601px) {html {scrollbar-gutter:stable}}
 html:has(#workspace-navigator[open]) {overflow:hidden}
 .navigator-shell {display:flex;flex-direction:column;max-height:calc(100dvh - 52px);font-family:var(--ui-font)}
@@ -1242,45 +1242,35 @@ html:has(#workspace-navigator[open]) {overflow:hidden}
 .navigator-heading h2 {margin:0;font:400 35px/1.1 var(--title-font);letter-spacing:-.04em;color:#fff1df;outline:0}
 .navigator-close {width:44px;height:44px;padding:0;background:transparent;color:#e5dace;border:1px solid #b5b8c03d;border-radius:50%}
 .navigator-body {min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 25px 19px;scroll-padding:10px}
-.navigator-current {display:flex;align-items:center;text-align:start;gap:13px;width:100%;padding:13px 16px;min-height:76px;
-  border:1px solid #e7bd8e4a;border-radius:6px;background:linear-gradient(108deg,#53423a99,#323234 68%,#2f3035);color:#f4e5d3}
-.navigator-current>.icon {margin-inline-start:auto;flex:none;color:#edc5a1}
-.navigator-current-icon {display:grid;place-items:center;width:40px;height:40px;border:1px solid #d8b39350;border-radius:8px;color:#f4c6a1;background:#dac1a00a;flex:none}
-.navigator-location {display:grid;gap:3px;min-width:0}
-.navigator-location small,.navigator-group h3 {font:650 11px/1.3 var(--ui-font);letter-spacing:.095em;text-transform:uppercase}
-.navigator-location small {color:#e8c5a7}
-.navigator-location strong {font:500 18px/1.25 var(--ui-font);overflow-wrap:anywhere}
-.navigator-location>span {font-size:13px;color:#cec3b9}
-.navigator-groups {display:grid;grid-template-columns:1fr 1.12fr;gap:22px;margin-top:23px}
-.navigator-group h3 {margin:0 0 7px;padding-inline:9px;color:#c5bdba}
+.navigator-home {padding-bottom:10px;border-bottom:1px solid #b9b9b52b}
+.navigator-groups {display:grid;grid-template-columns:1fr 1.12fr;gap:22px;margin-top:16px}
+.navigator-group h3 {margin:0 0 7px;padding-inline:9px;color:#c5bdba;font:650 12px/1.3 var(--ui-font)}
 .navigator-link {display:flex;align-items:center;gap:11px;min-height:44px;padding:8px 9px;color:#eee7dd;text-decoration:none;
   border:1px solid transparent;border-radius:5px;font:500 14px/1.3 var(--ui-font)}
 .navigator-link .icon,.navigator-footer .icon,#workspace-navigator .icon {flex:none;width:17px;height:17px}
 .navigator-link .icon {color:#c8b9a9}
-.navigator-link i {margin-inline-start:auto;font:400 21px/1 var(--ui-font);color:#d2b99d;opacity:0}
 .navigator-link:is(:hover,:focus-visible) {background:#b8c6d110;border-color:#d9c0a147;color:#fff4e5}
-.navigator-link:is(:hover,:focus-visible) i {opacity:1}
 .navigator-footer {display:flex;flex-wrap:wrap;gap:6px 18px;border-top:1px solid #b9b9b52b;padding:8px 27px;background:#11182159}
 .navigator-footer button {display:inline-flex;gap:8px;align-items:center;min-height:44px;padding:5px 2px;border:0;background:none;color:#d8d0c7;font:500 13px var(--ui-font)}
 #workspace-navigator :is(button,a):focus-visible {outline:2px solid #f5c89e;outline-offset:-2px}
-.navigator-footer button:hover,.navigator-close:hover,.navigator-current:hover {color:#ffefd9;border-color:#d2ae8a;background-color:#e4c8a710}
+.navigator-footer button:hover,.navigator-close:hover {color:#ffefd9;border-color:#d2ae8a;background-color:#e4c8a710}
 :root[data-ui-motion="on"] #workspace-navigator[open] {animation:navigator-arrives .24s cubic-bezier(.16,.8,.28,1) both}
 :root[data-ui-motion="on"] #workspace-navigator[open]::backdrop {animation:backdrop-arrives .20s ease-out}
 @keyframes navigator-arrives {from {opacity:0;transform:translateY(12px)}to {opacity:1;transform:none}}
 @media(max-width:600px) {
-  .sky-tools .navigator-trigger,.sky-tools .sky-preferences summary {min-height:44px}
-  .sky-tools:has(.navigator-trigger) .sky-preferences summary {width:44px;padding:0}
-  .sky-tools:has(.navigator-trigger) .sky-preferences summary span {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .sky-header .navigator-trigger,.sky-tools .sky-preferences summary {min-height:44px}
+  .sky-header .sky-tools .sky-preferences summary {width:44px;padding:0}
+  .sky-header .sky-tools .sky-preferences summary span {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
   #workspace-navigator {inset:auto 0 0;width:100%;max-width:none;max-height:calc(100dvh - 20px);margin:0;border-radius:14px 14px 0 0;border-bottom:0}
   .navigator-shell {max-height:calc(100dvh - 22px)}
   .navigator-heading {padding:15px 17px 11px}.navigator-heading h2 {font-size:30px}
-  .navigator-body {padding:0 16px 12px}.navigator-current {padding:10px 12px}
-  .navigator-groups {gap:9px;margin-top:17px;grid-template-columns:.9fr 1.13fr}
+  .navigator-body {padding:0 16px 12px}
+  .navigator-groups {gap:9px;margin-top:14px;grid-template-columns:.9fr 1.13fr}
   .navigator-group h3 {padding-inline:4px}.navigator-link {gap:7px;padding-inline:4px}
-  .navigator-link i {display:none}.navigator-footer {padding:5px 20px max(5px,env(safe-area-inset-bottom))}
+  .navigator-footer {padding:5px 20px max(5px,env(safe-area-inset-bottom))}
 }
-@media(max-width:350px) {.sky-header:has(.navigator-trigger) {padding-inline:12px;gap:8px}.sky-tools {gap:4px}.sky-tools .navigator-trigger {padding-inline:9px}.navigator-link {font-size:13px}}
-@media(forced-colors:active){#workspace-navigator,.navigator-current,.navigator-close {border:1px solid ButtonText}.navigator-link {color:LinkText}}
+@media(max-width:350px) {.sky-header:has(.navigator-trigger) {padding-inline:12px;gap:8px}.sky-tools {gap:4px}.sky-header .navigator-trigger {padding-inline:9px}.navigator-link {font-size:13px}}
+@media(forced-colors:active){#workspace-navigator,.navigator-close {border:1px solid ButtonText}.navigator-link {color:LinkText}}
 @media(max-width:780px) {
   .setup-entrance .workspace.setup-editing {padding:clamp(102px,15svh,138px) clamp(18px,5.3vw,40px) 46px}
   .setup-sheet .setup-modebar {gap:8px}
@@ -1348,7 +1338,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 }
 .sky-identity a.sky-wordmark {font:500 22px/1 var(--title-font);letter-spacing:.035em}
-.sky-identity {gap:12px}.sky-tools {align-items:center}
+.sky-identity {gap:12px;flex-wrap:nowrap}.sky-tools {align-items:center}
 .sky-preferences.workspace-options {position:relative;inset:auto}
 .sky-preferences.workspace-options>div {max-height:calc(100dvh - var(--header-height) - 12px);overflow-y:auto}
 .sky-preferences.workspace-options>summary {list-style:none}
@@ -1368,10 +1358,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 .app .shell>#save-status:not(.negative) {position:absolute;z-index:2;top:6px;right:var(--frame-gutter);max-width:calc(100% - 2 * var(--frame-gutter));
   padding:4px 10px;border:0;border-radius:4px;background:#1a2029db;color:#f1deca;pointer-events:none}
 .sky-identity,.sky-tools {min-width:0}
-.navigator-link[aria-current] {background:#e8c49e12;color:#ffdab5}
-.navigator-link[aria-current] i {opacity:1}
-.navigator-home {color:#f3d3b4;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;margin-right:auto;font-size:13px}
-.navigator-home:hover {text-decoration:underline}
+.navigator-link[aria-current] {background:#e8c49e18;border-color:#d2ae8a61;color:#ffdab5}
 .navigator-footer {align-items:center;column-gap:14px}
 
 /* The three setup chapters orient the visitor; the tabs below them move
@@ -1442,7 +1429,12 @@ html:has(#waterfront-view[open]) {overflow:hidden}
   .setup-resume .scene-action {min-height:36px}
   .setup-trail {gap:7px;font-size:11px}
   .app[data-screen] .sky-tools {gap:5px}
-  .app[data-screen] .sky-identity {gap:6px;flex-wrap:nowrap;white-space:nowrap}
+}
+@media(max-width:780px) {
+ .app[data-screen]>.sky-header {height:auto;padding-block:8px;align-items:flex-start}
+ .app[data-screen] .sky-identity {gap:5px 8px;flex-wrap:wrap}
+ .workspace-breadcrumb {order:1;flex-basis:100%}
+ .workspace-breadcrumb>.breadcrumb-separator:first-child {display:none}
 }
 @media(forced-colors:active) {
  .app[data-screen]>.sky-header {background:Canvas}.setup-sheet .setup-steps button.active,.navigator-link[aria-current] {outline:2px solid Highlight}
@@ -1511,15 +1503,8 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 .offer-menu-heading h2 {margin:0;color:#f2e7da;font:550 17px/1.4 var(--ui-font)}
 .offer-menu-heading .offer-menu-actions {margin:0;gap:6px}
 .offer-menu-heading .offer-menu-actions button {font-size:13px;padding-inline:12px}
-.offer-menu-actions button,.offer-shortlist button {min-height:44px}
-.offer-shortlist {margin:0 0 24px;border-block:1px solid var(--setup-rule)}
-.offer-shortlist summary {padding:13px 0;color:#f3dcc2;font:550 14px/1.4 var(--ui-font);cursor:pointer}
-.offer-shortlist article {display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #d4c5ad25;padding:11px 0}
-.offer-shortlist article>div {display:grid;gap:3px;min-width:0}
-.offer-shortlist article small {color:var(--setup-copper);font:500 12px/1.4 var(--ui-font)}
-.offer-shortlist article strong {color:#f5ebdf;font:550 15px/1.35 var(--ui-font)}
-.offer-shortlist article p,.offer-unit-result small {margin:0;color:var(--setup-muted);font:400 12px/1.45 var(--ui-font)}
-.offer-shortlist button {flex-shrink:0}
+.offer-menu-actions button {min-height:44px}
+.offer-unit-result small {margin:0;color:var(--setup-muted);font:400 12px/1.45 var(--ui-font)}
 .offer-work-hours {margin-block:12px}
 .offer-unit-result {display:flex;align-items:center;justify-content:space-between;gap:14px;margin:16px 0;padding:12px 0;border-block:1px solid var(--setup-rule)}
 .offer-unit-result div {display:grid;gap:3px}
@@ -1604,7 +1589,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 @media(max-width:370px) {
  .app[data-screen]>.sky-header {padding-inline:12px;gap:5px}
  .app[data-screen] .sky-identity a.sky-wordmark {font-size:19px}
- .app[data-screen] .sky-identity>a:not(.sky-wordmark),.app[data-screen] .sky-identity>b {font-size:11px}
+ .workspace-breadcrumb a,.breadcrumb-current {font-size:12px}
 }
 @media(max-width:600px) and (max-height:720px) {
  .app[data-screen] .workspace.setup-landing:has(.setup-entry) {padding-top:18px;padding-bottom:20px}
@@ -2648,15 +2633,13 @@ globalThis.QQChinese = {
   "View waterfront": "观赏滨水夜景",
   "Studio waterfront": "工作室滨水夜景",
   "Back to workspace": "返回工作区",
-  "Live Sky home": "实时天空主页",
-  "Live Sky": "实时天空",
   "Sky settings": "天空设置",
   "Pick up where you left off": "继续上次的工作",
   "Assumptions": "假设参数",
   "View run estimate": "查看运行预估",
   "Starting point": "起始页",
   "← Starting point": "← 返回起始页",
-  "← Live Sky": "← 返回实时天空",
+  "← Home": "← 返回首页",
   "Business setup": "业务设置",
   "Setup style": "设置方式",
   "Continue guided setup": "继续引导式设置",
@@ -2780,8 +2763,7 @@ globalThis.QQChinese = {
   "Stratus": "层云",
   "Cumulus": "积云",
   "Cumulonimbus": "积雨云",
-  "View live sky": "观看实时天空",
-  "Live sky": "实时天空",
+  "View sky": "观看天空",
   "Pause sky": "暂停天空动画",
   "Resume sky": "继续天空动画",
   "Enter simulator": "进入模拟器",
@@ -2792,7 +2774,7 @@ globalThis.QQChinese = {
   "Eastern cloud bank": "东侧云层",
   "Low cloud bank": "低空云层",
   "Stars": "星空",
-  "Crescent moon": "弯月",
+  "Moon": "月亮",
   "Horizon": "地平线",
   "Atmosphere": "大气",
   "Horizontal position": "水平位置",
@@ -4416,7 +4398,15 @@ globalThis.QQChinese = {
   "MEIQQ": "MEIQQ",
   "MEIQQ offline comparison report · generated {0}": "MEIQQ离线对比报告·生成于{0}",
   "MEIQQ scenario design": "MEIQQ情景设计",
-  "MEIQQ — Studio & Simulator": "MEIQQ · 工作室与经营模拟",
+  "Simulator backup": "模拟器备份",
+  "Open simulator backup": "打开模拟器备份",
+  "美QQ — Studio & Simulator": "美QQ · 工作室与经营模拟",
+  "Sky view": "天空视图",
+  "Reset app": "重置应用",
+  "Reset 美QQ to defaults?": "将美QQ恢复为默认设置？",
+  "This permanently erases saved runs, drafts, checkpoints, Studio ideas, plans, and jobs in this browser. Settings return to their defaults. Downloaded backups are kept.": "此操作会永久清除当前浏览器中保存的模拟运行、草稿、检查点、工作室创意、计划和项目，并恢复默认设置。已下载的备份会保留。",
+  "Erase progress and reset": "清除进度并重置",
+  "The app could not be reset. Close other 美QQ tabs and try again.": "无法重置应用。请关闭其他美QQ标签页后重试。",
   "MEIQQ-Backup-Day-{0}": "MEIQQ-Backup-Day-{0}",
   "MEIQQ-Jobs-Preserved-{0}": "MEIQQ-项目-保留-{0}",
   "MEIQQ-Planner-Preserved-{0}": "MEIQQ-Planner-Preserved-{0}",
@@ -4992,7 +4982,8 @@ globalThis.QQChinese = {
   "Preset evidence ledger is required.": "需要预设证据账本。",
   "Previous": "上一个",
   "Previous draft restored.": "恢复了之前的草稿。",
-  "Previous service mix available.": "可用的先前服务组合。",
+  "Service mix updated.": "服务组合已更新。",
+  "Dismiss": "关闭提示",
   "Price": "价格",
   "Price & scope evidence": "价格与服务范围的依据",
   "Price and workload options": "价格和工作量选项",
@@ -7344,7 +7335,7 @@ globalThis.QQChinese = {
 
   function syncDocument() {
     document.documentElement.lang = language;
-    document.title = text('MEIQQ — Studio & Simulator');
+    document.title = text('美QQ — Studio & Simulator');
   }
 
   function choose(value) {
@@ -10841,7 +10832,7 @@ const api={create,decisionDetails,acceptedWorkSection};root.QQComparisonReport=a
     try{stored=await transaction(db,'readonly',key);}catch(cause){db.close();const e=Error('Primary workspace could not be read.');e.code='STORAGE_READ_FAILED';e.cause=cause;throw e;}
     const version=value=>Number.isSafeInteger(value?.revision)&&value.revision>=0?value.revision:0;
     let revision=version(stored);
-    const raw=typeof stored==='string'?stored:stored===undefined?undefined:
+    const raw=typeof stored==='string'?stored:stored===undefined||stored?.reset===true?undefined:
       typeof stored?.text==='string'&&Number.isSafeInteger(stored.revision)?stored.text:JSON.stringify(stored);
     db.onversionchange=()=>db.close();
     function write(text,fallbackFingerprint=null){
@@ -10862,6 +10853,24 @@ const api={create,decisionDetails,acceptedWorkSection};root.QQComparisonReport=a
       });
     }
     return {raw,write,fallbackFingerprint:stored?.fallbackFingerprint||null,close:()=>db.close()};
+  }
+  async function reset(factory,keys){
+    const db=await openDatabase(factory);
+    try{
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves');
+        tx.oncomplete=resolve;
+        tx.onabort=tx.onerror=()=>reject(tx.error||Error('Browser storage could not be reset.'));
+        // Keep only a revision marker so a tab with an older save cannot restore it.
+        for(const key of keys){
+          const request=store.get(key);
+          request.onsuccess=()=>{
+            const revision=request.result?.revision;
+            store.put({reset:true,revision:(Number.isSafeInteger(revision)&&revision>=0?revision:0)+1},key);
+          };
+        }
+      });
+    }finally{db.close();}
   }
   async function fingerprint(text){
     if(text===null)return null;
@@ -10899,7 +10908,7 @@ const api={create,decisionDetails,acceptedWorkSection};root.QQComparisonReport=a
     }
     return {push(text){latest=text;void drain();},flush(){return busy||latest!==null?new Promise(resolve=>waiters.push(resolve)):Promise.resolve(!failed);}};
   }
-  const api={connect,writer,fingerprint};root.MEIQQStorage=api;if(typeof module!=='undefined')module.exports=api;
+  const api={connect,writer,fingerprint,reset};root.MEIQQStorage=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);
 </script><script>/* Independent, local Studio ideas. No simulation state or business transactions. */
 (function(root) {
@@ -12788,13 +12797,39 @@ const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module
   }
   const state={active:false,progress:0,sequence:0,phase};
   let previous=null,previousStage='home',goal=0,velocity=0,raf=0,last=0,departure=null;
+  // Exact integration of a critically damped spring. Retargeting preserves
+  // velocity, even if another route is selected halfway through the move.
+  function glide(position,velocity,target,dt,rate){
+    const offset=position-target,impulse=velocity+rate*offset,decay=Math.exp(-rate*dt);
+    return [target+(offset+impulse*dt)*decay,(velocity-impulse*rate*dt)*decay];
+  }
+  state.glide=glide;
+  state.createShotClock=shots=>{
+    let remaining=45+Math.random()*40,index=0;
+    const pose={...shots[0]},keys=Object.keys(pose),speeds=keys.map(()=>0);
+    return (dt,watching)=>{
+      if(watching&&!state.active){
+        remaining-=dt;
+        if(remaining<=0){
+          index=(index+1+Math.floor(Math.random()*(shots.length-1)))%shots.length;
+          remaining=55+Math.random()*70;
+        }
+      }
+      const next=shots[watching?index:0];
+      for(let i=0;i<keys.length;i++){
+        const key=keys[i];
+        [pose[key],speeds[i]]=glide(pose[key],speeds[i],next[key],dt,.48);
+      }
+      return pose;
+    };
+  };
   function presentFrame(){
     const p=state.progress;
-    const ui=goal?phase(.57,.97,p):1-phase(0,.34,p);
+    const ui=goal?phase(.02,.17,p):1-phase(.82,.98,p);
     root.style.setProperty('--studio-shell-visibility',String(ui));
     root.style.setProperty('--studio-shell-lift',(goal?17:-10)*(1-ui)+'px');
-    host.style.setProperty('--sky-bank-visibility',String(1-phase(.58,.83,p)));
-    host.style.setProperty('--sky-ridge-visibility',String(1-phase(.08,.36,p)));
+    host.style.setProperty('--sky-bank-visibility',String(1-phase(.46,.86,p)));
+    host.style.setProperty('--sky-ridge-visibility',String(1-phase(.10,.42,p)));
     root.toggleAttribute('data-flight-revealing',ui<.15);
   }
   function settle(){
@@ -12812,11 +12847,9 @@ const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module
     // Integrate the directed speed so Back or Forward turns from the current
     // position, including when either renderer is using software painting.
     const dt=last?Math.max(0,(now-last)/1000):0;last=now;
-    const desired=goal?1/2.95:-1/2.55,decay=Math.exp(-dt*15);
-    state.progress=Math.max(0,Math.min(1,state.progress+desired*dt+(velocity-desired)*(1-decay)/15));
-    velocity=desired+(velocity-desired)*decay;
+    [state.progress,velocity]=glide(state.progress,velocity,goal,dt,.92);
     presentFrame();
-    if(state.progress===goal&&dt>0){settle();return;}
+    if(Math.abs(state.progress-goal)<.001&&Math.abs(velocity)<.001){settle();return;}
     raf=requestAnimationFrame(tick);
   }
   function retireWorkspace(){
@@ -12839,8 +12872,9 @@ const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module
     exit.finished.then(()=>shell.remove(),()=>shell.remove());
   }
   state.route=(view,stage)=>{
-    const from=previous,fromStage=previousStage;previous=view;previousStage=stage;
-    if(from===view||from!==null&&isStudio(from)===isStudio(view)){
+    const from=previous,fromStage=previousStage;previous=view;previousStage=stage;state.view=view;
+    if(from===view&&stage===fromStage)return;
+    if(from!==null&&isStudio(from)===isStudio(view)){
       if(state.active){
         if(isStudio(view))host.setAttribute('studio-flight',view);
         else state.skyStage=stage;
@@ -12871,8 +12905,9 @@ const api={render};root.QQPlannerView=api;if(typeof module!=='undefined'&&module
   document.addEventListener('pointerdown',e=>{
     if(state.active&&!e.target.closest?.('a[href^="#"]'))settle();
   },true);
-  reducedColors.addEventListener('change',()=>{if(!enabled())settle();});
-  new MutationObserver(()=>{if(!enabled())settle();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-ui-motion']});
+  function motionChanged(){if(!enabled())settle();}
+  reducedColors.addEventListener('change',motionChanged);
+  new MutationObserver(motionChanged).observe(document.documentElement,{attributes:true,attributeFilter:['data-ui-motion']});
   window.StudioFlight=state;
 })();
 </script><script>'use strict';
@@ -12887,14 +12922,11 @@ const btn=(text,action,cls='',extra='')=>`<button class="${cls}" data-action="${
 
 // UI edits live in a separate draft. Only explicit apply actions affect the engine.
 const KEY='qq-studio-lab-v1', THEME_KEY='qq-studio-appearance', MOTION_KEY='qq-studio-shard-motion', SETUP_MODE_KEY='qq-studio-setup-mode', PRESET_KEY='qq-studio-preset-selection';
-const THEMES = {terminal: 'Terminal', dark: 'Dark'};
-const MOTION = {system:'Follow device', animate:'Animate', still:'Still'};
-let shardMotion='system';
 const shardBackground=document.querySelector('aero-shards');
 const motionPreference=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion:reduce)'):null;
 function applyShardMotion(){
- shardBackground?.setAttribute?.('motion',shardMotion);
- const enabled=shardMotion==='animate'||(shardMotion==='system'&&!motionPreference?.matches);
+ shardBackground?.setAttribute?.('motion','system');
+ const enabled=!motionPreference?.matches;
  document.documentElement.dataset.uiMotion=enabled?'on':'off';
  if(!enabled)document.getAnimations?.().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
 }
@@ -12908,6 +12940,7 @@ let skyPlayback=null;
 const editorSteps=['offers','demand','people','cash'];
 const destinations={studio:'Ideas',planner:'Planner',jobs:'Jobs',map:'Run scenario',finances:'Scenario results',projects:'Projects',scenarios:'Runs and backups',about:'Model guide'};
 let routeReady=false,lastRoute=null,resumeRoute='',lastEditorStep=0;
+let workspaceTrail=[];
 try{
  resumeRoute=window.sessionStorage?.getItem('meiqq-last-page')||'';
  const storedStep=Number(window.sessionStorage?.getItem('meiqq-setup-step'));
@@ -12918,6 +12951,7 @@ let firstStepEstimate=null;
 let rerunDraft=null,rerunLink=null,editingRerun=false,ordinaryDraft=null;
 let keptComparisonId=null,keptSetupRun=null;
 let savingKeptSetup=false;
+let resettingApp=false;
 function scenarioName(name){
  return esc(name===RESTAURANT_EXAMPLE||name===QQ.DEFAULT.name?name:QQI18n.literal(name));
 }
@@ -12939,7 +12973,7 @@ function rememberKeptComparison(id){
  const route='finances',savedComparison={id,route,tab:'compare',opener:{action:'open-saved-comparison',comparisonId:id}};
  // Keep a real library entry behind the preserved result. Back from the
  // new setup revisits the report; closing it returns to this library.
- window.history.pushState({savedComparison},'','#'+route+'?comparison='+id);
+ window.history.pushState({...window.history.state,savedComparison},'','#'+route+'?comparison='+id);
 }
 let cashView={run:null,month:0,page:0};
 const SAMPLE_SIZE=20;
@@ -12949,7 +12983,7 @@ let replayDialog=null,monthJobHistory=null;
 let archives=[],checkpointInfo=[],recoveryFiles=[],saveTimer=null,saveNoticeTimer=null,showSavingNotice=false,backend=null,saveWriter=null;
 let loading=typeof indexedDB!=='undefined',saveStatus='saved',storeReason='',localRevision=null,primaryReadFailed=false,savePreparationError=null,fallbackPreserved=false;
 let inspectorTrail=[];
-let selection=null,running=false,timer=null,finishTarget=null,runGeneration=0,speed=1,theme='terminal',setupMode='guided',storeError=false,recoveryRaw=null,recoveryReason='';
+let selection=null,running=false,timer=null,finishTarget=null,runGeneration=0,speed=1,setupMode='guided',storeError=false,recoveryRaw=null,recoveryReason='';
 let runPassage=null;
 let filter='active',search='',toastTimer,modalFocus=null,actionFocus=null,expandedService=-1,setupModeChanging=false;
 let presetSelection={market:'metro',operation:'solo',mix:'balanced',condition:'steady'},pendingPreset=null,presetUndoDraft=null,pendingEvidence=null;
@@ -12972,18 +13006,10 @@ try{
   setupChoicePending=localStorage.getItem(ENTRY_KEY)!=='true';
   const raw=localStorage.getItem(KEY);localRevision=raw??null;
   if(raw!=null){try{const parsed=MEIQQWorkspace.parseText(raw);retainLegacySource(raw,parsed);installWorkspace(parsed);}catch(e){recoveryRaw=raw;recoveryReason=e.message;storeError=true;saveStatus='error';}}
-  const motion = localStorage.getItem(MOTION_KEY);
-  if (Object.hasOwn(MOTION,motion)) shardMotion=motion;
-  const chosen = localStorage.getItem(THEME_KEY);
-  if (Object.hasOwn(THEMES, chosen)) theme = chosen;
-  if (chosen === 'light') {
-    try { localStorage.setItem(THEME_KEY, theme); }
-    catch { /* The default still applies if preferences are read-only. */ }
-  }
   const chosenSetupMode=localStorage.getItem(SETUP_MODE_KEY);if(['guided','analyst'].includes(chosenSetupMode))setupMode=chosenSetupMode;
   try{const chosenPreset=JSON.parse(localStorage.getItem(PRESET_KEY));if(chosenPreset&&typeof chosenPreset==='object'){for(const [key,rows]of [['market',QQPresets.MARKETS],['operation',QQPresets.OPERATIONS],['mix',QQPresets.MIXES],['condition',QQPresets.CONDITIONS]])if(rows.some(v=>v.id===chosenPreset[key]))presetSelection[key]=chosenPreset[key];}}catch(e){}
 }catch(e){storeError=true;}
-document.documentElement.dataset.theme=theme;
+document.documentElement.dataset.theme='terminal';
 applyShardMotion();
 QQI18n.syncDocument();
 const steps=['Offers','Demand','People','Cash & timing'];
@@ -13088,7 +13114,7 @@ function persistenceStatus(status,error){
  if(saveStatus==='saving')saveNoticeTimer=setTimeout(()=>{if(saveStatus==='saving'){showSavingNotice=true;updateSaveStatus();}},500);
 }
 function save(){
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  clearTimeout(saveTimer);saveTimer=null;
  if(loading||recoveryRaw!==null||primaryReadFailed){updateSaveStatus();return;}
  try{
@@ -13180,12 +13206,8 @@ function languagePicker() {
 }
 const waterfrontView=document.querySelector('#waterfront-view');
 function inStudio(){return view==='studio'||view==='planner'||view==='jobs';}
-function appearancePicker() {
- const options = Object.entries(THEMES).map(([value, label]) =>
-   `<option value="${value}"${theme === value ? ' selected' : ''}>${label}</option>`
- ).join('');
- const motionOptions=Object.entries(MOTION).map(([key,label])=>`<option value="${key}"${shardMotion===key?' selected':''}>${label}</option>`).join('');
- return `<label class="theme-picker"><span>Appearance</span><select id="appearance" aria-label="Appearance">${options}</select></label><label class="theme-picker motion-picker"><span>Background motion</span><select id="shard-motion" aria-label="Background motion">${motionOptions}</select></label>${inStudio()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>'}`;
+function sceneOptions(){
+ return inStudio()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>';
 }
 function routeLink(route,label,cls='',attrs=''){
  return `<a class="${cls}" href="#${esc(route)}" ${attrs}>${label}</a>`;
@@ -13601,7 +13623,12 @@ function render(){
   if(editingRerun&&(view!=='setup'||setupNeedsChoice()))parkRerunEditor();
   const focus=focusKey(document.activeElement);
   if(runPassage&&(view!=='map'||runPassage.run!==state||selection))runPassage=null;
+  const previousRoute=lastRoute;
   syncWorkspaceRoute();
+  const revealBreadcrumb=()=>{
+    const path=previousRoute!==lastRoute&&document.querySelector('.workspace-breadcrumb');
+    if(path)path.scrollLeft=path.scrollWidth;
+  };
   if(routeReady&&view==='map')rememberRunPassage();
   const route=workspaceRoute();
   if(preferencesRoute!==route){
@@ -13621,12 +13648,12 @@ function render(){
   }
   if((routeReady||!window.location)&&shardBackground?.getAttribute?.('sky-stage')!==skyStage)shardBackground?.setAttribute?.('sky-stage',skyStage);
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(!setupModeChanging)disclosureState.set(el.dataset.disclosure,el.open);
-  if(inStudio()){if(view==='planner')renderPlannerShell();else if(view==='jobs')renderJobsShell();else renderStudioShell();for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);if(!$('#root').inert)restoreFocus(focus);return;}
+  if(inStudio()){if(view==='planner')renderPlannerShell();else if(view==='jobs')renderJobsShell();else renderStudioShell();for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);if(!$('#root').inert)restoreFocus(focus);revealBreadcrumb();return;}
   const status=`<div id="save-status" class="save-status ${storeError?'negative':''}" role="status" aria-live="polite" ${showSaveStatus()?'':'hidden'}>${esc(saveLabel())}</div>`;
   const notices=`${recoveryRaw!==null?`<div class="banner danger"><b>Saved workspace needs recovery.</b> ${esc(recoveryReason||'The file could not be validated.')} The original is intact; changes here will not save. ${btn('Download original save','recover','small')} ${btn('Open another backup','import','small')}</div>`:''}${fallbackPreserved?`<div class="banner warn">A different browser-local save has been preserved under Runs & backups. Compare it with this run before continuing. ${btn('View preserved workspaces','view','small','data-view="scenarios"')}</div>`:''}${state.blocked&&view!=='map'?`<div class="banner warn"><b>Cash shortfall paused the run.</b> ${esc(state.blocked.note)} · ${offerAmount(state.blocked.gap)} needed. ${btn('Resolve shortfall','cash','small')}</div>`:''}`;
   if(skyOnly){
     const playing=skyPlayback?skyPlayback==='animate':document.documentElement.dataset.uiMotion==='on';
-    $('#root').innerHTML=workspaceShell('sky-only',`<main class="workspace"><h1 id="sim-heading" tabindex="-1" class="sr-only">Live Sky</h1><nav aria-label="Live Sky">${btn(playing?'Pause sky':'Resume sky','sky-play')}<button type="button" data-edit-sky>Edit sky</button>${routeLink('sky','Live Sky home')}</nav></main>`);
+    $('#root').innerHTML=workspaceShell('sky-only',`<main class="workspace"><h1 id="sim-heading" tabindex="-1" class="sr-only">Sky view</h1><nav aria-label="Sky view">${btn(playing?'Pause sky':'Resume sky','sky-play')}<button type="button" data-edit-sky>Edit sky</button>${routeLink('sky','Home')}</nav></main>`);
   }else if(view==='setup'||view==='sky'){
     const editor=view==='setup'&&!entrance;
     setupCache=editor?{}:null;
@@ -13640,6 +13667,7 @@ function render(){
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(setupMode==='analyst'&&el.dataset.disclosure.startsWith('setup-advanced-'))el.open=true;else if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);
   $('#root').inert=Boolean($('#modal').firstChild);
   if(!$('#root').inert)restoreFocus(focus);
+  revealBreadcrumb();
   setupCache=null;
   setupModeChanging=false;
 }
@@ -13801,7 +13829,7 @@ function openSetupEditor(mode){
   appendCatalogService(null);
  }else expandedService=0;
  // Back from a committed draft changes its style without creating another scenario.
- if(routeReady)window.history.replaceState(null,'','#setup/style');
+ if(routeReady)replaceWorkspaceStop('setup/style');
  stepIndex=0;lastEditorStep=0;setSetupMode(mode);
  save();render();
  focusViewHeading();
@@ -13825,13 +13853,26 @@ function workspaceRoute(){
  }
  return 'setup/edit/'+editorSteps[stepIndex];
 }
+function workspacePathTo(trail,route){
+ if(typeof route!=='string'||!route)return trail;
+ if(!trail.length)trail=['sky'];
+ if(trail.at(-1)===route)return trail;
+ const earlier=trail.indexOf(route);
+ return earlier<0?[...trail,route]:trail.slice(0,earlier+1);
+}
+function replaceWorkspaceStop(route){
+ workspaceTrail=workspacePathTo(workspaceTrail.slice(0,-1),route);
+ window.history.replaceState({workspaceTrail},'','#'+route);
+}
 function syncWorkspaceRoute(){
  if(!routeReady)return;
  const route=workspaceRoute();
  if(route===lastRoute)return;
  lastRoute=route;
  const hash=savedComparisonReader?.id&&savedComparisonReader.route===route?'#'+route+'?comparison='+savedComparisonReader.id:'#'+route;
- if(window.location.hash!==hash)window.history.pushState(null,'','#'+route);
+ workspaceTrail=workspacePathTo(workspaceTrail,route);
+ if(window.location.hash!==hash)window.history.pushState({workspaceTrail},'',hash);
+ else window.history.replaceState({...window.history.state,workspaceTrail},'',hash);
  if(route==='sky'||route==='sky/view')return;
  resumeRoute=route;
  if(view==='setup'&&!setupNeedsChoice())lastEditorStep=stepIndex;
@@ -13843,10 +13884,15 @@ function syncWorkspaceRoute(){
  }catch{/* Links and the in-memory return destination remain available. */}
 }
 function readWorkspaceRoute(){
- if(!routeReady||savingKeptSetup)return;
+ if(!routeReady||savingKeptSetup||resettingApp)return;
  const leavingRevision=editingRerun;
  const previousStep=view==='setup'&&!setupNeedsChoice()?stepIndex:null;
  const [route,comparisonId]=(window.location.hash.slice(1)||'sky').split('?comparison=');
+ const storedTrail=window.history.state?.workspaceTrail;
+ // Old history entries can contain several round trips through Home.
+ const priorStops=Array.isArray(storedTrail)&&storedTrail.at(-1)===route
+  ?storedTrail.slice(0,-1).reduce(workspacePathTo,['sky']):workspaceTrail;
+ workspaceTrail=workspacePathTo(priorStops,route);
  if(!comparisonId&&savedComparisonReader&&route===workspaceRoute()){
   closeModal(false);render();return;
  }
@@ -13901,6 +13947,7 @@ function readWorkspaceRoute(){
   selection=null;inspectorTrail=[];runPassage={run:state,estimate:QQ.runLaunchEstimate(state)};
  }else runPassage=null;
  const resolved=workspaceRoute();
+ if(resolved!==route)workspaceTrail=workspacePathTo(priorStops,resolved);
  let reader;
  if(pair){
   reader=entry||{id:comparisonId,route:resolved,tab:'compare'};
@@ -13908,8 +13955,8 @@ function readWorkspaceRoute(){
   if(!entry||resolved!==route){
    // A pasted link or a recovered route has no in-app return entry yet.
    reader={...reader,route:resolved};
-   window.history.replaceState(null,'','#'+resolved);
-   window.history.pushState({savedComparison:reader},'','#'+resolved+'?comparison='+comparisonId);
+   window.history.replaceState({workspaceTrail},'','#'+resolved);
+   window.history.pushState({workspaceTrail,savedComparison:reader},'','#'+resolved+'?comparison='+comparisonId);
   }
   savedComparisonReader=reader;
  }else if(window.location.hash!=='#'+resolved)window.history.replaceState(null,'','#'+resolved);
@@ -13938,15 +13985,66 @@ function beginSetupEntrance(newScenario=false){
  stepIndex=firstExamplePending()?0:lastEditorStep;
  render();focusViewHeading();
 }
+function workspaceStopLabel(route){
+ if(route==='sky')return 'Home';
+ if(route==='sky/view')return 'Sky view';
+ if(Object.hasOwn(destinations,route))return destinations[route];
+ const [,section,step]=route.split('/');
+ if(section==='edit'||section==='rerun')return steps[editorSteps.indexOf(step)]||'Business setup';
+ if(section==='new')return 'New scenario';
+ if(section==='style')return 'Choose your setup style';
+ return 'Business setup';
+}
+function workspaceBreadcrumb(){
+ const trail=workspaceTrail.length?workspaceTrail:workspacePathTo([],workspaceRoute());
+ const separator='<span class="breadcrumb-separator" aria-hidden="true">/</span>';
+ const path=trail.map((route,index)=>{
+  const label=workspaceStopLabel(route);
+  return index===trail.length-1?`<span class="breadcrumb-current" aria-current="page">${label}</span>`:
+   routeLink(route,label,'',`data-action="breadcrumb-stop" data-index="${index}"`);
+ }).join(separator);
+ return `<nav class="workspace-breadcrumb" aria-label="Breadcrumb">${separator}${path}</nav>`;
+}
 function skyHeader(info){
- const sky=view==='sky'||view==='sky/view',section=sky?'Live Sky':inStudio()?'Studio':'Simulator';
- const home=routeLink('sky','MEIQQ','sky-wordmark','aria-label="Live Sky home"');
- const identity=sky?'<b>Live Sky</b>':routeLink(inStudio()?'studio':'setup',section);
+ const sky=view==='sky'||view==='sky/view';
+ const home=routeLink('sky','美QQ','sky-wordmark','aria-label="Home"');
  const branch=!sky&&!inStudio()&&view!=='setup'?btn(icon('branch')+'Branch scenario','branch','small'):'';
  const status=info?`<small id="${view}-save-status" role="status">${esc(info.message)}</small>`:'';
- return `<header class="sky-header"><div class="sky-identity">${home}<span aria-hidden="true">/</span>${identity}</div><div class="sky-tools">
- ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}
- <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${appearancePicker()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View live sky')}${branch}${status}</div></details></div></header>`;
+ return `<header class="sky-header"><div class="sky-identity">${home}${workspaceBreadcrumb()}
+ ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}</div><div class="sky-tools">
+ <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${sceneOptions()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View sky')}${branch}${status}${btn('Reset app','reset-app','small')}</div></details></div></header>`;
+}
+async function resetApp(){
+ resettingApp=true;
+ const confirmButton=$('#confirm-app-reset');
+ confirmButton.disabled=true;
+ const removed=[];
+ const workspaceKeys=[KEY,QQStudio.STORAGE_KEY,QQJobs.STORAGE_KEY,QQPlanner.STORAGE_KEY];
+ try{
+  await Promise.all([appReady,studioReady,jobsReady,plannerReady]);
+  await Promise.all([saveWriter?.flush(),studioSession.flush(),jobsSession.flush(),plannerSession.flush()]);
+  const localKeys=[...workspaceKeys,THEME_KEY,MOTION_KEY,SETUP_MODE_KEY,PRESET_KEY,ENTRY_KEY,
+   'qq-studio-language','qq-studio-sunset-v1','meiqq-jobs-view-v1','meiqq-planner-view-v1'];
+  for(const [store,keys] of [[localStorage,localKeys],[window.sessionStorage,['meiqq-last-page','meiqq-setup-step']]]){
+   for(const key of keys){
+    const value=store.getItem(key);
+    if(value===null)continue;
+    store.removeItem(key);
+    removed.push([store,key,value]);
+   }
+  }
+  if(typeof indexedDB!=='undefined')await MEIQQStorage.reset(indexedDB,workspaceKeys);
+ }catch{
+  for(const [store,key,value] of removed){
+   try{if(store.getItem(key)===null)store.setItem(key,value);}catch{/* Storage may have become unavailable. */}
+  }
+  resettingApp=false;
+  confirmButton.disabled=false;
+  showError('The app could not be reset. Close other 美QQ tabs and try again.');
+  return;
+ }
+ window.history.replaceState(null,'','#sky');
+ window.location.reload();
 }
 function resumeDestination(){
  if(Object.hasOwn(destinations,resumeRoute))return [resumeRoute,destinations[resumeRoute]];
@@ -13966,8 +14064,8 @@ function skyHome(){
  const resume=resumeDestination();
  return `<section class="setup-story" data-render-key="sky-home" aria-labelledby="sim-heading">
  <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">Studio &amp; Simulator</h1></div>
- <div class="setup-start"><div><h2>Simulator</h2><p>Follow a service business from its first inquiry to its final payment.</p>${routeLink('setup','Enter simulator','scene-action primary')}</div>
- <div><h2>Studio</h2><p>Develop service ideas, plan your capacity and track client jobs.</p><nav class="studio-destinations" aria-label="Studio">${['studio','planner','jobs'].map(id=>routeLink(id,destinations[id],'scene-action')).join('')}</nav></div></div>
+ <div class="setup-start"><div><h2>Studio</h2><p>Develop service ideas, plan your capacity and track client jobs.</p><nav class="studio-destinations" aria-label="Studio">${['studio','planner','jobs'].map(id=>routeLink(id,destinations[id],'scene-action')).join('')}</nav></div>
+ <div><h2>Simulator</h2><p>Follow a service business from its first inquiry to its final payment.</p>${routeLink('setup','Enter simulator','scene-action primary')}</div></div>
  ${resume?`<div class="sky-resume"><span>Pick up where you left off</span>${routeLink(resume[0],esc(resume[1])+' <i aria-hidden="true">→</i>')}</div>`:''}</section>`;
 }
 function editingCurrentSetup(){
@@ -13979,7 +14077,7 @@ function editingCurrentSetup(){
 }
 function setupEntrance(){
  const current=editingCurrentSetup(),savedStyle=setupEntryPath==='style',restaurant=setupEntryPath==='restaurant';
- const back=newScenarioRequested&&setupReturnView?btn('Keep editing','cancel-new-setup','setup-back'):routeLink('sky','← Live Sky','setup-back');
+ const back=newScenarioRequested&&setupReturnView?btn('Keep editing','cancel-new-setup','setup-back'):routeLink('sky','← Home','setup-back');
  const source=(id,label,selected)=>btn(label,'start-'+id,'source-choice',`aria-pressed="${selected}"`);
  const mix=setupReturnView?QQPresets.MIXES.find(row=>row.id==='restaurant').mix:state.config.customerMix;
  const restaurantIntro='This studio sells menu updates, table tents and monthly promotions.'+(mix?` It assumes ${mix.food}% of inquiries come from food businesses, ${mix.retail}% from retailers and ${mix.services}% from local services. You can change the mix in Demand.`:'');
@@ -14002,39 +14100,59 @@ function setSetupMode(mode){
 }
 const navigatorDialog=document.querySelector('#workspace-navigator');
 function workspaceNavigator(){
- const editor=view==='setup'&&!setupNeedsChoice(),simulator=!inStudio()&&view!=='sky'&&view!=='sky/view';
- const label=id=>id==='setup'?'Business setup':destinations[id];
- const group=(name,routes)=>`<section class="navigator-group"><h3>${name}</h3>${routes.map(([id,symbol])=>{
-   const current=view===id?(id==='setup'&&workspaceRoute()!=='setup'?'location':'page'):null;
-   return routeLink(id,icon(symbol)+`<span>${label(id)}</span><i aria-hidden="true">›</i>`,'navigator-link',current?`aria-current="${current}"`:'');
- }).join('')}</section>`;
+ const currentPage=id=>{
+  if(id==='sky'&&view==='sky/view')return 'aria-current="location"';
+  if(view!==id)return '';
+  return id==='setup'&&workspaceRoute()!=='setup'?'aria-current="location"':'aria-current="page"';
+ };
+ const link=(id,symbol,label)=>routeLink(id,icon(symbol)+`<span>${label}</span>`,'navigator-link',currentPage(id));
+ const group=(name,routes)=>`<section class="navigator-group"><h3>${name}</h3>${routes.map(([id,symbol])=>
+  link(id,symbol,id==='setup'?'Business setup':destinations[id])).join('')}</section>`;
  const studioLinks=[['studio','box'],['planner','chart'],['jobs','file']];
  const simLinks=[['setup','settings'],['map','play'],['finances','chart'],['projects','file'],['scenarios','compare'],['about','info']];
- const studioBackup={studio:['Studio backup','studio-backup','Import ideas','studio-import'],planner:['Planner backup','planner-backup','Import plans','planner-import'],jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import']};
- const [backup,saveAction,open,loadAction]=studioBackup[view]||['Backup','backup','Open backup','import'];
- const context=editor?'Current setup':inStudio()?'Studio':simulator?'Simulator':'Live Sky';
- const page=editor?scenarioName(draft.name||state.config.name):view==='setup'?'Choose your setup style':destinations[view]||'Live Sky';
- const detail=editor?steps[stepIndex]:simulator&&view!=='setup'?scenarioName(state.config.name):'';
+ const backupActions={
+  studio:['Studio backup','studio-backup','Import ideas','studio-import'],
+  planner:['Planner backup','planner-backup','Import plans','planner-import'],
+  jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import'],
+ };
+ const [backup,saveAction,open,loadAction]=backupActions[view]||['Simulator backup','backup','Open simulator backup','import'];
  return `<div class="navigator-shell"><header class="navigator-heading"><h2 id="navigator-title" tabindex="-1" autofocus>Navigate</h2>${btn(icon('close'),'hide-navigator','navigator-close','aria-label="Close"')}</header>
- <div class="navigator-body"><button type="button" class="navigator-current" data-action="hide-navigator" title="Back to workspace">
- <span class="navigator-current-icon" aria-hidden="true">${icon(inStudio()?'box':simulator?'settings':'grid')}</span><span class="navigator-location"><small>${context}</small><strong>${page}</strong>${detail?`<span>${detail}</span>`:''}</span>${icon('arrow')}</button>
- <nav class="navigator-groups" aria-label="Workspace">${group('Simulator',simLinks)}${group('Studio',studioLinks)}</nav></div>
- <footer class="navigator-footer">${routeLink('sky','Live Sky home','navigator-home')}${btn(icon('download')+backup,saveAction)}${btn(icon('upload')+open,loadAction)}</footer></div>`;
+ <nav class="navigator-body" aria-label="Workspace">
+  <div class="navigator-home">${link('sky','grid','Home')}</div>
+  <div class="navigator-groups">${group('Studio',studioLinks)}${group('Simulator',simLinks)}</div>
+ </nav>
+ <footer class="navigator-footer">${btn(icon('download')+backup,saveAction)}${btn(icon('upload')+open,loadAction)}</footer></div>`;
 }
+let navigatorHoverTimer;
 function openWorkspaceNavigator(){
- if(navigatorDialog.open)return;
+ clearTimeout(navigatorHoverTimer);
+ if(navigatorDialog.open||waterfrontView.open||$('#modal').innerHTML||resettingApp||savingKeptSetup)return;
  if(runPassage&&running){stop();render();}
- const settings=document.querySelector('.sky-preferences');if(settings)settings.open=false;
+ const settings=document.querySelector('.sky-preferences');
+ if(settings)settings.open=false;
  navigatorDialog.innerHTML=QQI18n.html(workspaceNavigator());
  navigatorDialog.showModal();
 }
+document.addEventListener('pointerenter',e=>{
+ const trigger=e.target;
+ if(e.pointerType!=='mouse'||trigger.id!=='navigator-trigger')return;
+ clearTimeout(navigatorHoverTimer);
+ navigatorHoverTimer=setTimeout(()=>{
+  if(trigger.isConnected&&trigger.matches(':hover'))openWorkspaceNavigator();
+ },300);
+},true);
+document.addEventListener('pointerleave',e=>{
+ if(e.target.id==='navigator-trigger')clearTimeout(navigatorHoverTimer);
+},true);
 if(navigatorDialog?.addEventListener){
  // A drag that starts inside the sheet can finish outside without dismissing it.
  let backdropPress=false;
  navigatorDialog.addEventListener('pointerdown',e=>{backdropPress=e.target===navigatorDialog;});
  navigatorDialog.addEventListener('click',e=>{
-   if(e.target.closest('a[href],.navigator-footer button')){navigatorDialog.close();return;}
-   if(backdropPress&&e.target===navigatorDialog)navigatorDialog.close();backdropPress=false;});
+  const dismiss=backdropPress&&e.target===navigatorDialog;
+  backdropPress=false;
+  if(dismiss||e.target.closest('a[href],.navigator-footer button'))navigatorDialog.close();
+ });
 }
 // A result can point into a nested service editor. Follow its service id if
 // another offer is reordered or removed while this revision is open.
@@ -14892,7 +15010,8 @@ function serviceInputs(){
   const gap=QQ.round(100-draft.services.reduce((sum,s)=>sum+(s.weight||0),0));
   const fix=gap?btn(gap>0?gap+'% left to assign':Math.abs(gap)+'% over allocation','inspect-mix','small'):'';
   const undo=btn('Undo','restore-service','small','id="undo-service-removal"'+(draft.services.length>=20?' disabled title="This draft already contains 20 services."':''));
-  cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}</div>`);
+  const dismiss=btn('Dismiss','dismiss-service-removal','small');
+  cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}${dismiss}</div>`);
  }
  const starter=pristineOfferStarter(draft);
  const menu=currentClientMenu(draft,true);
@@ -14904,23 +15023,12 @@ function serviceInputs(){
  const toolbar=`<div class="offer-menu-heading"><h2>Your service menu</h2><div class="offer-menu-actions">${btn('Choose offerings','browse-offers','soft','id="choose-offerings" aria-haspopup="dialog"')}
   ${btn(starter?'Write my own offer':'Add custom offer',starter?'write-first-offer':'add-blank-service','',draft.services.length>=20?'disabled':'')}</div></div>
   ${draft.services.length>=20?'<small>This draft already contains 20 services.</small>':''}`;
- return `${invitation}${toolbar}${featuredOfferPreview(singleCustom)}${serviceUndoDraft?`<div class="preset-undo" role="status"><span>Previous service mix available.</span>${btn('Undo service mix','undo-services','small')}</div>`:''}${cards.join('')}${inquiryMix(rows,estimate)}${analyst}`;
-}
-function featuredOfferPreview(firstOffer){
- const ideas=[
-  ['menu-sales-mix','For restaurants','Find out which dishes are selling and which deserve a closer look.'],
-  ['wholesale-line-sheet','For product brands','Give a retailer the product details, wholesale prices and terms needed to place an order.'],
-  ['service-comparison-sheet','For service businesses','Help customers choose between packages before they ask for a quote.']
- ];
- return `<details class="offer-shortlist" data-disclosure="offer-shortlist-${firstOffer?'first':'menu'}"><summary>Three ideas to start with</summary><div>${ideas.map(([id,audience,reason])=>{
-  const entry=QQServiceCatalog.SERVICES.find(s=>s.id===id);
-  if(!entry)return '';
-  const name=serviceName(entry);
-  const index=draft.services.findIndex(s=>catalogPackageId(s)===id);
-  const action=index>=0?btn('Edit in menu','inspect-service','small',`data-index="${index}" aria-label="Edit ${serviceName(draft.services[index])}"`):
-   btn(icon('plus')+'<span>Add</span>','add-featured-offer','small',`data-id="${id}" aria-label="Add ${name}" ${draft.services.length>=20?'disabled':''}`);
-  return `<article><div><small>${audience}</small><strong>${name}</strong><p>${reason}</p></div>${action}</article>`;
- }).join('')}</div></details>`;
+ const undoNotice=serviceUndoDraft?`<div class="offer-recovery">
+  <span role="status">Service mix updated.</span>
+  ${btn('Undo service mix','undo-services','small')}
+  ${btn('Dismiss','dismiss-service-undo','small')}
+ </div>`:'';
+ return `${invitation}${toolbar}${undoNotice}${cards.join('')}${inquiryMix(rows,estimate)}${analyst}`;
 }
 function decisionMetric(label,value){
  return `<div><dt>${label}</dt><dd>${value}</dd></div>`;
@@ -16712,14 +16820,14 @@ function handleInput(el){
  if(view==='setup')render();
 }
 document.addEventListener('input',e=>{
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  if(e.target.id==='client-demand-share'||e.target.id==='client-demand-range'){changeClientDemand(e.target,false);return;}
  if(e.target.id==='client-demand-count-total'||e.target.id==='client-demand-count-target'){updateClientDemandCount(e.target);return;}
  if(e.target.id==='offer-package-search'&&offerPicker){offerPicker.query=e.target.value;refreshOfferPicker();return;}
  if(e.target.id==='studio-find'){studioUI.query=e.target.value;render();return;}
  if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
 document.addEventListener('change',e=>{
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  const el=e.target;
  if(el.id==='client-demand-share'||el.id==='client-demand-range'){changeClientDemand(el,true);return;}
  if(el.id==='client-demand-count-total'||el.id==='client-demand-count-target'){updateClientDemandCount(el);return;}
@@ -16762,19 +16870,12 @@ document.addEventListener('change',e=>{
   }else if(view!=='setup'&&(el.dataset.input==='acquisition'||el.dataset.input.endsWith('.audience')||el.type==='checkbox'))render();
   return;
  }
- if(el.id==='shard-motion'){
-  if(!Object.hasOwn(MOTION,el.value))return;
-  shardMotion=el.value;applyShardMotion();
-  try{localStorage.setItem(MOTION_KEY,shardMotion);}catch{toast('Motion setting applied for this session.');}
-  return;
- }
- if(el.id==='appearance'){if(!Object.hasOwn(THEMES,el.value))return;theme=el.value;document.documentElement.dataset.theme=theme;try{localStorage.setItem(THEME_KEY,theme);}catch(err){toast('Theme applied for this session. Browser storage is unavailable.');}return;}
  if(el.id==='speed'){speed=Number(el.value);if(running&&finishTarget===null){clearInterval(timer);timer=setInterval(tick,1000/speed);}return;}
  if(el.id==='horizon'){stop();const months=Number(el.value);if(!validRunLength(months)){render();return;}if(months*30<state.day){toast('The horizon must include the current day.');render();return;}serviceUndoDraft=null;presetUndoDraft=null;if(draft.months===state.config.months)draft.months=months;state.config.months=months;save();render();return;}
  if(el.id==='project-filter'){filter=el.value;$('#project-table').innerHTML=QQI18n.html(projectTable());}
 });
 document.addEventListener('click',e=>{
- if(savingKeptSetup){e.preventDefault?.();return;}
+ if(savingKeptSetup||resettingApp){e.preventDefault?.();return;}
  const el=e.target.closest('[data-action]');
  for(const menu of document.querySelectorAll(openWorkspaceMenus)){
   if(!menu.contains(e.target))menu.open=false;
@@ -16785,7 +16886,18 @@ document.addEventListener('click',e=>{
  try{
   if(presetUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','balance'].includes(a))presetUndoDraft=null;
   if(serviceUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','balance','confirm-preset','undo-preset','load','confirm-restart','confirm-example','confirm-import','open-archive','confirm-restore-draft','confirm-branch'].includes(a))serviceUndoDraft=null;
-  if(a==='show-navigator')openWorkspaceNavigator();
+  if(a==='breadcrumb-stop'&&routeReady){
+   if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+   e.preventDefault();
+   const shortened=workspaceTrail.slice(0,Number(el.dataset.index)+1);
+   const hash='#'+shortened.at(-1);
+   if(window.location.hash===hash)window.history.replaceState({workspaceTrail:shortened},'',hash);
+   else window.history.pushState({workspaceTrail:shortened},'',hash);
+   readWorkspaceRoute();
+  }
+  else if(a==='show-navigator')openWorkspaceNavigator();
+  else if(a==='reset-app')modal(`<h2 id="dialog-title">Reset 美QQ to defaults?</h2><p>This permanently erases saved runs, drafts, checkpoints, Studio ideas, plans, and jobs in this browser. Settings return to their defaults. Downloaded backups are kept.</p><div class="actions">${btn('Cancel','close')}${btn('Erase progress and reset','confirm-app-reset','soft','id="confirm-app-reset"')}</div>`);
+  else if(a==='confirm-app-reset')void resetApp();
   else if(a==='hide-navigator')navigatorDialog.close();
   else if(a==='view-waterfront'&&inStudio()){
    const options=el.closest('.workspace-options');
@@ -16821,7 +16933,7 @@ document.addEventListener('click',e=>{
    if(!setupNeedsChoice()||setupEntryPath==='style')return;
    setupEntryPath=a==='start-business'?'business':'restaurant';
    // Choosing a template edits this screen. Back returns to the page that opened it.
-   if(routeReady)window.history.replaceState(null,'','#'+workspaceRoute());
+   if(routeReady)replaceWorkspaceStop(workspaceRoute());
    render();
   }
   else if(a==='enter-setup')openSetupEditor(el.dataset.mode);
@@ -16949,10 +17061,6 @@ document.addEventListener('click',e=>{
   else if(a==='catalog-package')catalogPackage(el.dataset.id);
   else if(a==='confirm-catalog-service'){const value=QQI18n.inputValue($('#catalog-price'));if(value.trim()==='')throw Error('Enter a customer price.');const amount=Number(value),s=QQServiceCatalog.createService(pendingCatalogId);if(s.fulfillment&&amount<s.fulfillment.designOnlyPrice)throw Error('The managed-print price must cover at least the design-only price.');addCatalogService(pendingCatalogId,amount);catalogPrices.delete(pendingCatalogId);pendingCatalogId=null;}
   else if(a==='write-first-offer')revealSetupField({path:'services.0.name'});
-  else if(a==='add-featured-offer'){
-   const {added}=applyCatalogSelection([el.dataset.id]);
-   if(added.length){save();render();document.querySelector('#offer-edit-'+added[0])?.focus();toast('Service menu updated.');}
-  }
   else if(a==='park-offer'){
    const id=el.dataset.id;
    if(canFinishOfferLater(draft.services.findIndex(s=>s.id===id))){
@@ -16982,6 +17090,11 @@ document.addEventListener('click',e=>{
   else if(a==='review-starter'){pendingStarterId=el.dataset.id;const next=QQServiceCatalog.starterServices(pendingStarterId);modal(`<h2 id="dialog-title">Replace your draft service mix?</h2><p>Remove ${draft.services.length} current offerings from this draft: ${esc(draft.services.map(s=>s.name).join(', '))}.</p><p>Load this mix instead:</p><ul>${next.map(s=>`<li>${serviceName(s)} · ${offerAmount(s.price)} · ${s.weight}% inquiry share</li>`).join('')}</ul><p>Your active run and accepted projects stay in place. Undo is available until your next draft edit.</p><div class="actions">${btn('Keep current offerings','close')}${btn('Replace draft offerings','confirm-starter','primary')}</div>`);}
   else if(a==='confirm-starter'){if(!pendingStarterId)throw Error('Choose a starter mix.');serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;clearServiceRecords();draft.services=starterOffers(pendingStarterId);delete draft.clientMenu;pendingStarterId=null;expandedService=0;closeModal();render();toast('Starter mix loaded into the draft. Review & apply when ready.');}
   else if(a==='undo-services'){if(!serviceUndoDraft)throw Error('No previous service mix is available.');draft=QQ.clone(serviceUndoDraft);serviceUndoDraft=null;closeModal();render();}
+  else if(a==='dismiss-service-undo'){
+   serviceUndoDraft=null;
+   render();
+   document.querySelector('#choose-offerings')?.focus();
+  }
   else if(a==='inspect-service'){
    expandedService=Number(el.dataset.index);
    const key='service-'+draft.services[expandedService].id;
@@ -17019,6 +17132,11 @@ document.addEventListener('click',e=>{
   else if(a==='duplicate'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id=newServiceId();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
   else if(a==='remove-service')removeDraftService(el.dataset.id?draft.services.findIndex(s=>s.id===el.dataset.id):Number(el.dataset.index));
   else if(a==='restore-service')restoreDraftService();
+  else if(a==='dismiss-service-removal'){
+   removedServices.get(draft.services)?.pop();
+   renderListChange('.offer-card,.offer-recovery[data-render-key]');
+   (document.querySelector('#undo-service-removal:not(:disabled)')||document.querySelector('#choose-offerings'))?.focus();
+  }
   else if(a==='rebalance-other-weights'){
    if(editedMixOffer?.id!==el.dataset.id)return;
    const shares=weightsAround(editedMixOffer);
@@ -17106,7 +17224,7 @@ else if(a==='open-archive'){
  }catch(err){showError(err.message||'The action could not be completed.');}finally{actionFocus=null;}
 });
 document.addEventListener('keydown',e=>{
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  if(navigatorDialog?.open||waterfrontView?.open||document.querySelector('#sky-editor')?.open)return;
  if(e.key==='Escape'&&!$('#modal').firstChild){
   const menu=document.querySelector(openWorkspaceMenus);
@@ -17125,7 +17243,7 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){closeModal();render();}
  if(e.key==='Tab'){const els=modalTabStops();if(!els.length)return;e.preventDefault();const current=els.indexOf(document.activeElement),next=current<0?(e.shiftKey?els.length-1:0):(current+(e.shiftKey?-1:1)+els.length)%els.length;els[next].focus();}
 });
-window.addEventListener('beforeunload',e=>{save();studioSession.save();jobsSession.save();plannerSession.save();if(savingKeptSetup||plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(resettingApp)return;save();studioSession.save();jobsSession.save();plannerSession.save();if(savingKeptSetup||plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
 if(window.location)view='sky';
 render();
 const appReady=initializeStorage().then(()=>{
@@ -17724,6 +17842,36 @@ function simulationAnalyticsView(a,m){
       return ((t^(t>>>14))>>>0)/4294967296;
     };
   }
+  // A passage holds its subject, then dissolves into a different one. Draw
+  // each next duration and destination as needed, without a repeating playlist.
+  function createPassages(choices,rand,minimum,maximum){
+    const subjects=[...new Set(choices)];
+    function following(current){
+      const offset=1+Math.floor(rand()*(subjects.length-1));
+      return (current+offset)%subjects.length;
+    }
+    let index=0,next=following(index),elapsed=0,duration=mix(minimum,maximum,rand());
+    const passage={from:subjects[index],to:subjects[next],blend:0,advance(dt){
+      elapsed+=dt;
+      while(elapsed>=duration){
+        elapsed-=duration;index=next;next=following(index);
+        duration=mix(minimum,maximum,rand());
+      }
+      passage.from=subjects[index];passage.to=subjects[next];
+      passage.blend=smooth((elapsed/duration-.52)/.48);
+    }};
+    return passage;
+  }
+  function createDaylight(){
+    const levels=[-.82,-.28,.34,.91],start=Math.floor(Math.random()*levels.length);
+    const passage=createPassages([...levels.slice(start),...levels.slice(0,start)],Math.random,80,155);
+    // Enter an already unfolding sky, including on the first frame.
+    passage.advance(45+Math.random()*65);
+    return dt=>{
+      passage.advance(dt);
+      return mix(passage.from,passage.to,passage.blend);
+    };
+  }
 
   // Height, lift, wind shear and optical depth distinguish the ten cloud genera.
   const types = {
@@ -17820,6 +17968,7 @@ function simulationAnalyticsView(a,m){
 
   function createWeather(bank) {
     const size=COLS*ROWS, rand=random(bank.seed);
+    const formations=createPassages(bank.cycle,random(bank.seed+197),105,205);
     let water=new Float32Array(size), nextWater=new Float32Array(size);
     let vapor=new Float32Array(size), nextVapor=new Float32Array(size);
     // Condensate torn off the rim outlives the narrow neck that supplied it.
@@ -17884,10 +18033,10 @@ function simulationAnalyticsView(a,m){
     function solve(dt,initialize){
       // The formation cycle changes continuously, mixing two humidity sources
       // during a front. A pinned genus still evolves under its own wind field.
-      const cycle=time/(54+bank.seed%13), index=Math.floor(cycle)%bank.cycle.length;
-      const first=form==='auto'?bank.cycle[index]:form;
-      const blend=form==='auto'?smooth((fract(cycle)-.62)/.38):0;
-      const second=blend?bank.cycle[(index+1)%bank.cycle.length]:first;
+      formations.advance(dt);
+      const first=form==='auto'?formations.from:form;
+      const blend=form==='auto'?formations.blend:0;
+      const second=blend?formations.to:first;
       const a=shape(first), b=shape(second), pa=types[first], pb=types[second];
       profile={};
       for(const key of ['height','lift','shear','optical'])profile[key]=mix(pa[key],pb[key],blend);
@@ -18122,9 +18271,9 @@ function simulationAnalyticsView(a,m){
   // motion clears it, so resuming never replays a queue of missed meteors.
   function createMeteors(seed=7043) {
     const rand=random(seed);
-    let delay=3.4, event=null, first=true;
+    let delay=2+rand()*3, event=null;
     return {
-      clear(){event=null;delay=3.4;first=true;},
+      clear(){event=null;delay=2+rand()*3;},
       advance(dt,frequency){
         if(!frequency){event=null;delay=3.4;return null;}
         if(!dt)return event;
@@ -18137,15 +18286,13 @@ function simulationAnalyticsView(a,m){
             const direction=rand()>.62?-1:1;
             event={x:direction>0?.26+rand()*.29:.66+rand()*.20,y:.14+rand()*.26,
               dx:direction*(.16+rand()*.20),dy:.11+rand()*.14,age:0,life:.78+rand()*.55};
-            // Give the first trail the clear opening between the default banks.
-            if(first){event.x=.76;event.y=.31;event.dx=-.24;event.dy=.18;first=false;}
           }
         }
         return event;
       }
     };
   }
-  window.SunsetScene={banks,bankCenters,types,defaults,createWeather,createMeteors,cols:COLS,rows:ROWS,hash,clamp,mix,smooth};
+  window.SunsetScene={banks,bankCenters,types,defaults,createWeather,createMeteors,createPassages,createDaylight,cols:COLS,rows:ROWS,hash,clamp,mix,smooth};
 })();
 </script><script>/* The same copper parcel belongs to its departing bank, the open air, then
    its receiving bank. All flight positions are fractions of the viewport. */
@@ -18420,7 +18567,9 @@ function simulationAnalyticsView(a,m){
   function createSkyCamera(initial){
     let position=stops[initial]??0,target=position,velocity=0,elapsed=0,duration=0,start=position,entryVelocity=0;
     let aspect=1,width=1,height=1;
-    const lens=1.04,pose=new Float64Array(6),axes=new Float32Array(9);
+    const wideLens=1.04;
+    let lens=wideLens;
+    const pose=new Float64Array(6),axes=new Float32Array(9);
     let shortcut=null;
     function sampleMark(p,out){
       const i=Math.max(0,marks.findIndex((m,j)=>j>0&&m[0]>=p)-1),a=marks[i],b=marks[i+1];
@@ -18438,8 +18587,10 @@ function simulationAnalyticsView(a,m){
         out[1]-=.10*bank;out[2]+=.065*bank;out[4]-=.018*bank;out[5]-=.66*bank;
       }
     }
-    function aim(w,h,descent){
+    function aim(w,h,descent,shot){
       width=w;height=h;aspect=w/h;samplePose(pose);
+      lens=wideLens/(shot?.zoom??1);
+      if(shot){pose[0]+=shot.track??0;pose[1]-=shot.lift??0;pose[3]+=shot.x;pose[4]+=shot.y;}
       if(descent){
         // Fly toward the actual lower bank. Once inside its shoulder, cross
         // beneath it so the near edge sweeps up while the distant sky barely turns.
@@ -18469,7 +18620,7 @@ function simulationAnalyticsView(a,m){
       start=position;target=to;elapsed=0;entryVelocity=velocity;
       const distance=Math.abs(to-start);
       const crossesTwilight=Math.min(start,to)<2&&Math.max(start,to)>1;
-      duration=Math.min(shortcut?1.85:2.75,.46+.72*Math.sqrt(distance)+(crossesTwilight?.92:0));
+      duration=crossesTwilight?7.8:Math.min(5.4,2.4+1.25*Math.sqrt(distance));
       // Keep the current velocity if a nearer mark is selected while in flight.
       if(velocity*(to-start)>0)duration=Math.min(duration,2.6*distance/Math.abs(velocity));
     }
@@ -18485,31 +18636,155 @@ function simulationAnalyticsView(a,m){
     // This homography projects a world plane straight into clip space, including
     // the perspective divide. Cloud bodies and their copper parcels share it.
     function plane(depth){
-      const k=depth*lens/height,X=-width*.5*k-pose[0],Y=-height*.5*k-pose[1],Z=depth-pose[2];
+      const k=depth*wideLens/height,X=-width*.5*k-pose[0],Y=-height*.5*k-pose[1],Z=depth-pose[2];
       const sx=2/(aspect*lens),sy=-2/lens;
       return [k*axes[0]*sx,k*axes[3]*sy,k*axes[6],k*axes[1]*sx,k*axes[4]*sy,k*axes[7],
         (X*axes[0]+Y*axes[1]+Z*axes[2])*sx,(X*axes[3]+Y*axes[4]+Z*axes[5])*sy,X*axes[6]+Y*axes[7]+Z*axes[8]];
     }
     function project(x,y,depth=Infinity){
       const k=Number.isFinite(depth)?1/depth:0;
-      const X=(x-.5)*aspect*lens-pose[0]*k,Y=(y-.5)*lens-pose[1]*k,Z=1-pose[2]*k;
+      const X=(x-.5)*aspect*wideLens-pose[0]*k,Y=(y-.5)*wideLens-pose[1]*k,Z=1-pose[2]*k;
       const z=X*axes[6]+Y*axes[7]+Z*axes[8],scale=1/Math.max(.025,z);
       return [width*.5+height*(X*axes[0]+Y*axes[1]+Z*axes[2])*scale/lens,
-        height*.5+height*(X*axes[3]+Y*axes[4]+Z*axes[5])*scale/lens,scale];
+        height*.5+height*(X*axes[3]+Y*axes[4]+Z*axes[5])*scale/lens,scale*wideLens/lens];
     }
     function unproject(x,y,depth=Infinity){
       const u=(x-.5)*aspect*lens,v=(y-.5)*lens,k=Number.isFinite(depth)?1/depth:0;
       const dx=u*axes[0]+v*axes[3]+axes[6],dy=u*axes[1]+v*axes[4]+axes[7],dz=u*axes[2]+v*axes[5]+axes[8];
       const scale=(1-pose[2]*k)/Math.max(.10,dz);
-      return [.5+(pose[0]*k+dx*scale)/(aspect*lens),.5+(pose[1]*k+dy*scale)/lens];
+      return [.5+(pose[0]*k+dx*scale)/(aspect*wideLens),.5+(pose[1]*k+dy*scale)/wideLens];
     }
     function coverage(depth){
       const xs=[unproject(0,0,depth)[0],unproject(1,0,depth)[0],unproject(0,1,depth)[0],unproject(1,1,depth)[0]];
       return [Math.min(0,...xs)-.025,Math.max(1,...xs)+.025];
     }
-    return {aim,go,advance,project,unproject,plane,coverage,axes,lens,get position(){return position;},get moving(){return duration>0;}};
+    return {aim,go,advance,project,unproject,plane,coverage,axes,get lens(){return lens;},get position(){return position;},get moving(){return duration>0;}};
   }
   window.SunsetScene.createSkyCamera=createSkyCamera;
+})();
+</script><script>/* One scene clock, lunar surface and sun direction for the sky and its reflection. */
+(() => {
+  'use strict';
+  const scene=window.SunsetScene;
+  const {clamp,mix,smooth,hash}=scene;
+  const tau=2*Math.PI,month=32*60;
+  function illumination(turn){
+    const angle=tau*turn,side=Math.sin(angle),front=-Math.cos(angle);
+    return {x:side*.9701,y:side*.2425,z:front,fraction:(1+front)*.5};
+  }
+  function createClock(initialPhase=(Date.now()/1000/month)%1,random=Math.random){
+    // Daylight, dusk, night and dawn have separate, variable lengths.
+    const lengths=[[75,145],[90,160],[110,215],[100,180]];
+    const duration=i=>mix(...lengths[i],random());
+    let stage=0,age=0,span=duration(0),seconds=0,darkness=0,speed=0,started=false;
+    return {
+      sample(dt,route,shore,instant=false){
+        seconds+=dt;age+=dt;
+        while(age>=span){age-=span;stage=(stage+1)%4;span=duration(stage);}
+        const t=smooth(age/span);
+        const ambient=[0,t,1,1-t][stage];
+        const target=mix(route==='home'?ambient:route==='surface'?Math.max(.38,ambient):1,Math.max(.58,ambient),shore);
+        if(!started||instant){darkness=target;speed=0;started=true;}
+        else [darkness,speed]=window.StudioFlight.glide(darkness,speed,target,dt,.77);
+        const turn=(initialPhase+seconds/month)%1;
+        return {turn,light:illumination(turn),night:darkness,
+          x:.092*(darkness-.45)+.032*Math.sin(seconds/210),
+          y:.068*(1-darkness)-.018*Math.sin(Math.PI*darkness)-.019*Math.sin(seconds/305)};
+      }
+    };
+  }
+  const clock=createClock();
+  let last=null,wasPlaying=false;
+  const lunar={settings:scene.defaults.moon,createClock,illumination,world:clock.sample(0,'home',0),
+    tick(now,playing,host){
+      const flight=window.StudioFlight;
+      const shore=flight.active?flight.progress:Number(host.hasAttribute('waterfront'));
+      const route=flight.active?flight.skyStage:host.getAttribute('sky-stage')||'home';
+      const dt=last!==null&&wasPlaying&&playing?clamp((now-last)/1000,0,.35):0;
+      // Both painters can request the same frame while the river enters view.
+      if(last===null||now>=last){
+        const still=document.documentElement.dataset.uiMotion!=='on'&&!playing;
+        lunar.world=clock.sample(dt,route,shore,still||last===null);last=now;wasPlaying=playing;
+      }
+    },
+    suspend(){wasPlaying=false;},
+    disc(shore){
+      const a=lunar.skyDisc||lunar.riverDisc,b=lunar.riverDisc||a;
+      if(!a)return [0,0,0];
+      return [mix(a[0],b[0],shore),mix(a[1],b[1],shore),mix(a[2],b[2],shore)];
+    }
+  };
+  // Fixed selenographic markings and crater relief stay attached to the sphere
+  // as the sun moves across them. All painters sample the same shaded image.
+  const size=128;
+  let surface,canvas,ctx,image,key='',version=0;
+  function bakeSurface(){
+    surface=new Float32Array(size*size*5);
+    const craters=Array.from({length:55},(_,i)=>[hash(i,2)*1.96-.98,hash(i,3)*1.96-.98,.018+.075*hash(i,4)**3]);
+    const seas=[[-.29,.31,.39,.28],[.16,.37,.28,.19],[.36,.13,.23,.17],[-.44,-.13,.19,.24],[.03,-.13,.19,.16]];
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const k=(y*size+x)*5,nx=2*(x+.5)/size-1,ny=1-2*(y+.5)/size;
+      const r=Math.hypot(nx,ny);
+      if(r>=1)continue;
+      const nz=Math.sqrt(1-r*r);
+      let albedo=.91+.08*(hash(x,y)-.5),dx=nx,dy=ny;
+      for(const [cx,cy,rx,ry] of seas){
+        const dist=Math.hypot((nx-cx)/rx,(ny-cy)/ry)+.08*Math.sin(nx*37+ny*13);
+        albedo-=.15*(1-smooth((dist-.57)/.49));
+      }
+      for(const [cx,cy,radius] of craters){
+        const u=(nx-cx)/radius,v=(ny-cy)/radius,d=Math.hypot(u,v);
+        if(d>1.24)continue;
+        const rim=Math.exp(-((d-.87)**2)/.029);
+        albedo+=.14*rim-.09*(1-smooth(d));
+        dx-=.22*u*rim;dy-=.22*v*rim;
+      }
+      const n=Math.hypot(dx,dy,nz);
+      surface.set([dx/n,dy/n,nz/n,albedo,clamp((1-r)*size*.5)],k);
+    }
+    canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+    ctx=canvas.getContext('2d');image=ctx.createImageData(size,size);
+  }
+  function sprite(){
+    if(!canvas)bakeSurface();
+    const {turn,night,light}=lunar.world;
+    const next=Math.round(turn*2048)+'/'+Math.round(night*48);
+    if(key===next)return canvas;
+    const p=image.data;
+    for(let i=0,k=0;i<p.length;i+=4,k+=5){
+      const cover=surface[k+4];if(!cover)continue;
+      const incidence=surface[k]*light.x+surface[k+1]*light.y+surface[k+2]*light.z;
+      const lit=smooth((incidence+.013)/.070);
+      const shaded=surface[k+3]*(.61+.39*Math.sqrt(Math.max(0,incidence)));
+      const earth=(.5+.5*(1-light.fraction))*surface[k+3];
+      p[i]=mix(19+earth*12,252*shaded,lit);
+      p[i+1]=mix(26+earth*13,(237+10*night)*shaded,lit);
+      p[i+2]=mix(39+earth*15,(209+30*night)*shaded,lit);
+      p[i+3]=255*cover*mix(.035+.94*night,.68+.32*night,lit);
+    }
+    ctx.putImageData(image,0,0);key=next;version++;
+    return canvas;
+  }
+  lunar.sprite=sprite;
+  lunar.texture=gl=>{
+    const tex=gl.createTexture();let uploaded=-1;
+    return ()=>{
+      const asset=sprite();
+      gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,tex);
+      if(uploaded!==version){
+        if(uploaded<0){
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+          gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,asset);
+        }else gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gl.RGBA,gl.UNSIGNED_BYTE,asset);
+        uploaded=version;
+      }
+      gl.activeTexture(gl.TEXTURE0);
+    };
+  };
+  scene.lunar=lunar;
 })();
 </script><script>/* A procedural dusk sky behind independent copper meshes, with a shared
    deterministic scene for the WebGL and Canvas renderers. */
@@ -18519,18 +18794,21 @@ function simulationAnalyticsView(a,m){
   let canvas=host?.querySelector?.('.sunset-environment');
   if(!canvas)return;
   const {banks,cloudViews,defaults,createWeather,createShardFlights,createMeteors,cols,rows,hash,clamp,mix,smooth}=window.SunsetScene;
-  const weather=banks.map(createWeather);
+  const lunar=window.SunsetScene.lunar;
+  const weather=banks.map(bank=>createWeather({...bank,seed:Math.floor(Math.random()*30000),
+    frontPhase:Math.random()}));
   const flights=createShardFlights(weather);
   let views=[];
-  const meteorClock=createMeteors();
-  let meteor=null, celestial=0;
+  const meteorClock=createMeteors(Math.floor(Math.random()*0x100000000));
+  const daylight=window.SunsetScene.createDaylight();
+  let sunlight=daylight(0),meteor=null,celestial=Math.random()*280;
   const streak=new Float32Array(4);
   const screenVertex=`#version 300 es
     void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.-1.,0,1);}`;
   const skyFragment=`#version 300 es
     precision highp float;
     uniform vec2 uSize;
-    uniform vec3 uGalaxy, uMoon;
+    uniform vec3 uGalaxy, uMoon;uniform sampler2D uLunar;uniform float uMoonlight;
     uniform float uTime,uDusk,uOrbit,uBurst;
     uniform vec4 uStreak;
     uniform float uNight,uLens,uRiverAir;uniform mat3 uSkyAxes;
@@ -18574,7 +18852,7 @@ function simulationAnalyticsView(a,m){
       sky+=vec3(.10,.043,.018)*(1.-.85*night)*exp(-length((uv-vec2(.21,.87))*vec2(1.5,3.)));
       vec3 atmosphere=sky;
       vec3 ray=uSkyAxes*vec3((uv-.5)*aspect*uLens,1.);
-      vec2 skyUV=.5+ray.xy/(max(.06,ray.z)*uLens*aspect);
+      vec2 skyUV=.5+ray.xy/(max(.06,ray.z)*1.04*aspect);
       vec2 pole=vec2(.07,-.72), relative=(skyUV-uGalaxy.xy)*aspect-pole;
       float angle=uOrbit*.0038;
       vec2 skyPos=pole+mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*relative;
@@ -18586,7 +18864,7 @@ function simulationAnalyticsView(a,m){
       for(int k=0;k<3;k++){
         float layer=float(k)/3.;
         sky+=StarLayer(skyPos+vec2(.0010,-.00024)*uOrbit*(layer+.3),
-          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer)*(1.+.23*night);
+          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer)*mix(.12,1.18,night);
       }
       if(uBurst>0.){
         vec2 path=uStreak.zw*uSize, delta=(uv-uStreak.xy)*uSize;
@@ -18603,14 +18881,12 @@ function simulationAnalyticsView(a,m){
       if(radius>.1){
         vec2 p=moon/radius;
         float d=length(moon),disk=1.-smoothstep(radius-aa,radius+aa,d);
-        vec3 normal=vec3(p.x,-p.y,sqrt(max(0.,1.-dot(p,p))));
-        float incidence=dot(normal,normalize(vec3(.82,.24,-.54)));
-        float maria=.92+.08*mist(p*3.1+7.);
-        vec3 ivory=mix(vec3(1.,.925,.76),vec3(.98,.965,.89),night);
-        sky+=mix(vec3(.11,.079,.045),vec3(.074,.096,.13),night)*exp(-d/(radius*1.68));
-        vec3 earthshine=mix(atmosphere,vec3(.10,.126,.157),.36*night)+vec3(.014,.019,.024)*night*normal.z;
-        vec3 lit=ivory*maria*(.84+.16*max(0.,incidence));
-        sky=mix(sky,mix(earthshine,lit,smoothstep(-.015,.065,incidence)),disk);
+        sky+=mix(vec3(.09,.066,.04),vec3(.084,.097,.13),night)*uMoonlight*exp(-d/(radius*1.68));
+        if(d<=radius+aa){
+          vec4 lunar=texture(uLunar,p*.5+.5);
+          sky=mix(sky,atmosphere,disk);
+          sky=mix(sky,lunar.rgb,lunar.a);
+        }
       }
       sky+=(Hash21(gl_FragCoord.xy)-.5)*.004;
       // The air under the cloud opens first. Cloud volumes, their lit
@@ -18927,7 +19203,8 @@ function simulationAnalyticsView(a,m){
     return tex;
   }
   function prepareGL(gl){
-    const sky=program(gl,screenVertex,skyFragment,['uSize','uTime','uDusk','uMoon','uGalaxy','uOrbit','uBurst','uStreak','uNight','uSkyAxes','uLens','uRiverAir']);
+    const lunarTexture=lunar.texture(gl);
+    const sky=program(gl,screenVertex,skyFragment,['uSize','uTime','uDusk','uMoon','uGalaxy','uOrbit','uBurst','uStreak','uNight','uSkyAxes','uLens','uRiverAir','uLunar','uMoonlight']);
     const volume=program(gl,volumeVertex,volumeFragment,['uSize','uSpan','uPosition','uWater','uGrain','uAir','uTime','uSeed','uDusk','uSpace']);
     const composite=program(gl,`#version 300 es
       uniform vec2 uSpan,uPosition;uniform mat3 uProjection;out vec2 vUV;
@@ -19000,9 +19277,11 @@ function simulationAnalyticsView(a,m){
       const {moon,galaxy,light}=state;
       gl.uniform1f(sky.u.uRiverAir,riverAir);gl.uniform1f(sky.u.uNight,night);gl.uniform1f(sky.u.uLens,camera.lens);gl.uniformMatrix3fv(sky.u.uSkyAxes,false,camera.axes);
       gl.uniform2f(sky.u.uSize,width,height);gl.uniform1f(sky.u.uTime,time);gl.uniform1f(sky.u.uOrbit,celestial);
-      gl.uniform1f(sky.u.uDusk,light.dusk/100);
-      const [mx,my]=camera.project(moon.x/100,moon.y/100);
-      gl.uniform3f(sky.u.uMoon,mx/width,my/height,moon.visible?moonRadius():0);
+      gl.uniform1f(sky.u.uDusk,skyDusk());
+      const [mx,my,r]=lunar.disc(passage.active?passage.progress:0);
+      lunarTexture();
+      gl.uniform1i(sky.u.uLunar,3);gl.uniform1f(sky.u.uMoonlight,lunar.world.light.fraction);
+      gl.uniform3f(sky.u.uMoon,mx,my,moon.visible?r*height:0);
       gl.uniform3f(sky.u.uGalaxy,galaxy.x/100,galaxy.y/100,galaxy.visible?galaxy.density/100:0);
       gl.uniform1f(sky.u.uBurst,meteorLight());gl.uniform4fv(sky.u.uStreak,streak);
       gl.drawArrays(gl.TRIANGLES,0,3);
@@ -19047,7 +19326,7 @@ function simulationAnalyticsView(a,m){
         gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,g.bodies[1-g.front]);gl.uniform1i(composite.u.uPrevious,2);
         gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,g.bodies[g.front]);gl.uniform1i(composite.u.uBody,0);
         gl.uniform1f(composite.u.uBlend,g.interpolate?w.blend:1);gl.uniform1f(composite.u.uCloudLight,cloudLight);
-        gl.uniform1f(composite.u.uImmersion,immersion(i));gl.uniform1f(composite.u.uNight,cloudNight);gl.uniform1f(composite.u.uMoonlight,moon.visible?1:0);
+        gl.uniform1f(composite.u.uImmersion,immersion(i));gl.uniform1f(composite.u.uNight,cloudNight);gl.uniform1f(composite.u.uMoonlight,moon.visible?lunar.world.light.fraction:0);
         gl.uniformMatrix3fv(composite.u.uProjection,false,projection);gl.uniform2fv(composite.u.uSpan,dimensions);
         gl.useProgram(cloud.p);gl.bindVertexArray(g.vao);gl.bindBuffer(gl.ARRAY_BUFFER,g.buffer);
         if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,projectBank(i,...dimensions),0,w.count*poseStride);
@@ -19085,7 +19364,7 @@ function simulationAnalyticsView(a,m){
     const size=state[bank.id].scale/100;
     return [bank.width*Math.max(width,height*.95)*size,bank.height*height*size];
   }
-  function moonRadius(){return Math.max(4,height*mix(.0145,.018,night))*state.moon.scale/100;}
+  function moonRadius(){return Math.max(4,height*mix(.0145,.018,night))*state.moon.scale/100*1.04/camera.lens;}
   function paintHorizon(){
     const layer=state.horizon;
     horizon.hidden=!layer.visible;
@@ -19144,7 +19423,7 @@ function simulationAnalyticsView(a,m){
       const rgba=cache.current;
       for(let k=0;k<rgba.length;k+=4){
         const q=w.texture[k]/255, lit=smooth((w.texture[k+1]/255-.21)/.60);
-        const rim=lit*lit*(state.moon.visible?1:.68);
+        const rim=lit*lit*(.68+(state.moon.visible?.32*lunar.world.light.fraction:0));
         rgba[k]=mix(mix(135-46*dusk,255,lit),7+37*rim,exposure);
         rgba[k+1]=mix(mix(109-35*dusk,208,lit),11+44*rim,exposure);
         rgba[k+2]=mix(mix(115-17*dusk,159,lit),18+53*rim,exposure);
@@ -19202,7 +19481,7 @@ function simulationAnalyticsView(a,m){
   function softwareStars(c,galaxy){
     const angle=celestial*.0038,ca=Math.cos(angle),sa=Math.sin(angle),aspect=width/height;
     const centerX=galaxy.x/100,centerY=galaxy.y/100,{moon}=state;
-    const [mx,my]=camera.project(moon.x/100,moon.y/100),r=moon.visible?moonRadius():0;
+    const [u,v,radius]=lunar.disc(passage.active?passage.progress:0),mx=u*width,my=v*height,r=moon.visible?radius*height:0;
     c.fillStyle='#e3e9ef';
     for(const star of softwareStarField){
       const u=star.x-.07,v=star.y+.72;
@@ -19211,33 +19490,18 @@ function simulationAnalyticsView(a,m){
       const [px,py]=camera.project(x,y);
       if(px<0||px>width||py<0||py>height||(px-mx)**2+(py-my)**2<r*r)continue;
       const elevation=py/height,air=mix(1-smooth((elevation-.40)/.55),1-.78*smooth((elevation-.66)/.34),night);
-      c.globalAlpha=star.flux*air*(.91+.09*Math.sin(time*.68+star.phase));
+      c.globalAlpha=star.flux*air*mix(.12,1,night)*(.91+.09*Math.sin(time*.68+star.phase));
       c.beginPath();c.arc(px,py,star.radius,0,Math.PI*2);c.fill();
     }
     c.globalAlpha=1;
   }
-  let lunarDisc,lunarKey='';
-  function softwareMoon(c,moon){
-    const r=moonRadius(),[x,y]=camera.project(moon.x/100,moon.y/100);
+  function softwareMoon(c){
+    const [u,v,radius]=lunar.disc(passage.active?passage.progress:0),r=radius*height,x=u*width,y=v*height;
+    if(r<=0)return;
     const halo=c.createRadialGradient(x,y,0,x,y,r*5.5);
-    halo.addColorStop(0,'rgba(165,175,189,.16)');halo.addColorStop(.32,'rgba(145,156,171,.065)');halo.addColorStop(1,'rgba(145,156,171,0)');
+    halo.addColorStop(0,'rgba(165,175,189,'+.16*lunar.world.light.fraction+')');halo.addColorStop(1,'rgba(145,156,171,0)');
     c.fillStyle=halo;c.fillRect(x-r*5.5,y-r*5.5,r*11,r*11);
-    const radius=Math.ceil(r),exposure=Math.round(night*32)/32,key=radius+'/'+exposure;
-    if(key!==lunarKey){
-      if(!lunarDisc)lunarDisc=document.createElement('canvas');
-      const size=2*radius+2;lunarDisc.width=lunarDisc.height=size;
-      const ctx=lunarDisc.getContext('2d'),frame=ctx.createImageData(size,size);
-      for(let iy=0,k=0;iy<size;iy++)for(let ix=0;ix<size;ix++,k+=4){
-        const px=(ix+.5-size/2)/radius,py=(iy+.5-size/2)/radius,d=px*px+py*py;
-        const cover=clamp((1-Math.sqrt(d))*radius+.5);if(!cover)continue;
-        const light=.82*px-.24*py-.54*Math.sqrt(Math.max(0,1-d));
-        const lit=smooth((light+.015)/.08),shade=(.84+.16*Math.max(0,light))*(.94+.06*hash(ix+.3,iy+.9));
-        frame.data[k]=mix(25,252*shade,lit);frame.data[k+1]=mix(32,(236+10*exposure)*shade,lit);
-        frame.data[k+2]=mix(40,(194+33*exposure)*shade,lit);frame.data[k+3]=255*cover*mix(.26*exposure,1,lit);
-      }
-      ctx.putImageData(frame,0,0);lunarKey=key;
-    }
-    c.drawImage(lunarDisc,x-r-1,y-r-1,2*r+2,2*r+2);
+    c.drawImage(lunar.sprite(),x-r,y-r,2*r,2*r);
   }
   function softwareMeteor(c){
     const strength=meteorLight();if(!strength)return;
@@ -19247,8 +19511,12 @@ function simulationAnalyticsView(a,m){
     c.strokeStyle=grad;c.lineWidth=Math.max(1.1,height*.0018);c.beginPath();c.moveTo(tx,ty);c.lineTo(x,y);c.stroke();
     c.fillStyle='rgba(255,245,222,'+strength+')';c.beginPath();c.arc(x,y,c.lineWidth,0,Math.PI*2);c.fill();
   }
+  function skyDusk(){
+    const base=state.light.dusk/100;
+    return base-sunlight*.85*base*(1-base);
+  }
   function fallback(){
-    const c=ctx2d,{light,moon,galaxy}=state,d=light.dusk/100;
+    const c=ctx2d,{moon,galaxy}=state,d=skyDusk();
     const rgb=(a,b,twilight,n)=>'rgb('+a.map((v,i)=>Math.round(mix(mix(mix(v,b[i],d),twilight[i],smooth(night/.64)),n[i],smooth((night-.32)/.68)))).join(',')+')';
     const sky=c.createLinearGradient(0,0,0,height);
     sky.addColorStop(0,rgb([99,115,125],[36,51,69],[27,41,65],[5,9,18]));
@@ -19256,7 +19524,7 @@ function simulationAnalyticsView(a,m){
     sky.addColorStop(1,rgb([245,219,178],[184,163,163],[166,122,108],[43,48,57]));c.fillStyle=sky;c.fillRect(0,0,width,height);
     if(galaxy.visible)softwareStars(c,galaxy);
     softwareMeteor(c);
-    if(moon.visible)softwareMoon(c,moon);
+    if(moon.visible)softwareMoon(c);
     if(riverAir>0){
       // Mask only the distant air. Draw all foreground banks after the mask.
       const opening=c.createLinearGradient(0,0,0,height);
@@ -19289,6 +19557,13 @@ function simulationAnalyticsView(a,m){
     return mode==='animate'||(mode==='system'&&!reduced.matches);
   }
   const passage=window.StudioFlight;
+  const pan=passage.createShotClock([
+    {zoom:1,x:0,y:0,track:0,lift:0},
+    {zoom:1.18,x:.14,y:.06,track:.32,lift:.18},
+    {zoom:1.32,x:-.09,y:.04,track:-.43,lift:.52},
+    {zoom:1.12,x:.04,y:-.13,track:.19,lift:-.38}
+  ]);
+  const editor=document.querySelector('#sky-editor');
   let riverAir=0,passSequence=-1,descent=null;
   function skyHidden(){return forced.matches||document.hidden||host.hasAttribute('suspended')||(host.hasAttribute('waterfront')&&!passage?.active);}
   function immersion(index){return passage?.active&&descent?.index===index?descent.thickness:0;}
@@ -19317,19 +19592,26 @@ function simulationAnalyticsView(a,m){
     descent.approach=phase(0,.61,p);descent.drop=phase(.34,.84,p);
     descent.thickness=phase(.09,.33,p)*(1-phase(.43,.70,p));
     descent.bank=descent.approach*(1-phase(.46,.89,p));
-    riverAir=phase(.22,.66,p);
+    riverAir=phase(.06,.72,p);
     return descent;
   }
   function frame(now){
     raf=0;if(skyHidden())return;
-    const moving=moveAllowed()&&state.light.wind>0;
+    const moving=moveAllowed();
     const interval=renderGL?1000/(camera.moving||passage?.active||location.hash.startsWith('#sky')?60:30):1000/24;
     if(dirty||!last||now-last>=interval-1){
-      updateCameraClock(now);camera.aim(width,height,descentPose());
+      const elapsed=moving&&last?Math.min((now-last)/1000,.35):0;
+      const watching=(passage.view==='sky'||passage.view==='sky/view')&&!passage.active;
+      const shot=pan(editor?.open?0:elapsed,watching);
+      updateCameraClock(now);camera.aim(width,height,descentPose(),shot);
       // Let the foreground keep its last warm rim as the higher sky darkens.
-      night=clamp((camera.position-.94)/1.06);cloudNight=Math.max(smooth((camera.position-1.20)/.80),riverAir*.58);
-      cloudLight=mix(1,.52,cloudNight);shardLight=mix(1,.012,cloudNight);
-      const dt=moving&&last?Math.min((now-last)/1000,.35)*state.light.wind/45:0;
+      lunar.tick(now,moving,host);night=lunar.world.night;
+      cloudNight=Math.max(smooth((night-.14)/.86),riverAir*.58);
+      const [mx,my]=camera.project(state.moon.x/100+lunar.world.x,state.moon.y/100+lunar.world.y);
+      lunar.skyDisc=[mx/width,my/height,moonRadius()/height];
+      sunlight=daylight(elapsed);
+      cloudLight=mix(1,.52,cloudNight)*(1+.15*sunlight);shardLight=mix(1,.012,cloudNight);
+      const dt=elapsed*state.light.wind/64;
       if(dt){
         time+=dt;celestial+=dt*state.galaxy.drift/50*(1-.93*night);
         for(const w of weather)w.advance(dt);
@@ -19382,7 +19664,7 @@ function simulationAnalyticsView(a,m){
     resize();
   }
   new ResizeObserver(resize).observe(host);
-  document.addEventListener('visibilitychange',sync);
+  document.addEventListener('visibilitychange',()=>{lunar.suspend();sync();});
   new MutationObserver(sync).observe(host,{attributes:true,attributeFilter:['motion','suspended','sky-stage','waterfront','studio-flight']});
   reduced.addEventListener('change',sync);forced.addEventListener('change',sync);
   window.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&moveAllowed())target=[e.clientX/innerWidth-.5,e.clientY/innerHeight-.5];},{passive:true});
@@ -19392,7 +19674,7 @@ function simulationAnalyticsView(a,m){
   };
   window.SunsetScene.update=next=>{const horizonChanged=state.horizon.y!==next.horizon.y||state.horizon.visible!==next.horizon.visible;
     if((state.light.wind===0)!==(next.light.wind===0))last=0;
-    state=structuredClone(next);
+    state=structuredClone(next);lunar.settings=state.moon;
     banks.forEach((bank,i)=>weather[i].configure(state[bank.id].type,state.light.humidity,!moveAllowed()||!state.light.wind||!time));
     if(!state.galaxy.visible||!state.galaxy.meteors||!state.light.wind){meteor=null;meteorClock.clear();}
     if(horizonChanged)paintHorizon();wake();};
@@ -19660,26 +19942,32 @@ function simulationAnalyticsView(a,m){
   if(!canvas)return;
   const viewer=document.querySelector('#waterfront-view');
   const forced=matchMedia('(forced-colors:active)');
-  let model,painter,width=1,height=1,ratio=1,time=0,raf=0,last=0,active=false;
-  let route='',travel=-1.55,speed=0,reveal=0,revealSpeed=0;
+  const {lunar,createDaylight}=window.SunsetScene;
+  const daylight=createDaylight();
+  let sunlight=daylight(0);
+  let model,painter,width=1,height=1,ratio=1,time=Math.random()*900,raf=0,last=0,active=false;
+  let route='',travel=-1.55,speed=0,reveal=0;
   const marks={studio:0,planner:1,jobs:2};
+  // Select the scale and sightline together, like changing lenses at the quay.
+  const shots=[{zoom:1,yaw:0,horizon:0},{zoom:1.42,yaw:-.19,horizon:.07},
+    {zoom:1.65,yaw:.13,horizon:.035},{zoom:1.12,yaw:-.045,horizon:-.12}];
+  const flight=window.StudioFlight,pan=flight.createShotClock(shots);
+  let shot=shots[0],revealSpeed=0;
   const moving=()=>document.documentElement.dataset.uiMotion==='on';
-  const fluid=(x,velocity,target,dt,rate)=>{
-    const difference=x-target,k=velocity+rate*difference,decay=Math.exp(-rate*dt);
-    return [target+(difference+k*dt)*decay,(velocity-rate*k*dt)*decay];
-  };
   function camera(){
-    const passage=window.StudioFlight;
-    const aloft=passage?.active?1-passage.phase(.18,.92,passage.progress):0;
-    const glide=passage?.active?1-passage.phase(.24,1,passage.progress):0;
-    const x=travel*2.65-.85+1.15*Math.sin(time*.105)+.26*Math.sin(time*.247)-13.5*glide;
-    const focal=Math.min(Math.max(width*.95,height*.62),height*1.52);
-    const z=4.05+.86*x-(focal/height)*(4.74+1.69*reveal)+.34*Math.sin(time*.087+.22)-10*aloft;
-    const eye=3.16+.06*Math.sin(time*.15)+.16*reveal+27.5*aloft;
-    const yaw=-.025+.017*travel+.013*Math.sin(time*.082)+.032*glide;
+    const aloft=flight.active?1-flight.progress:0;
+    const x=travel*2.65-.85+.16*Math.sin(time*.033)-2.6*aloft;
+    const focal=Math.min(Math.max(width*.95,height*.62),height*1.52)*(1+(shot.zoom-1)*reveal);
+    const z=4.05+.86*x-(focal/height)*(4.2+1.69*reveal)+.09*Math.sin(time*.087+.22)-3.4*aloft;
+    // The paving is at -0.10 m. Settle at standing eye height above it.
+    const eye=1.57+9.144*aloft+.022*Math.sin(time*.14);
+    const yaw=-.025+.017*travel+.006*Math.sin(time*.047)+.105*aloft+shot.yaw*reveal;
     const framing=width/height<.85?.264:.296;
-    const level=passage?.active?passage.phase(.20,.50,passage.progress)*(1-passage.phase(.59,.99,passage.progress)):0;
-    return {x,z,eye,yaw,focal,aloft,horizon:framing+(.618-framing)*reveal+.16*level};
+    const settled=framing+(.60+shot.horizon-framing)*reveal;
+    // The gimbal starts skyward, levels as the far shore enters the frame,
+    // and then holds the horizon while the nearby railing rises into view.
+    const horizon=settled+(.96-settled)*flight.phase(.15,.95,aloft);
+    return {x,z,eye,yaw,focal,aloft,horizon};
   }
   const screenVS=`
     attribute vec2 aCorner;varying vec2 uv;
@@ -19696,7 +19984,8 @@ function simulationAnalyticsView(a,m){
       return v;
     }`;
   const atmosphereFS=`
-    precision highp float;varying vec2 uv;uniform vec4 uLens;uniform float uTime;
+    precision highp float;varying vec2 uv;uniform vec4 uLens;uniform float uTime,uSunlight,uNight;
+    uniform vec3 uMoon;uniform vec2 uSize;uniform sampler2D uLunar;
     ${noise}
     void main(){
       float az=(uv.x-.5)*2./uLens.x+uLens.w;
@@ -19712,6 +20001,18 @@ function simulationAnalyticsView(a,m){
       sky=mix(sky,vec3(.108,.106,.128)+ember*vec3(.135,.068,.038),vapour*.84);
       sky+=vec3(.067,.038,.022)*smoothstep(.46,.8,body)*(1.-vapour)*exp(-el*2.);
       sky=mix(sky,vec3(.137,.116,.132),.46*exp(-el*17.));
+      sky+=vec3(.16,.076,.024)*max(0.,uSunlight)*ember*(1.-.56*vapour);
+      sky=mix(sky,sky*vec3(.66,.85,1.18),max(0.,-uSunlight));
+      sky=mix(sky,sky*vec3(.27,.42,.70)+vec3(.006,.009,.024),uNight*.85);
+      if(uMoon.z>0.){
+        float horizon=(1.-uLens.z)*.5;
+        vec2 screen=vec2(uv.x,horizon-abs(1.-uv.y-horizon));
+        vec2 p=(screen-uMoon.xy)*uSize/uMoon.z;
+        if(dot(p,p)<1.){
+          vec4 moon=texture2D(uLunar,.5+.5*p);
+          sky=mix(sky,moon.rgb,moon.a*(1.-.43*vapour));
+        }
+      }
       gl_FragColor=vec4(sky,1.);
     }`;
   const geometryVS=`
@@ -19819,6 +20120,7 @@ function simulationAnalyticsView(a,m){
       for(let i=0;i<gl.getProgramParameter(p,gl.ACTIVE_ATTRIBUTES);i++){const n=gl.getActiveAttrib(p,i).name;attribute[n]=gl.getAttribLocation(p,n);}
       return {p,uniform,attribute};
     }
+    const lunarTexture=lunar.texture(gl);
     const backdrop=program(screenVS,atmosphereFS),river=program(screenVS,riverFS),mesh=program(geometryVS,geometryFS),glint=program(glintVS,glintFS);
     function upload(data,stride){
       const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
@@ -19883,6 +20185,11 @@ function simulationAnalyticsView(a,m){
         if(u.uTime)gl.uniform1f(u.uTime,t);
         if(u.uSize)gl.uniform2f(u.uSize,w,h);
       }
+      gl.useProgram(backdrop.p);gl.uniform1f(backdrop.uniform.uSunlight,sunlight);
+      lunarTexture();gl.uniform1i(backdrop.uniform.uLunar,3);
+      gl.uniform1f(backdrop.uniform.uNight,lunar.world.night);
+      const [mx,my,r]=lunar.disc(flight.active?flight.progress:1);
+      gl.uniform3f(backdrop.uniform.uMoon,mx,my,lunar.settings.visible?r*h:0);
       gl.useProgram(mesh.p);gl.uniform2f(mesh.uniform.uSpin,Math.cos(t*.061),Math.sin(t*.061));gl.uniform1f(mesh.uniform.uPixels,cam.focal*ratio*.62);
       gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.bindTexture(gl.TEXTURE_2D,null);gl.viewport(0,0,rw,rh);
       gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -19965,6 +20272,20 @@ function simulationAnalyticsView(a,m){
       const h=cam.horizon*height,shift=width*(.13+.025*Math.sin(t*.055)+cam.yaw);
       c.drawImage(atmosphere,-shift,h-height,width*1.33,height);
       c.save();c.translate(0,2*h);c.scale(1,-1);c.drawImage(atmosphere,-shift,h-height,width*1.33,height);c.restore();
+      const glow=c.createLinearGradient(0,0,0,height);
+      const tint=sunlight>0?'233,149,84':'54,80,126';
+      glow.addColorStop(0,'transparent');
+      glow.addColorStop(cam.horizon,'rgba('+tint+','+Math.abs(sunlight)*.24+')');
+      glow.addColorStop(1,'transparent');
+      c.fillStyle=glow;c.fillRect(0,0,width,height);
+      c.fillStyle='rgba(9,17,37,'+lunar.world.night*.56+')';c.fillRect(0,0,width,height);
+      if(lunar.settings.visible){
+        const [mx,my,radius]=lunar.disc(flight.active?flight.progress:1);
+        const r=radius*height,x=mx*width-r,y=my*height;
+        const disc=lunar.sprite();
+        c.drawImage(disc,x,y-r,2*r,2*r);
+        c.save();c.translate(0,2*h);c.scale(1,-1);c.drawImage(disc,x,y-r,2*r,2*r);c.restore();
+      }
     }
     return (cam,t)=>{
       if(mirror.width!==Math.round(width*.55)||mirror.height!==Math.round(height*.55)){
@@ -20025,14 +20346,23 @@ function simulationAnalyticsView(a,m){
   }
   function frame(now){
     raf=0;if(!active||!painter)return;
-    const animated=moving(),target=marks[route]??0,open=viewer.open?1:0;
+    const animated=moving(),target=marks[route]??0;
     if(!last||now-last>=1000/(window.StudioFlight?.active?60:30)-1||!animated){
       const dt=last?Math.min(.15,(now-last)/1000):0;
       if(animated){
-        time+=dt;[travel,speed]=fluid(travel,speed,target,dt,2.8);
-        [reveal,revealSpeed]=fluid(reveal,revealSpeed,open,dt,3.1);
-      }else{travel=target;reveal=open;speed=revealSpeed=0;}
-      painter(camera(),time);last=now;
+        shot=pan(dt,viewer.open);
+        time+=dt*.78;sunlight=daylight(dt);
+        [travel,speed]=flight.glide(travel,speed,target,dt,1.15);
+        [reveal,revealSpeed]=flight.glide(reveal,revealSpeed,Number(viewer.open),dt,1.35);
+      }else{travel=target;reveal=Number(viewer.open);speed=revealSpeed=0;}
+      const cam=camera();
+      lunar.tick(now,animated,host);
+      const {x,y,scale}=lunar.settings;
+      const azimuth=(x/100-.5)*1.13+.12+lunar.world.x;
+      const elevation=(.62-y/100-lunar.world.y)*.78+.07;
+      lunar.riverDisc=[.5+cam.focal/width*Math.tan(azimuth-cam.yaw),
+        cam.horizon-cam.focal/height*Math.tan(elevation),.016*scale/100*cam.focal/height];
+      painter(cam,time);last=now;
     }
     if(animated)raf=requestAnimationFrame(frame);
   }
@@ -20042,7 +20372,7 @@ function simulationAnalyticsView(a,m){
     const visible=Object.hasOwn(marks,next)&&!document.hidden&&!host.hasAttribute('suspended')&&!forced.matches;
     if(!visible){cancelAnimationFrame(raf);raf=0;last=0;active=false;return;}
     if(!model)initialize();
-    if(!active&&!document.hidden&&route!==next){travel=marks[next]-(window.StudioFlight?.active?0:1.4);speed=0;}
+    if(!active&&route!==next){travel=marks[next];speed=0;}
     route=next;active=true;size();last=0;
     if(!raf)raf=requestAnimationFrame(frame);
   }
@@ -20058,7 +20388,7 @@ function simulationAnalyticsView(a,m){
   if(!dialog?.showModal)return;
   const {defaults,types,update,clamp}=window.SunsetScene;
   const key='qq-studio-sunset-v1';
-  const layers={west:'Western cloud bank',east:'Eastern cloud bank',low:'Low cloud bank',galaxy:'Stars',moon:'Crescent moon',horizon:'Horizon',light:'Atmosphere'};
+  const layers={west:'Western cloud bank',east:'Eastern cloud bank',low:'Low cloud bank',galaxy:'Stars',moon:'Moon',horizon:'Horizon',light:'Atmosphere'};
   const fields={
     x:['Horizontal position',-35,135],y:['Vertical position',-25,125],scale:['Scale',20,185],
     spacing:['Shard spacing',0,100],density:['Star density',0,100],dusk:['Twilight',0,100],wind:['Motion speed',0,100],

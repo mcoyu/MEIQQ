@@ -25,7 +25,7 @@
     try{stored=await transaction(db,'readonly',key);}catch(cause){db.close();const e=Error('Primary workspace could not be read.');e.code='STORAGE_READ_FAILED';e.cause=cause;throw e;}
     const version=value=>Number.isSafeInteger(value?.revision)&&value.revision>=0?value.revision:0;
     let revision=version(stored);
-    const raw=typeof stored==='string'?stored:stored===undefined?undefined:
+    const raw=typeof stored==='string'?stored:stored===undefined||stored?.reset===true?undefined:
       typeof stored?.text==='string'&&Number.isSafeInteger(stored.revision)?stored.text:JSON.stringify(stored);
     db.onversionchange=()=>db.close();
     function write(text,fallbackFingerprint=null){
@@ -46,6 +46,24 @@
       });
     }
     return {raw,write,fallbackFingerprint:stored?.fallbackFingerprint||null,close:()=>db.close()};
+  }
+  async function reset(factory,keys){
+    const db=await openDatabase(factory);
+    try{
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves');
+        tx.oncomplete=resolve;
+        tx.onabort=tx.onerror=()=>reject(tx.error||Error('Browser storage could not be reset.'));
+        // Keep only a revision marker so a tab with an older save cannot restore it.
+        for(const key of keys){
+          const request=store.get(key);
+          request.onsuccess=()=>{
+            const revision=request.result?.revision;
+            store.put({reset:true,revision:(Number.isSafeInteger(revision)&&revision>=0?revision:0)+1},key);
+          };
+        }
+      });
+    }finally{db.close();}
   }
   async function fingerprint(text){
     if(text===null)return null;
@@ -83,5 +101,5 @@
     }
     return {push(text){latest=text;void drain();},flush(){return busy||latest!==null?new Promise(resolve=>waiters.push(resolve)):Promise.resolve(!failed);}};
   }
-  const api={connect,writer,fingerprint};root.MEIQQStorage=api;if(typeof module!=='undefined')module.exports=api;
+  const api={connect,writer,fingerprint,reset};root.MEIQQStorage=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

@@ -11,7 +11,7 @@ test('interrupting a flight preserves the position and velocity, then settles on
   const before=cam.position;cam.advance(.0001);const atTurn=cam.position;
   cam.go('home',true);close(cam.position,atTurn);cam.advance(.0001);
   close((cam.position-atTurn)/.0001,(atTurn-before)/.0001,.01);
-  cam.advance(4);assert.equal(cam.moving,false);assert.equal(cam.position,0);
+  cam.advance(9);assert.equal(cam.moving,false);assert.equal(cam.position,0);
   cam.go('people',false);assert.equal(cam.moving,false);assert.equal(cam.position,5);
 });
 
@@ -34,6 +34,20 @@ test('both projection paths keep clouds and their parcels aligned throughout an 
       }
     }
   }
+});
+
+test('changing lenses magnifies the subject and keeps editor picks aligned with the visible clouds',()=>{
+  const cam=make('home'),width=1280,height=820,depth=3.2;
+  cam.aim(width,height);
+  const wide=cam.project(.63,.31,depth);
+  cam.aim(width,height,null,{x:0,y:0,zoom:1.55});
+  const detail=cam.project(.63,.31,depth);
+  close(detail[0]-width/2,(wide[0]-width/2)*1.55);
+  close(detail[2],wide[2]*1.55);
+  cam.aim(width,height,null,{x:.13,y:.08,zoom:1.32});
+  const [x,y]=cam.project(.63,.31,depth);
+  const [pickedX,pickedY]=cam.unproject(x/width,y/height,depth);
+  close(pickedX,.63);close(pickedY,.31);
 });
 
 test('the default moon remains in the reading space above the editor on phones and desktops',()=>{
@@ -76,7 +90,7 @@ test('run and review destinations have distinct moonlit framings and direct jump
   assert.equal(views.size,5);
   cam.go('home',true);cam.advance(.34);cam.aim(1280,820);const before=moon();
   cam.go('finances',true);cam.aim(1280,820);assert.deepEqual(moon(),before);
-  cam.advance(3);cam.aim(1280,820);
+  cam.advance(9);cam.aim(1280,820);
   const direct=make('finances');direct.aim(1280,820);
   assert.deepEqual(moon(),direct.project(.49,.44));
 });

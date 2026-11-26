@@ -12,20 +12,24 @@ function editor(mode){
  return ui;
 }
 
-test('both setup styles expose the catalog, three one-click pilots and a direct path to writing the first offer',()=>{
+function addCatalogOffer(ui,id){
+ ui.click('browse-offers');
+ ui.handlers.change({target:{type:'checkbox',checked:true,dataset:{pickerKey:'new-'+id}}});
+ ui.click('apply-offer-selection');
+}
+
+test('both setup styles expose the catalog and a direct path to writing the first offer',()=>{
  for(const mode of ['guided','analyst']){
   const ui=editor(mode);
   assert.match(page(ui),/data-action="build-client-menu" id="client-menu-entry" aria-haspopup="dialog"/);
   assert.ok(page(ui).indexOf('data-action="browse-offers"')<page(ui).indexOf('class="first-offer"'));
-  for(const id of ['menu-sales-mix','wholesale-line-sheet','service-comparison-sheet']){
-   assert.ok(page(ui).includes('data-action="add-featured-offer" data-id="'+id+'"'));
-  }
+  assert.doesNotMatch(page(ui),/Three ideas to start with/);
   let nameFocused=false;
   ui.elements['[data-input="services.0.name"]']={focus(){nameFocused=true;}};
   ui.click('write-first-offer');
   assert.equal(nameFocused,true);
   assert.equal(read(ui,'draft.services.length'),1);
-  ui.click('add-featured-offer',{id:'menu-sales-mix'});
+  addCatalogOffer(ui,'menu-sales-mix');
   assert.equal(read(ui,'draft.services[0].weight'),100);
   assert.equal(read(ui,'draft.services[0].spec.packageId'),'menu-sales-mix');
   assert.equal(read(ui,'draftError()'),'');
@@ -38,7 +42,7 @@ test('both setup styles expose the catalog, three one-click pilots and a direct 
 
 test('production, review, scope and per-job contribution are available in the first expansion and use current inputs',()=>{
  const ui=editor('guided');
- ui.click('add-featured-offer',{id:'wholesale-line-sheet'});
+ addCatalogOffer(ui,'wholesale-line-sheet');
  const before=read(ui,'serviceUnit(draft.services[0]).contribution');
  const mainFields=()=>page(ui).split('<div class="service-fields">')[1].split('data-disclosure="setup-advanced-delivery-')[0];
  for(const key of ['name','price','deliverable','hours','review']){
@@ -152,7 +156,7 @@ test('the monthly campaign picker describes why a late-paying restaurant can rec
 
 test('the package picker distinguishes missing work estimates from zero and preserves small positive hours',()=>{
  const ui=editor('guided');
- ui.click('add-featured-offer',{id:'menu-sales-mix'});
+ addCatalogOffer(ui,'menu-sales-mix');
  read(ui,'draft.services[0].hours=null;draft.services[0].review=.04');
  ui.click('browse-offers');
  const id=read(ui,'draft.services[0].id');

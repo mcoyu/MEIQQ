@@ -205,7 +205,7 @@
 
   function syncDocument() {
     document.documentElement.lang = language;
-    document.title = text('MEIQQ — Studio & Simulator');
+    document.title = text('美QQ — Studio & Simulator');
   }
 
   function choose(value) {

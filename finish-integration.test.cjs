@@ -43,10 +43,10 @@ test('corrupt standalone storage enters recovery without replacing original byte
  ui.click('recover');assert.equal(ui.downloads.length,1);assert.equal(ui.downloads[0].download,'MEIQQ-original-save.json');
 });
 
-test('all appearances escape workspace output and reports remain self-contained and printable',async()=>{
+test('workspaces with saved appearance preferences escape output and reports remain self-contained and printable',async()=>{
  for(const theme of ['terminal','dark']){
   const ui=setup([['qq-studio-appearance',theme]]);read(ui,`state.config.name='<img src=x onerror=alert(1)>';view='map';render()`);
-  assert.equal(ui.ctx.document.documentElement.dataset.theme,theme);assert.match(ui.elements['#root'].innerHTML,/&lt;img src=x onerror=alert\(1\)&gt;/);assert.doesNotMatch(ui.elements['#root'].innerHTML,/<img/i);
+  assert.equal(ui.ctx.document.documentElement.dataset.theme,'terminal');assert.match(ui.elements['#root'].innerHTML,/&lt;img src=x onerror=alert\(1\)&gt;/);assert.doesNotMatch(ui.elements['#root'].innerHTML,/<img/i);
  }
  const ui=setup();read(ui,`for(let i=0;i<3;i++)QQ.step(state);base=QQ.clone(state);for(let i=0;i<3;i++)QQ.step(state);
    reportOut=QQComparisonReport.create(state,base,{currentLabel:'Current <svg onload=bad>',baselineLabel:'Base & old',generatedAt:'2026-11-19T00:00:00Z'})`);

@@ -9,6 +9,35 @@ function editor(type='restaurant'){
  const ui=setup();ui.click('start-'+type);ui.click('enter-setup',{mode:'guided'});return ui;
 }
 
+test('dismissing service mix undo keeps the draft and allows undo for later changes',()=>{
+ const ui=editor();
+ ui.click('add-starter',{id:'retail-starter'});
+ const updated=data(ui,'draft'),run=data(ui,'state');
+ assert.match(ui.elements['#root'].innerHTML,/Service mix updated\./);
+ assert.match(ui.elements['#root'].innerHTML,/data-action="dismiss-service-undo"/);
+ ui.click('dismiss-service-undo');
+ assert.equal(read(ui,'serviceUndoDraft'),null);
+ assert.doesNotMatch(ui.elements['#root'].innerHTML,/data-action="dismiss-service-undo"/);
+ assert.deepEqual(data(ui,'draft'),updated);
+ assert.deepEqual(data(ui,'state'),run);
+ ui.click('add-starter',{id:'retail-starter'});
+ ui.click('undo-services');
+ assert.deepEqual(data(ui,'draft'),updated);
+});
+
+test('dismissing a removal notice keeps the offer removed and preserves earlier undo entries',()=>{
+ const ui=editor(),original=data(ui,'draft.services');
+ ui.click('remove-service',{id:original[0].id});
+ ui.click('remove-service',{id:original[1].id});
+ const draftAfterRemoval=data(ui,'draft');
+ assert.match(ui.elements['#root'].innerHTML,/data-action="dismiss-service-removal"/);
+ ui.click('dismiss-service-removal');
+ assert.deepEqual(data(ui,'draft'),draftAfterRemoval);
+ ui.click('restore-service');
+ assert.deepEqual(data(ui,'draft.services.map(s=>s.id)'),[original[0].id,original[2].id]);
+ assert.doesNotMatch(ui.elements['#root'].innerHTML,/data-action="dismiss-service-removal"/);
+});
+
 test('one batch replaces only the untouched starter and is ready to simulate, undo, or reopen',()=>{
  const ui=editor('business'),before=data(ui,'draft'),run=data(ui,'state');
  const result=data(ui,"applyCatalogSelection(['digital-flyer','table-tents-100','brand-starter','digital-flyer'])");

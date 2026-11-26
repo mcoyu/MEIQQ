@@ -25,6 +25,36 @@
       return ((t^(t>>>14))>>>0)/4294967296;
     };
   }
+  // A passage holds its subject, then dissolves into a different one. Draw
+  // each next duration and destination as needed, without a repeating playlist.
+  function createPassages(choices,rand,minimum,maximum){
+    const subjects=[...new Set(choices)];
+    function following(current){
+      const offset=1+Math.floor(rand()*(subjects.length-1));
+      return (current+offset)%subjects.length;
+    }
+    let index=0,next=following(index),elapsed=0,duration=mix(minimum,maximum,rand());
+    const passage={from:subjects[index],to:subjects[next],blend:0,advance(dt){
+      elapsed+=dt;
+      while(elapsed>=duration){
+        elapsed-=duration;index=next;next=following(index);
+        duration=mix(minimum,maximum,rand());
+      }
+      passage.from=subjects[index];passage.to=subjects[next];
+      passage.blend=smooth((elapsed/duration-.52)/.48);
+    }};
+    return passage;
+  }
+  function createDaylight(){
+    const levels=[-.82,-.28,.34,.91],start=Math.floor(Math.random()*levels.length);
+    const passage=createPassages([...levels.slice(start),...levels.slice(0,start)],Math.random,80,155);
+    // Enter an already unfolding sky, including on the first frame.
+    passage.advance(45+Math.random()*65);
+    return dt=>{
+      passage.advance(dt);
+      return mix(passage.from,passage.to,passage.blend);
+    };
+  }
 
   // Height, lift, wind shear and optical depth distinguish the ten cloud genera.
   const types = {
@@ -121,6 +151,7 @@
 
   function createWeather(bank) {
     const size=COLS*ROWS, rand=random(bank.seed);
+    const formations=createPassages(bank.cycle,random(bank.seed+197),105,205);
     let water=new Float32Array(size), nextWater=new Float32Array(size);
     let vapor=new Float32Array(size), nextVapor=new Float32Array(size);
     // Condensate torn off the rim outlives the narrow neck that supplied it.
@@ -185,10 +216,10 @@
     function solve(dt,initialize){
       // The formation cycle changes continuously, mixing two humidity sources
       // during a front. A pinned genus still evolves under its own wind field.
-      const cycle=time/(54+bank.seed%13), index=Math.floor(cycle)%bank.cycle.length;
-      const first=form==='auto'?bank.cycle[index]:form;
-      const blend=form==='auto'?smooth((fract(cycle)-.62)/.38):0;
-      const second=blend?bank.cycle[(index+1)%bank.cycle.length]:first;
+      formations.advance(dt);
+      const first=form==='auto'?formations.from:form;
+      const blend=form==='auto'?formations.blend:0;
+      const second=blend?formations.to:first;
       const a=shape(first), b=shape(second), pa=types[first], pb=types[second];
       profile={};
       for(const key of ['height','lift','shear','optical'])profile[key]=mix(pa[key],pb[key],blend);
@@ -423,9 +454,9 @@
   // motion clears it, so resuming never replays a queue of missed meteors.
   function createMeteors(seed=7043) {
     const rand=random(seed);
-    let delay=3.4, event=null, first=true;
+    let delay=2+rand()*3, event=null;
     return {
-      clear(){event=null;delay=3.4;first=true;},
+      clear(){event=null;delay=2+rand()*3;},
       advance(dt,frequency){
         if(!frequency){event=null;delay=3.4;return null;}
         if(!dt)return event;
@@ -438,13 +469,11 @@
             const direction=rand()>.62?-1:1;
             event={x:direction>0?.26+rand()*.29:.66+rand()*.20,y:.14+rand()*.26,
               dx:direction*(.16+rand()*.20),dy:.11+rand()*.14,age:0,life:.78+rand()*.55};
-            // Give the first trail the clear opening between the default banks.
-            if(first){event.x=.76;event.y=.31;event.dx=-.24;event.dy=.18;first=false;}
           }
         }
         return event;
       }
     };
   }
-  window.SunsetScene={banks,bankCenters,types,defaults,createWeather,createMeteors,cols:COLS,rows:ROWS,hash,clamp,mix,smooth};
+  window.SunsetScene={banks,bankCenters,types,defaults,createWeather,createMeteors,createPassages,createDaylight,cols:COLS,rows:ROWS,hash,clamp,mix,smooth};
 })();

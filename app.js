@@ -10,14 +10,11 @@ const btn=(text,action,cls='',extra='')=>`<button class="${cls}" data-action="${
 
 // UI edits live in a separate draft. Only explicit apply actions affect the engine.
 const KEY='qq-studio-lab-v1', THEME_KEY='qq-studio-appearance', MOTION_KEY='qq-studio-shard-motion', SETUP_MODE_KEY='qq-studio-setup-mode', PRESET_KEY='qq-studio-preset-selection';
-const THEMES = {terminal: 'Terminal', dark: 'Dark'};
-const MOTION = {system:'Follow device', animate:'Animate', still:'Still'};
-let shardMotion='system';
 const shardBackground=document.querySelector('aero-shards');
 const motionPreference=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion:reduce)'):null;
 function applyShardMotion(){
- shardBackground?.setAttribute?.('motion',shardMotion);
- const enabled=shardMotion==='animate'||(shardMotion==='system'&&!motionPreference?.matches);
+ shardBackground?.setAttribute?.('motion','system');
+ const enabled=!motionPreference?.matches;
  document.documentElement.dataset.uiMotion=enabled?'on':'off';
  if(!enabled)document.getAnimations?.().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
 }
@@ -31,6 +28,7 @@ let skyPlayback=null;
 const editorSteps=['offers','demand','people','cash'];
 const destinations={studio:'Ideas',planner:'Planner',jobs:'Jobs',map:'Run scenario',finances:'Scenario results',projects:'Projects',scenarios:'Runs and backups',about:'Model guide'};
 let routeReady=false,lastRoute=null,resumeRoute='',lastEditorStep=0;
+let workspaceTrail=[];
 try{
  resumeRoute=window.sessionStorage?.getItem('meiqq-last-page')||'';
  const storedStep=Number(window.sessionStorage?.getItem('meiqq-setup-step'));
@@ -41,6 +39,7 @@ let firstStepEstimate=null;
 let rerunDraft=null,rerunLink=null,editingRerun=false,ordinaryDraft=null;
 let keptComparisonId=null,keptSetupRun=null;
 let savingKeptSetup=false;
+let resettingApp=false;
 function scenarioName(name){
  return esc(name===RESTAURANT_EXAMPLE||name===QQ.DEFAULT.name?name:QQI18n.literal(name));
 }
@@ -62,7 +61,7 @@ function rememberKeptComparison(id){
  const route='finances',savedComparison={id,route,tab:'compare',opener:{action:'open-saved-comparison',comparisonId:id}};
  // Keep a real library entry behind the preserved result. Back from the
  // new setup revisits the report; closing it returns to this library.
- window.history.pushState({savedComparison},'','#'+route+'?comparison='+id);
+ window.history.pushState({...window.history.state,savedComparison},'','#'+route+'?comparison='+id);
 }
 let cashView={run:null,month:0,page:0};
 const SAMPLE_SIZE=20;
@@ -72,7 +71,7 @@ let replayDialog=null,monthJobHistory=null;
 let archives=[],checkpointInfo=[],recoveryFiles=[],saveTimer=null,saveNoticeTimer=null,showSavingNotice=false,backend=null,saveWriter=null;
 let loading=typeof indexedDB!=='undefined',saveStatus='saved',storeReason='',localRevision=null,primaryReadFailed=false,savePreparationError=null,fallbackPreserved=false;
 let inspectorTrail=[];
-let selection=null,running=false,timer=null,finishTarget=null,runGeneration=0,speed=1,theme='terminal',setupMode='guided',storeError=false,recoveryRaw=null,recoveryReason='';
+let selection=null,running=false,timer=null,finishTarget=null,runGeneration=0,speed=1,setupMode='guided',storeError=false,recoveryRaw=null,recoveryReason='';
 let runPassage=null;
 let filter='active',search='',toastTimer,modalFocus=null,actionFocus=null,expandedService=-1,setupModeChanging=false;
 let presetSelection={market:'metro',operation:'solo',mix:'balanced',condition:'steady'},pendingPreset=null,presetUndoDraft=null,pendingEvidence=null;
@@ -95,18 +94,10 @@ try{
   setupChoicePending=localStorage.getItem(ENTRY_KEY)!=='true';
   const raw=localStorage.getItem(KEY);localRevision=raw??null;
   if(raw!=null){try{const parsed=MEIQQWorkspace.parseText(raw);retainLegacySource(raw,parsed);installWorkspace(parsed);}catch(e){recoveryRaw=raw;recoveryReason=e.message;storeError=true;saveStatus='error';}}
-  const motion = localStorage.getItem(MOTION_KEY);
-  if (Object.hasOwn(MOTION,motion)) shardMotion=motion;
-  const chosen = localStorage.getItem(THEME_KEY);
-  if (Object.hasOwn(THEMES, chosen)) theme = chosen;
-  if (chosen === 'light') {
-    try { localStorage.setItem(THEME_KEY, theme); }
-    catch { /* The default still applies if preferences are read-only. */ }
-  }
   const chosenSetupMode=localStorage.getItem(SETUP_MODE_KEY);if(['guided','analyst'].includes(chosenSetupMode))setupMode=chosenSetupMode;
   try{const chosenPreset=JSON.parse(localStorage.getItem(PRESET_KEY));if(chosenPreset&&typeof chosenPreset==='object'){for(const [key,rows]of [['market',QQPresets.MARKETS],['operation',QQPresets.OPERATIONS],['mix',QQPresets.MIXES],['condition',QQPresets.CONDITIONS]])if(rows.some(v=>v.id===chosenPreset[key]))presetSelection[key]=chosenPreset[key];}}catch(e){}
 }catch(e){storeError=true;}
-document.documentElement.dataset.theme=theme;
+document.documentElement.dataset.theme='terminal';
 applyShardMotion();
 QQI18n.syncDocument();
 const steps=['Offers','Demand','People','Cash & timing'];
@@ -211,7 +202,7 @@ function persistenceStatus(status,error){
  if(saveStatus==='saving')saveNoticeTimer=setTimeout(()=>{if(saveStatus==='saving'){showSavingNotice=true;updateSaveStatus();}},500);
 }
 function save(){
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  clearTimeout(saveTimer);saveTimer=null;
  if(loading||recoveryRaw!==null||primaryReadFailed){updateSaveStatus();return;}
  try{
@@ -303,12 +294,8 @@ function languagePicker() {
 }
 const waterfrontView=document.querySelector('#waterfront-view');
 function inStudio(){return view==='studio'||view==='planner'||view==='jobs';}
-function appearancePicker() {
- const options = Object.entries(THEMES).map(([value, label]) =>
-   `<option value="${value}"${theme === value ? ' selected' : ''}>${label}</option>`
- ).join('');
- const motionOptions=Object.entries(MOTION).map(([key,label])=>`<option value="${key}"${shardMotion===key?' selected':''}>${label}</option>`).join('');
- return `<label class="theme-picker"><span>Appearance</span><select id="appearance" aria-label="Appearance">${options}</select></label><label class="theme-picker motion-picker"><span>Background motion</span><select id="shard-motion" aria-label="Background motion">${motionOptions}</select></label>${inStudio()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>'}`;
+function sceneOptions(){
+ return inStudio()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>';
 }
 function routeLink(route,label,cls='',attrs=''){
  return `<a class="${cls}" href="#${esc(route)}" ${attrs}>${label}</a>`;
@@ -724,7 +711,12 @@ function render(){
   if(editingRerun&&(view!=='setup'||setupNeedsChoice()))parkRerunEditor();
   const focus=focusKey(document.activeElement);
   if(runPassage&&(view!=='map'||runPassage.run!==state||selection))runPassage=null;
+  const previousRoute=lastRoute;
   syncWorkspaceRoute();
+  const revealBreadcrumb=()=>{
+    const path=previousRoute!==lastRoute&&document.querySelector('.workspace-breadcrumb');
+    if(path)path.scrollLeft=path.scrollWidth;
+  };
   if(routeReady&&view==='map')rememberRunPassage();
   const route=workspaceRoute();
   if(preferencesRoute!==route){
@@ -744,12 +736,12 @@ function render(){
   }
   if((routeReady||!window.location)&&shardBackground?.getAttribute?.('sky-stage')!==skyStage)shardBackground?.setAttribute?.('sky-stage',skyStage);
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(!setupModeChanging)disclosureState.set(el.dataset.disclosure,el.open);
-  if(inStudio()){if(view==='planner')renderPlannerShell();else if(view==='jobs')renderJobsShell();else renderStudioShell();for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);if(!$('#root').inert)restoreFocus(focus);return;}
+  if(inStudio()){if(view==='planner')renderPlannerShell();else if(view==='jobs')renderJobsShell();else renderStudioShell();for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);if(!$('#root').inert)restoreFocus(focus);revealBreadcrumb();return;}
   const status=`<div id="save-status" class="save-status ${storeError?'negative':''}" role="status" aria-live="polite" ${showSaveStatus()?'':'hidden'}>${esc(saveLabel())}</div>`;
   const notices=`${recoveryRaw!==null?`<div class="banner danger"><b>Saved workspace needs recovery.</b> ${esc(recoveryReason||'The file could not be validated.')} The original is intact; changes here will not save. ${btn('Download original save','recover','small')} ${btn('Open another backup','import','small')}</div>`:''}${fallbackPreserved?`<div class="banner warn">A different browser-local save has been preserved under Runs & backups. Compare it with this run before continuing. ${btn('View preserved workspaces','view','small','data-view="scenarios"')}</div>`:''}${state.blocked&&view!=='map'?`<div class="banner warn"><b>Cash shortfall paused the run.</b> ${esc(state.blocked.note)} · ${offerAmount(state.blocked.gap)} needed. ${btn('Resolve shortfall','cash','small')}</div>`:''}`;
   if(skyOnly){
     const playing=skyPlayback?skyPlayback==='animate':document.documentElement.dataset.uiMotion==='on';
-    $('#root').innerHTML=workspaceShell('sky-only',`<main class="workspace"><h1 id="sim-heading" tabindex="-1" class="sr-only">Live Sky</h1><nav aria-label="Live Sky">${btn(playing?'Pause sky':'Resume sky','sky-play')}<button type="button" data-edit-sky>Edit sky</button>${routeLink('sky','Live Sky home')}</nav></main>`);
+    $('#root').innerHTML=workspaceShell('sky-only',`<main class="workspace"><h1 id="sim-heading" tabindex="-1" class="sr-only">Sky view</h1><nav aria-label="Sky view">${btn(playing?'Pause sky':'Resume sky','sky-play')}<button type="button" data-edit-sky>Edit sky</button>${routeLink('sky','Home')}</nav></main>`);
   }else if(view==='setup'||view==='sky'){
     const editor=view==='setup'&&!entrance;
     setupCache=editor?{}:null;
@@ -763,6 +755,7 @@ function render(){
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(setupMode==='analyst'&&el.dataset.disclosure.startsWith('setup-advanced-'))el.open=true;else if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);
   $('#root').inert=Boolean($('#modal').firstChild);
   if(!$('#root').inert)restoreFocus(focus);
+  revealBreadcrumb();
   setupCache=null;
   setupModeChanging=false;
 }
@@ -924,7 +917,7 @@ function openSetupEditor(mode){
   appendCatalogService(null);
  }else expandedService=0;
  // Back from a committed draft changes its style without creating another scenario.
- if(routeReady)window.history.replaceState(null,'','#setup/style');
+ if(routeReady)replaceWorkspaceStop('setup/style');
  stepIndex=0;lastEditorStep=0;setSetupMode(mode);
  save();render();
  focusViewHeading();
@@ -948,13 +941,26 @@ function workspaceRoute(){
  }
  return 'setup/edit/'+editorSteps[stepIndex];
 }
+function workspacePathTo(trail,route){
+ if(typeof route!=='string'||!route)return trail;
+ if(!trail.length)trail=['sky'];
+ if(trail.at(-1)===route)return trail;
+ const earlier=trail.indexOf(route);
+ return earlier<0?[...trail,route]:trail.slice(0,earlier+1);
+}
+function replaceWorkspaceStop(route){
+ workspaceTrail=workspacePathTo(workspaceTrail.slice(0,-1),route);
+ window.history.replaceState({workspaceTrail},'','#'+route);
+}
 function syncWorkspaceRoute(){
  if(!routeReady)return;
  const route=workspaceRoute();
  if(route===lastRoute)return;
  lastRoute=route;
  const hash=savedComparisonReader?.id&&savedComparisonReader.route===route?'#'+route+'?comparison='+savedComparisonReader.id:'#'+route;
- if(window.location.hash!==hash)window.history.pushState(null,'','#'+route);
+ workspaceTrail=workspacePathTo(workspaceTrail,route);
+ if(window.location.hash!==hash)window.history.pushState({workspaceTrail},'',hash);
+ else window.history.replaceState({...window.history.state,workspaceTrail},'',hash);
  if(route==='sky'||route==='sky/view')return;
  resumeRoute=route;
  if(view==='setup'&&!setupNeedsChoice())lastEditorStep=stepIndex;
@@ -966,10 +972,15 @@ function syncWorkspaceRoute(){
  }catch{/* Links and the in-memory return destination remain available. */}
 }
 function readWorkspaceRoute(){
- if(!routeReady||savingKeptSetup)return;
+ if(!routeReady||savingKeptSetup||resettingApp)return;
  const leavingRevision=editingRerun;
  const previousStep=view==='setup'&&!setupNeedsChoice()?stepIndex:null;
  const [route,comparisonId]=(window.location.hash.slice(1)||'sky').split('?comparison=');
+ const storedTrail=window.history.state?.workspaceTrail;
+ // Old history entries can contain several round trips through Home.
+ const priorStops=Array.isArray(storedTrail)&&storedTrail.at(-1)===route
+  ?storedTrail.slice(0,-1).reduce(workspacePathTo,['sky']):workspaceTrail;
+ workspaceTrail=workspacePathTo(priorStops,route);
  if(!comparisonId&&savedComparisonReader&&route===workspaceRoute()){
   closeModal(false);render();return;
  }
@@ -1024,6 +1035,7 @@ function readWorkspaceRoute(){
   selection=null;inspectorTrail=[];runPassage={run:state,estimate:QQ.runLaunchEstimate(state)};
  }else runPassage=null;
  const resolved=workspaceRoute();
+ if(resolved!==route)workspaceTrail=workspacePathTo(priorStops,resolved);
  let reader;
  if(pair){
   reader=entry||{id:comparisonId,route:resolved,tab:'compare'};
@@ -1031,8 +1043,8 @@ function readWorkspaceRoute(){
   if(!entry||resolved!==route){
    // A pasted link or a recovered route has no in-app return entry yet.
    reader={...reader,route:resolved};
-   window.history.replaceState(null,'','#'+resolved);
-   window.history.pushState({savedComparison:reader},'','#'+resolved+'?comparison='+comparisonId);
+   window.history.replaceState({workspaceTrail},'','#'+resolved);
+   window.history.pushState({workspaceTrail,savedComparison:reader},'','#'+resolved+'?comparison='+comparisonId);
   }
   savedComparisonReader=reader;
  }else if(window.location.hash!=='#'+resolved)window.history.replaceState(null,'','#'+resolved);
@@ -1061,15 +1073,66 @@ function beginSetupEntrance(newScenario=false){
  stepIndex=firstExamplePending()?0:lastEditorStep;
  render();focusViewHeading();
 }
+function workspaceStopLabel(route){
+ if(route==='sky')return 'Home';
+ if(route==='sky/view')return 'Sky view';
+ if(Object.hasOwn(destinations,route))return destinations[route];
+ const [,section,step]=route.split('/');
+ if(section==='edit'||section==='rerun')return steps[editorSteps.indexOf(step)]||'Business setup';
+ if(section==='new')return 'New scenario';
+ if(section==='style')return 'Choose your setup style';
+ return 'Business setup';
+}
+function workspaceBreadcrumb(){
+ const trail=workspaceTrail.length?workspaceTrail:workspacePathTo([],workspaceRoute());
+ const separator='<span class="breadcrumb-separator" aria-hidden="true">/</span>';
+ const path=trail.map((route,index)=>{
+  const label=workspaceStopLabel(route);
+  return index===trail.length-1?`<span class="breadcrumb-current" aria-current="page">${label}</span>`:
+   routeLink(route,label,'',`data-action="breadcrumb-stop" data-index="${index}"`);
+ }).join(separator);
+ return `<nav class="workspace-breadcrumb" aria-label="Breadcrumb">${separator}${path}</nav>`;
+}
 function skyHeader(info){
- const sky=view==='sky'||view==='sky/view',section=sky?'Live Sky':inStudio()?'Studio':'Simulator';
- const home=routeLink('sky','MEIQQ','sky-wordmark','aria-label="Live Sky home"');
- const identity=sky?'<b>Live Sky</b>':routeLink(inStudio()?'studio':'setup',section);
+ const sky=view==='sky'||view==='sky/view';
+ const home=routeLink('sky','美QQ','sky-wordmark','aria-label="Home"');
  const branch=!sky&&!inStudio()&&view!=='setup'?btn(icon('branch')+'Branch scenario','branch','small'):'';
  const status=info?`<small id="${view}-save-status" role="status">${esc(info.message)}</small>`:'';
- return `<header class="sky-header"><div class="sky-identity">${home}<span aria-hidden="true">/</span>${identity}</div><div class="sky-tools">
- ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}
- <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${appearancePicker()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View live sky')}${branch}${status}</div></details></div></header>`;
+ return `<header class="sky-header"><div class="sky-identity">${home}${workspaceBreadcrumb()}
+ ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}</div><div class="sky-tools">
+ <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${sceneOptions()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View sky')}${branch}${status}${btn('Reset app','reset-app','small')}</div></details></div></header>`;
+}
+async function resetApp(){
+ resettingApp=true;
+ const confirmButton=$('#confirm-app-reset');
+ confirmButton.disabled=true;
+ const removed=[];
+ const workspaceKeys=[KEY,QQStudio.STORAGE_KEY,QQJobs.STORAGE_KEY,QQPlanner.STORAGE_KEY];
+ try{
+  await Promise.all([appReady,studioReady,jobsReady,plannerReady]);
+  await Promise.all([saveWriter?.flush(),studioSession.flush(),jobsSession.flush(),plannerSession.flush()]);
+  const localKeys=[...workspaceKeys,THEME_KEY,MOTION_KEY,SETUP_MODE_KEY,PRESET_KEY,ENTRY_KEY,
+   'qq-studio-language','qq-studio-sunset-v1','meiqq-jobs-view-v1','meiqq-planner-view-v1'];
+  for(const [store,keys] of [[localStorage,localKeys],[window.sessionStorage,['meiqq-last-page','meiqq-setup-step']]]){
+   for(const key of keys){
+    const value=store.getItem(key);
+    if(value===null)continue;
+    store.removeItem(key);
+    removed.push([store,key,value]);
+   }
+  }
+  if(typeof indexedDB!=='undefined')await MEIQQStorage.reset(indexedDB,workspaceKeys);
+ }catch{
+  for(const [store,key,value] of removed){
+   try{if(store.getItem(key)===null)store.setItem(key,value);}catch{/* Storage may have become unavailable. */}
+  }
+  resettingApp=false;
+  confirmButton.disabled=false;
+  showError('The app could not be reset. Close other 美QQ tabs and try again.');
+  return;
+ }
+ window.history.replaceState(null,'','#sky');
+ window.location.reload();
 }
 function resumeDestination(){
  if(Object.hasOwn(destinations,resumeRoute))return [resumeRoute,destinations[resumeRoute]];
@@ -1089,8 +1152,8 @@ function skyHome(){
  const resume=resumeDestination();
  return `<section class="setup-story" data-render-key="sky-home" aria-labelledby="sim-heading">
  <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">Studio &amp; Simulator</h1></div>
- <div class="setup-start"><div><h2>Simulator</h2><p>Follow a service business from its first inquiry to its final payment.</p>${routeLink('setup','Enter simulator','scene-action primary')}</div>
- <div><h2>Studio</h2><p>Develop service ideas, plan your capacity and track client jobs.</p><nav class="studio-destinations" aria-label="Studio">${['studio','planner','jobs'].map(id=>routeLink(id,destinations[id],'scene-action')).join('')}</nav></div></div>
+ <div class="setup-start"><div><h2>Studio</h2><p>Develop service ideas, plan your capacity and track client jobs.</p><nav class="studio-destinations" aria-label="Studio">${['studio','planner','jobs'].map(id=>routeLink(id,destinations[id],'scene-action')).join('')}</nav></div>
+ <div><h2>Simulator</h2><p>Follow a service business from its first inquiry to its final payment.</p>${routeLink('setup','Enter simulator','scene-action primary')}</div></div>
  ${resume?`<div class="sky-resume"><span>Pick up where you left off</span>${routeLink(resume[0],esc(resume[1])+' <i aria-hidden="true">→</i>')}</div>`:''}</section>`;
 }
 function editingCurrentSetup(){
@@ -1102,7 +1165,7 @@ function editingCurrentSetup(){
 }
 function setupEntrance(){
  const current=editingCurrentSetup(),savedStyle=setupEntryPath==='style',restaurant=setupEntryPath==='restaurant';
- const back=newScenarioRequested&&setupReturnView?btn('Keep editing','cancel-new-setup','setup-back'):routeLink('sky','← Live Sky','setup-back');
+ const back=newScenarioRequested&&setupReturnView?btn('Keep editing','cancel-new-setup','setup-back'):routeLink('sky','← Home','setup-back');
  const source=(id,label,selected)=>btn(label,'start-'+id,'source-choice',`aria-pressed="${selected}"`);
  const mix=setupReturnView?QQPresets.MIXES.find(row=>row.id==='restaurant').mix:state.config.customerMix;
  const restaurantIntro='This studio sells menu updates, table tents and monthly promotions.'+(mix?` It assumes ${mix.food}% of inquiries come from food businesses, ${mix.retail}% from retailers and ${mix.services}% from local services. You can change the mix in Demand.`:'');
@@ -1125,39 +1188,59 @@ function setSetupMode(mode){
 }
 const navigatorDialog=document.querySelector('#workspace-navigator');
 function workspaceNavigator(){
- const editor=view==='setup'&&!setupNeedsChoice(),simulator=!inStudio()&&view!=='sky'&&view!=='sky/view';
- const label=id=>id==='setup'?'Business setup':destinations[id];
- const group=(name,routes)=>`<section class="navigator-group"><h3>${name}</h3>${routes.map(([id,symbol])=>{
-   const current=view===id?(id==='setup'&&workspaceRoute()!=='setup'?'location':'page'):null;
-   return routeLink(id,icon(symbol)+`<span>${label(id)}</span><i aria-hidden="true">›</i>`,'navigator-link',current?`aria-current="${current}"`:'');
- }).join('')}</section>`;
+ const currentPage=id=>{
+  if(id==='sky'&&view==='sky/view')return 'aria-current="location"';
+  if(view!==id)return '';
+  return id==='setup'&&workspaceRoute()!=='setup'?'aria-current="location"':'aria-current="page"';
+ };
+ const link=(id,symbol,label)=>routeLink(id,icon(symbol)+`<span>${label}</span>`,'navigator-link',currentPage(id));
+ const group=(name,routes)=>`<section class="navigator-group"><h3>${name}</h3>${routes.map(([id,symbol])=>
+  link(id,symbol,id==='setup'?'Business setup':destinations[id])).join('')}</section>`;
  const studioLinks=[['studio','box'],['planner','chart'],['jobs','file']];
  const simLinks=[['setup','settings'],['map','play'],['finances','chart'],['projects','file'],['scenarios','compare'],['about','info']];
- const studioBackup={studio:['Studio backup','studio-backup','Import ideas','studio-import'],planner:['Planner backup','planner-backup','Import plans','planner-import'],jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import']};
- const [backup,saveAction,open,loadAction]=studioBackup[view]||['Backup','backup','Open backup','import'];
- const context=editor?'Current setup':inStudio()?'Studio':simulator?'Simulator':'Live Sky';
- const page=editor?scenarioName(draft.name||state.config.name):view==='setup'?'Choose your setup style':destinations[view]||'Live Sky';
- const detail=editor?steps[stepIndex]:simulator&&view!=='setup'?scenarioName(state.config.name):'';
+ const backupActions={
+  studio:['Studio backup','studio-backup','Import ideas','studio-import'],
+  planner:['Planner backup','planner-backup','Import plans','planner-import'],
+  jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import'],
+ };
+ const [backup,saveAction,open,loadAction]=backupActions[view]||['Simulator backup','backup','Open simulator backup','import'];
  return `<div class="navigator-shell"><header class="navigator-heading"><h2 id="navigator-title" tabindex="-1" autofocus>Navigate</h2>${btn(icon('close'),'hide-navigator','navigator-close','aria-label="Close"')}</header>
- <div class="navigator-body"><button type="button" class="navigator-current" data-action="hide-navigator" title="Back to workspace">
- <span class="navigator-current-icon" aria-hidden="true">${icon(inStudio()?'box':simulator?'settings':'grid')}</span><span class="navigator-location"><small>${context}</small><strong>${page}</strong>${detail?`<span>${detail}</span>`:''}</span>${icon('arrow')}</button>
- <nav class="navigator-groups" aria-label="Workspace">${group('Simulator',simLinks)}${group('Studio',studioLinks)}</nav></div>
- <footer class="navigator-footer">${routeLink('sky','Live Sky home','navigator-home')}${btn(icon('download')+backup,saveAction)}${btn(icon('upload')+open,loadAction)}</footer></div>`;
+ <nav class="navigator-body" aria-label="Workspace">
+  <div class="navigator-home">${link('sky','grid','Home')}</div>
+  <div class="navigator-groups">${group('Studio',studioLinks)}${group('Simulator',simLinks)}</div>
+ </nav>
+ <footer class="navigator-footer">${btn(icon('download')+backup,saveAction)}${btn(icon('upload')+open,loadAction)}</footer></div>`;
 }
+let navigatorHoverTimer;
 function openWorkspaceNavigator(){
- if(navigatorDialog.open)return;
+ clearTimeout(navigatorHoverTimer);
+ if(navigatorDialog.open||waterfrontView.open||$('#modal').innerHTML||resettingApp||savingKeptSetup)return;
  if(runPassage&&running){stop();render();}
- const settings=document.querySelector('.sky-preferences');if(settings)settings.open=false;
+ const settings=document.querySelector('.sky-preferences');
+ if(settings)settings.open=false;
  navigatorDialog.innerHTML=QQI18n.html(workspaceNavigator());
  navigatorDialog.showModal();
 }
+document.addEventListener('pointerenter',e=>{
+ const trigger=e.target;
+ if(e.pointerType!=='mouse'||trigger.id!=='navigator-trigger')return;
+ clearTimeout(navigatorHoverTimer);
+ navigatorHoverTimer=setTimeout(()=>{
+  if(trigger.isConnected&&trigger.matches(':hover'))openWorkspaceNavigator();
+ },300);
+},true);
+document.addEventListener('pointerleave',e=>{
+ if(e.target.id==='navigator-trigger')clearTimeout(navigatorHoverTimer);
+},true);
 if(navigatorDialog?.addEventListener){
  // A drag that starts inside the sheet can finish outside without dismissing it.
  let backdropPress=false;
  navigatorDialog.addEventListener('pointerdown',e=>{backdropPress=e.target===navigatorDialog;});
  navigatorDialog.addEventListener('click',e=>{
-   if(e.target.closest('a[href],.navigator-footer button')){navigatorDialog.close();return;}
-   if(backdropPress&&e.target===navigatorDialog)navigatorDialog.close();backdropPress=false;});
+  const dismiss=backdropPress&&e.target===navigatorDialog;
+  backdropPress=false;
+  if(dismiss||e.target.closest('a[href],.navigator-footer button'))navigatorDialog.close();
+ });
 }
 // A result can point into a nested service editor. Follow its service id if
 // another offer is reordered or removed while this revision is open.
@@ -2015,7 +2098,8 @@ function serviceInputs(){
   const gap=QQ.round(100-draft.services.reduce((sum,s)=>sum+(s.weight||0),0));
   const fix=gap?btn(gap>0?gap+'% left to assign':Math.abs(gap)+'% over allocation','inspect-mix','small'):'';
   const undo=btn('Undo','restore-service','small','id="undo-service-removal"'+(draft.services.length>=20?' disabled title="This draft already contains 20 services."':''));
-  cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}</div>`);
+  const dismiss=btn('Dismiss','dismiss-service-removal','small');
+  cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}${dismiss}</div>`);
  }
  const starter=pristineOfferStarter(draft);
  const menu=currentClientMenu(draft,true);
@@ -2027,23 +2111,12 @@ function serviceInputs(){
  const toolbar=`<div class="offer-menu-heading"><h2>Your service menu</h2><div class="offer-menu-actions">${btn('Choose offerings','browse-offers','soft','id="choose-offerings" aria-haspopup="dialog"')}
   ${btn(starter?'Write my own offer':'Add custom offer',starter?'write-first-offer':'add-blank-service','',draft.services.length>=20?'disabled':'')}</div></div>
   ${draft.services.length>=20?'<small>This draft already contains 20 services.</small>':''}`;
- return `${invitation}${toolbar}${featuredOfferPreview(singleCustom)}${serviceUndoDraft?`<div class="preset-undo" role="status"><span>Previous service mix available.</span>${btn('Undo service mix','undo-services','small')}</div>`:''}${cards.join('')}${inquiryMix(rows,estimate)}${analyst}`;
-}
-function featuredOfferPreview(firstOffer){
- const ideas=[
-  ['menu-sales-mix','For restaurants','Find out which dishes are selling and which deserve a closer look.'],
-  ['wholesale-line-sheet','For product brands','Give a retailer the product details, wholesale prices and terms needed to place an order.'],
-  ['service-comparison-sheet','For service businesses','Help customers choose between packages before they ask for a quote.']
- ];
- return `<details class="offer-shortlist" data-disclosure="offer-shortlist-${firstOffer?'first':'menu'}"><summary>Three ideas to start with</summary><div>${ideas.map(([id,audience,reason])=>{
-  const entry=QQServiceCatalog.SERVICES.find(s=>s.id===id);
-  if(!entry)return '';
-  const name=serviceName(entry);
-  const index=draft.services.findIndex(s=>catalogPackageId(s)===id);
-  const action=index>=0?btn('Edit in menu','inspect-service','small',`data-index="${index}" aria-label="Edit ${serviceName(draft.services[index])}"`):
-   btn(icon('plus')+'<span>Add</span>','add-featured-offer','small',`data-id="${id}" aria-label="Add ${name}" ${draft.services.length>=20?'disabled':''}`);
-  return `<article><div><small>${audience}</small><strong>${name}</strong><p>${reason}</p></div>${action}</article>`;
- }).join('')}</div></details>`;
+ const undoNotice=serviceUndoDraft?`<div class="offer-recovery">
+  <span role="status">Service mix updated.</span>
+  ${btn('Undo service mix','undo-services','small')}
+  ${btn('Dismiss','dismiss-service-undo','small')}
+ </div>`:'';
+ return `${invitation}${toolbar}${undoNotice}${cards.join('')}${inquiryMix(rows,estimate)}${analyst}`;
 }
 function decisionMetric(label,value){
  return `<div><dt>${label}</dt><dd>${value}</dd></div>`;
@@ -3835,14 +3908,14 @@ function handleInput(el){
  if(view==='setup')render();
 }
 document.addEventListener('input',e=>{
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  if(e.target.id==='client-demand-share'||e.target.id==='client-demand-range'){changeClientDemand(e.target,false);return;}
  if(e.target.id==='client-demand-count-total'||e.target.id==='client-demand-count-target'){updateClientDemandCount(e.target);return;}
  if(e.target.id==='offer-package-search'&&offerPicker){offerPicker.query=e.target.value;refreshOfferPicker();return;}
  if(e.target.id==='studio-find'){studioUI.query=e.target.value;render();return;}
  if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
 document.addEventListener('change',e=>{
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  const el=e.target;
  if(el.id==='client-demand-share'||el.id==='client-demand-range'){changeClientDemand(el,true);return;}
  if(el.id==='client-demand-count-total'||el.id==='client-demand-count-target'){updateClientDemandCount(el);return;}
@@ -3885,19 +3958,12 @@ document.addEventListener('change',e=>{
   }else if(view!=='setup'&&(el.dataset.input==='acquisition'||el.dataset.input.endsWith('.audience')||el.type==='checkbox'))render();
   return;
  }
- if(el.id==='shard-motion'){
-  if(!Object.hasOwn(MOTION,el.value))return;
-  shardMotion=el.value;applyShardMotion();
-  try{localStorage.setItem(MOTION_KEY,shardMotion);}catch{toast('Motion setting applied for this session.');}
-  return;
- }
- if(el.id==='appearance'){if(!Object.hasOwn(THEMES,el.value))return;theme=el.value;document.documentElement.dataset.theme=theme;try{localStorage.setItem(THEME_KEY,theme);}catch(err){toast('Theme applied for this session. Browser storage is unavailable.');}return;}
  if(el.id==='speed'){speed=Number(el.value);if(running&&finishTarget===null){clearInterval(timer);timer=setInterval(tick,1000/speed);}return;}
  if(el.id==='horizon'){stop();const months=Number(el.value);if(!validRunLength(months)){render();return;}if(months*30<state.day){toast('The horizon must include the current day.');render();return;}serviceUndoDraft=null;presetUndoDraft=null;if(draft.months===state.config.months)draft.months=months;state.config.months=months;save();render();return;}
  if(el.id==='project-filter'){filter=el.value;$('#project-table').innerHTML=QQI18n.html(projectTable());}
 });
 document.addEventListener('click',e=>{
- if(savingKeptSetup){e.preventDefault?.();return;}
+ if(savingKeptSetup||resettingApp){e.preventDefault?.();return;}
  const el=e.target.closest('[data-action]');
  for(const menu of document.querySelectorAll(openWorkspaceMenus)){
   if(!menu.contains(e.target))menu.open=false;
@@ -3908,7 +3974,18 @@ document.addEventListener('click',e=>{
  try{
   if(presetUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','balance'].includes(a))presetUndoDraft=null;
   if(serviceUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','balance','confirm-preset','undo-preset','load','confirm-restart','confirm-example','confirm-import','open-archive','confirm-restore-draft','confirm-branch'].includes(a))serviceUndoDraft=null;
-  if(a==='show-navigator')openWorkspaceNavigator();
+  if(a==='breadcrumb-stop'&&routeReady){
+   if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+   e.preventDefault();
+   const shortened=workspaceTrail.slice(0,Number(el.dataset.index)+1);
+   const hash='#'+shortened.at(-1);
+   if(window.location.hash===hash)window.history.replaceState({workspaceTrail:shortened},'',hash);
+   else window.history.pushState({workspaceTrail:shortened},'',hash);
+   readWorkspaceRoute();
+  }
+  else if(a==='show-navigator')openWorkspaceNavigator();
+  else if(a==='reset-app')modal(`<h2 id="dialog-title">Reset 美QQ to defaults?</h2><p>This permanently erases saved runs, drafts, checkpoints, Studio ideas, plans, and jobs in this browser. Settings return to their defaults. Downloaded backups are kept.</p><div class="actions">${btn('Cancel','close')}${btn('Erase progress and reset','confirm-app-reset','soft','id="confirm-app-reset"')}</div>`);
+  else if(a==='confirm-app-reset')void resetApp();
   else if(a==='hide-navigator')navigatorDialog.close();
   else if(a==='view-waterfront'&&inStudio()){
    const options=el.closest('.workspace-options');
@@ -3944,7 +4021,7 @@ document.addEventListener('click',e=>{
    if(!setupNeedsChoice()||setupEntryPath==='style')return;
    setupEntryPath=a==='start-business'?'business':'restaurant';
    // Choosing a template edits this screen. Back returns to the page that opened it.
-   if(routeReady)window.history.replaceState(null,'','#'+workspaceRoute());
+   if(routeReady)replaceWorkspaceStop(workspaceRoute());
    render();
   }
   else if(a==='enter-setup')openSetupEditor(el.dataset.mode);
@@ -4072,10 +4149,6 @@ document.addEventListener('click',e=>{
   else if(a==='catalog-package')catalogPackage(el.dataset.id);
   else if(a==='confirm-catalog-service'){const value=QQI18n.inputValue($('#catalog-price'));if(value.trim()==='')throw Error('Enter a customer price.');const amount=Number(value),s=QQServiceCatalog.createService(pendingCatalogId);if(s.fulfillment&&amount<s.fulfillment.designOnlyPrice)throw Error('The managed-print price must cover at least the design-only price.');addCatalogService(pendingCatalogId,amount);catalogPrices.delete(pendingCatalogId);pendingCatalogId=null;}
   else if(a==='write-first-offer')revealSetupField({path:'services.0.name'});
-  else if(a==='add-featured-offer'){
-   const {added}=applyCatalogSelection([el.dataset.id]);
-   if(added.length){save();render();document.querySelector('#offer-edit-'+added[0])?.focus();toast('Service menu updated.');}
-  }
   else if(a==='park-offer'){
    const id=el.dataset.id;
    if(canFinishOfferLater(draft.services.findIndex(s=>s.id===id))){
@@ -4105,6 +4178,11 @@ document.addEventListener('click',e=>{
   else if(a==='review-starter'){pendingStarterId=el.dataset.id;const next=QQServiceCatalog.starterServices(pendingStarterId);modal(`<h2 id="dialog-title">Replace your draft service mix?</h2><p>Remove ${draft.services.length} current offerings from this draft: ${esc(draft.services.map(s=>s.name).join(', '))}.</p><p>Load this mix instead:</p><ul>${next.map(s=>`<li>${serviceName(s)} · ${offerAmount(s.price)} · ${s.weight}% inquiry share</li>`).join('')}</ul><p>Your active run and accepted projects stay in place. Undo is available until your next draft edit.</p><div class="actions">${btn('Keep current offerings','close')}${btn('Replace draft offerings','confirm-starter','primary')}</div>`);}
   else if(a==='confirm-starter'){if(!pendingStarterId)throw Error('Choose a starter mix.');serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;clearServiceRecords();draft.services=starterOffers(pendingStarterId);delete draft.clientMenu;pendingStarterId=null;expandedService=0;closeModal();render();toast('Starter mix loaded into the draft. Review & apply when ready.');}
   else if(a==='undo-services'){if(!serviceUndoDraft)throw Error('No previous service mix is available.');draft=QQ.clone(serviceUndoDraft);serviceUndoDraft=null;closeModal();render();}
+  else if(a==='dismiss-service-undo'){
+   serviceUndoDraft=null;
+   render();
+   document.querySelector('#choose-offerings')?.focus();
+  }
   else if(a==='inspect-service'){
    expandedService=Number(el.dataset.index);
    const key='service-'+draft.services[expandedService].id;
@@ -4142,6 +4220,11 @@ document.addEventListener('click',e=>{
   else if(a==='duplicate'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id=newServiceId();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
   else if(a==='remove-service')removeDraftService(el.dataset.id?draft.services.findIndex(s=>s.id===el.dataset.id):Number(el.dataset.index));
   else if(a==='restore-service')restoreDraftService();
+  else if(a==='dismiss-service-removal'){
+   removedServices.get(draft.services)?.pop();
+   renderListChange('.offer-card,.offer-recovery[data-render-key]');
+   (document.querySelector('#undo-service-removal:not(:disabled)')||document.querySelector('#choose-offerings'))?.focus();
+  }
   else if(a==='rebalance-other-weights'){
    if(editedMixOffer?.id!==el.dataset.id)return;
    const shares=weightsAround(editedMixOffer);
@@ -4229,7 +4312,7 @@ else if(a==='open-archive'){
  }catch(err){showError(err.message||'The action could not be completed.');}finally{actionFocus=null;}
 });
 document.addEventListener('keydown',e=>{
- if(savingKeptSetup)return;
+ if(savingKeptSetup||resettingApp)return;
  if(navigatorDialog?.open||waterfrontView?.open||document.querySelector('#sky-editor')?.open)return;
  if(e.key==='Escape'&&!$('#modal').firstChild){
   const menu=document.querySelector(openWorkspaceMenus);
@@ -4248,7 +4331,7 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){closeModal();render();}
  if(e.key==='Tab'){const els=modalTabStops();if(!els.length)return;e.preventDefault();const current=els.indexOf(document.activeElement),next=current<0?(e.shiftKey?els.length-1:0):(current+(e.shiftKey?-1:1)+els.length)%els.length;els[next].focus();}
 });
-window.addEventListener('beforeunload',e=>{save();studioSession.save();jobsSession.save();plannerSession.save();if(savingKeptSetup||plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(resettingApp)return;save();studioSession.save();jobsSession.save();plannerSession.save();if(savingKeptSetup||plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
 if(window.location)view='sky';
 render();
 const appReady=initializeStorage().then(()=>{
