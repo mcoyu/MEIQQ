@@ -1,5 +1,47 @@
 const test=require('node:test'),assert=require('node:assert/strict'),q=require('./engine.js'),catalog=require('./service-catalog.js'),presets=require('./presets.js'),report=require('./comparison-report.js');
 function run(config,days){const state=q.fresh(config);for(let i=0;i<days;i++)q.step(state);return state;}
+test('exports reveal reordered offer routing and retain the hundredths of an hour worked',()=>{
+ const services=['first','second'].map(id=>({...q.DEFAULT.services[0],id,name:id,weight:50,hours:.04,review:0,print:0}));
+ const config={...q.DEFAULT,services,months:1,inquiries:30,conversion:1,ownerHours:100,designerHours:100,quoteHours:.02,deliveryHours:0,startingCash:40000};
+ const base=run(config,30),current=run({...config,services:[...services].reverse()},30);
+ const previous=new Map(base.projects.map(p=>[p.demandId,p.serviceId]));
+ assert.equal(current.projects.filter(p=>p.orderKind==='new-business'&&previous.get(p.demandId)!==p.serviceId).length,30);
+ const html=report.create(current,base).html;
+ assert.match(html,/Offer order<\/th><td translate="no">first → second<\/td><td translate="no">second → first<\/td>/);
+ assert.doesNotMatch(html,/No applied assumptions changed/);
+ assert.match(html,/<td>0\.02 \/ 0\.04<\/td>/);assert.doesNotMatch(html,/<td>0\.0 \/ 0\.0<\/td>/);
+ assert.doesNotMatch(report.create(base,base).html,/<th>Offer order<\/th>/);
+});
+test('Chinese exports preserve entered wording, convert recorded price fields consistently and retain filename labels',()=>{
+ const {ctx}=require('./ui-test-host.cjs').setup(),t=ctx.QQI18n;t.choose('zh-CN');
+ const base=ctx.QQ.fresh(),current=ctx.QQ.clone(base);
+ current.config.name='我的工作室';current.config.services[0].name='Jobs';
+ current.config.services[0].deliverable='Cost $100 USD';
+ current.config.assumptionRecords={'services.design.price':{source:'Jobs',sample:'Cost $100 USD',value:290,date:'2026-11-01'}};
+ const report=ctx.QQComparisonReport.create(current,base,{baselineLabel:'以前'});
+ const change=(path)=>report.html.split('<th>'+path+'</th>')[1].match(/<td>[^<]*<\/td><td>([^<]*)<\/td>/)[1];
+ const localized=value=>t.text(value.replaceAll('&quot;','"'));
+ assert.equal(localized(change('services.design.name')),'Jobs');
+ assert.equal(localized(change('services.design.deliverable')),'Cost $100 USD');
+ assert.equal(localized(change('assumptionRecords.services.design.price.source')),'Jobs');
+ assert.equal(change('assumptionRecords.services.design.price.value'),t.yuan(290));
+ assert.equal(report.filename,'MEIQQ-Comparison-我的工作室-vs-以前.html');
+ const long=ctx.QQComparisonReport.create(current,base,{currentLabel:'中文'.repeat(80),baselineLabel:'基线'.repeat(80)}).filename;
+ assert.ok(Buffer.byteLength(long)<255);
+});
+test('exported project terms follow the accepted route and distinguish a declined or pending baseline quote',()=>{
+ const offer=catalog.createService('postcard-250');offer.fulfillment.managedShare=0;
+ const config={...q.clone(q.DEFAULT),ownerHours:100,inquiries:30,acquisition:'preset',conversion:1,services:[{...offer,audience:'all',weight:100}]};
+ const changed=run(config,30),declined=run({...config,conversion:0},30),pending=run({...config,ownerHours:0},30);
+ const projects=(current,baseline)=>report.create(current,baseline).html.split('<h2>Current accepted projects</h2>')[1].split('</table>')[0];
+ let rows=projects(changed,declined);
+ assert.match(rows,/client self-print/);assert.match(rows,/<td>Quote declined<\/td>/);
+ assert.doesNotMatch(rows,/\d+d print|\$0\.00 \/ \$0\.00 \/ lost/);
+ assert.match(projects(changed,pending),/<td>Quote pending<\/td>/);
+ offer.fulfillment.managedShare=1;
+ rows=projects(run({...config,services:[{...offer,weight:100,audience:'all'}]},30),changed);
+ assert.match(rows,/3d print/);assert.match(rows,/client self-print/);
+});
 test('comparison report is self-contained, escaped and delegates comparison warnings',()=>{
  const base=run({...q.clone(q.DEFAULT),name:'Baseline <script>',months:3},30),current=run({...q.clone(q.DEFAULT),name:'Current & changed',months:3,ownerHours:20},20);
  current.projects[0].client='<img src=x onerror=alert(1)>';
@@ -73,7 +115,7 @@ test('comparison report never relabels or injects an unknown future fulfillment 
 
 test('comparison report reconciles accepted and skipped campaigns through the cutoff',()=>{
  const service=catalog.createService('monthly-promo-5'),config={...q.clone(q.DEFAULT),months:3,startingCash:1e6,inquiries:20,conversion:1,retention:0,ownerHours:120,designers:4,designerHours:120,services:[{...service,weight:100}]},baseline=run(config,90),current=q.clone(baseline),analytics=q.analytics(current),html=report.create(current,baseline).html;
- assert.ok(analytics.skippedCampaigns>0);assert.match(html,/Campaign relationships/);assert.match(html,/Relationship cutoff/);assert.match(html,/Skipped campaigns/);assert.match(html,new RegExp(`<td>${analytics.skippedCampaigns}<\\/td>`));assert.match(html,/Skipped campaign quotes/);assert.match(html,/decline skips that campaign and preserves later quote opportunities through the cutoff/);assert.match(html,/Skipped quotes produce no ledger entry or revenue/);assert.match(html,/does not guarantee revenue/);
+ assert.ok(analytics.skippedCampaigns>0);assert.match(html,/Campaign relationships/);assert.match(html,/Relationship cutoff/);assert.match(html,/Skipped campaigns/);assert.match(html,new RegExp(`<td>${analytics.skippedCampaigns}<\\/td>`));assert.match(html,/Skipped campaign periods/);assert.match(html,/Campaign periods missed while prior work was open/);assert.match(html,/buyer declines and periods that expired/);assert.match(html,/Only accepted campaigns can earn revenue/);
 });
 
 test('custom service changes stay in exact differences without being misclassified as recipe edits',()=>{

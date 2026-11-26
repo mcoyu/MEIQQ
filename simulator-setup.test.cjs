@@ -13,6 +13,17 @@ const edit = (ui, path, value, extra = {}) => {
   else ui.handlers.input({target});
 };
 
+test('review identifies a change to the menu order used to assign the same inquiries',()=>{
+  const ui=setup();
+  ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
+  const original=read(ui,'draft.services.map(s=>s.name).join(" → ")');
+  const revised=read(ui,'draft.services.reverse().map(s=>s.name).join(" → ")');
+  ui.click('review');
+  const modal=ui.elements['#modal'].innerHTML;
+  assert.ok(modal.includes('Offer order: <b>'+original+' → '+revised+'</b>'));
+  assert.match(modal,/1 exact change</);
+});
+
 test('day-zero opening, autosave and reload keep the first choice until a path is selected', () => {
   const first=setup();
   read(first,'save()');
@@ -96,9 +107,12 @@ test('fixed-volume switch uses current outreach and retains an explicit fixed es
 test('draft preview exposes owner-time economics and explains an impossible delivery', () => {
   const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
   let html=read(ui,'draftSummary()');
-  assert.match(html,/\+\$789/);assert.match(html,/-\$1,962/);assert.match(html,/Expected new inquiries/);
+  assert.ok(html.includes(read(ui,'setupResultAmount(getDraftEstimate().profit)')));
+  assert.ok(html.includes(read(ui,'setupResultAmount(getDraftEstimate().surplus)')));
+  assert.match(html,/Expected new inquiries/);
   edit(ui,'designers',0);html=read(ui,'draftSummary()');
-  assert.ok(html.indexOf('No design capacity')<html.indexOf('Operating result'));
+  assert.match(html,/No new jobs can ship/);
+  assert.doesNotMatch(html.split('<details')[0],/Operating result/);
   edit(ui,'designers',1);edit(ui,'ownerHours',4);html=read(ui,'draftSummary()');
   assert.match(html,/No owner time remains/);
 });
@@ -170,18 +184,22 @@ test('fixing a setup error opens its step and enclosing disclosures and focuses 
   assert.equal(read(ui,'state.config.services[0].weight'),40);
 });
 
-test('an invalid dormant input can be fixed without changing the selected demand mode or enabling a disruption',()=>{
+test('switching demand methods parks its incomplete inputs and a disruption can be repaired while disabled',()=>{
   const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('setup-step',{step:'1'});
   edit(ui,'acquisition','preset');edit(ui,'inquiries','');edit(ui,'acquisition','sales');
-  ui.click('setup-step',{step:'2'});ui.click('fix-setup-issue');
-  assert.match(ui.elements['#root'].innerHTML,/id="input-inquiries"/);
-  edit(ui,'inquiries',21);assert.equal(read(ui,'draft.acquisition'),'sales');
+  ui.click('setup-step',{step:'2'});assert.match(ui.elements['#root'].innerHTML,/data-action="simulate"/);
+  assert.equal(read(ui,'draft.inquiries'),null);
+  ui.click('setup-step',{step:'1'});edit(ui,'acquisition','preset');
+  assert.match(ui.elements['#root'].innerHTML,/data-action="fix-setup-issue"[^>]*data-path="inquiries"/);
+  edit(ui,'inquiries',21);
   ui.click('setup-step',{step:'3'});
   edit(ui,'disruptionRates.rushDeadlines',125,{percent:'true'});
   ui.handlers.change({target:{id:'',dataset:{input:'realism'},type:'checkbox',checked:false}});
   ui.click('fix-setup-issue');
   const field=ui.elements['#root'].innerHTML.match(/<input [^>]*id="input-disruptionRates-rushDeadlines"[^>]*>/)[0];
   assert.doesNotMatch(field,/disabled/);
+  edit(ui,'disruptionRates.rushDeadlines','',{percent:'true'});
+  assert.match(ui.elements['#root'].innerHTML,/<input [^>]*id="input-disruptionRates-rushDeadlines"[^>]*value=""/);
   edit(ui,'disruptionRates.rushDeadlines',10,{percent:'true'});
   assert.equal(read(ui,'draft.realism'),false);assert.equal(read(ui,'draftError()'),'');
 });

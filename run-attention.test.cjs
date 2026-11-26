@@ -24,6 +24,51 @@ const pane=ui=>read(ui,'inspector(QQ.orderedProjects(state))');
 function select(ui,p){ui.click('project',{id:p.id,origin:'watch'});}
 function nextCard(ui){return pane(ui).split('class="project-next"')[1].split('</section>')[0];}
 
+test('files-only quotes and declined work show their actual scope and payment commitments',()=>{
+ const offer=require('./service-catalog.js').createService('table-tents-100');
+ offer.fulfillment.managedShare=0;
+ const state=scenario({services:[offer],ownerHours:0,conversion:0,customerMix:{food:100,retail:0,services:0}},6);
+ const first=state.projects[0],ui=openRun(state);
+ select(ui,first);
+ assert.ok(pane(ui).includes('<h3>Requested deliverable</h3><p>'+offer.filesOnlyScope+'</p>'));
+ assert.match(pane(ui),/<label>Payment<\/label><strong>—</);
+ read(ui,'QQ.applyConfig(state,{...state.config,ownerHours:100});while(QQ.step(state)){}');
+ assert.equal(read(ui,'state.projects[0].stage'),'lost');
+ assert.match(pane(ui),/<label>Agreed price<\/label><strong>—</);
+ assert.doesNotMatch(pane(ui),/Set at acceptance|<strong>unpaid</);
+});
+
+test('saved no-deposit events agree with actual cash in the timeline and in latest activity',()=>{
+ const state=scenario({deposit:0},5),p=state.projects.find(p=>p.accepted!==undefined&&!p.delivered);
+ const e=p.log.find(e=>e.text.startsWith('Quote accepted at $'));
+ e.text=e.text.replace('no deposit collected','deposit received');
+ state.events.unshift({...e,project:p.id});
+ const ui=openRun(state);select(ui,p);
+ assert.match(pane(ui),/no deposit collected/);
+ assert.match(read(ui,'activityView()'),/no deposit collected/);
+ assert.doesNotMatch(pane(ui),/; deposit received/);
+ assert.match(pane(ui),/<label>Balance after delivery<\/label><strong>\$400</);
+ assert.match(pane(ui),/<label>Payment<\/label><strong>No deposit collected</);
+});
+
+test('a restaurant can see both print scopes before it accepts a mixed-route offer',()=>{
+ const offer=require('./service-catalog.js').createService('table-tents-100');
+ const state=scenario({services:[offer],ownerHours:0,customerMix:{food:100,retail:0,services:0}},6);
+ const ui=openRun(state);select(ui,state.projects[0]);
+ const html=pane(ui);
+ assert.ok(html.includes('<dt>Managed printing</dt><dd>'+offer.deliverable+'</dd>'));
+ assert.ok(html.includes('<dt>Files only</dt><dd>'+offer.filesOnlyScope+'</dd>'));
+});
+
+test('a complimentary delivery closes without suggesting cash ever changed hands',()=>{
+ const offer={...QQ.clone(QQ.DEFAULT.services[0]),audience:'all',price:0,weight:100,print:0};
+ const state=scenario({services:[offer],inquiries:10},60);
+ const p=state.projects.find(p=>p.stage==='complete');assert.ok(p);
+ const ui=openRun(state);select(ui,p);
+ assert.match(nextCard(ui),/The work was delivered. No payment was required/);
+ assert.match(pane(ui),/<label>Payment<\/label><strong>No payment required</);
+});
+
 test('the watch list prioritizes actual capacity stops and leaves queue order intact',()=>{
  const state=scenario({designers:0},5),ui=openRun(state),html=watch(ui);
  assert.equal((html.match(/class="attention-job"/g)||[]).length,3);

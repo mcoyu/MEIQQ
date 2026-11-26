@@ -161,3 +161,22 @@ test('Finish later preserves partial custom work, points to Include, and frees t
  read(ui,"Object.assign(draft.services[0],{deliverable:'Report',price:100,hours:1,print:0,supplierMode:'none'});render()");
  assert.equal(read(ui,'draftError()'),'');assert.doesNotMatch(ui.elements['#root'].innerHTML,/data-action="park-offer"/);
 });
+
+test('keeping the last edited inquiry weight redistributes the remainder proportionally without reactivating parked offers',()=>{
+ const ui=editor('restaurant');
+ read(ui,`var offers=draft.services,parked={...QQ.clone(offers[0]),id:'saved-copy',weight:0};
+  offers[0].weight=40;offers[1].weight=40;offers[2].weight=20;offers.push(parked);render();`);
+ const weight=value=>ui.handlers.input({target:{type:'number',tagName:'INPUT',id:'input-services-0-weight',dataset:{input:'services.0.weight'},value}});
+ weight('70');assert.match(ui.elements['#root'].innerHTML,/Keep this weight and rebalance the others/);
+ const edited=data(ui,'draft.services.map(s=>s.weight)'),id=read(ui,'offers[0].id');
+ ui.click('rebalance-other-weights',{id});
+ assert.deepEqual(data(ui,'draft.services.map(s=>s.weight)'),[70,20,10,0]);
+ assert.deepEqual(data(ui,'draftValidationIssues()'),[]);
+ ui.drainTimers();
+ const reopened=setup([...ui.storage]);
+ assert.deepEqual(data(reopened,'draft.services.map(s=>s.weight)'),[70,20,10,0]);
+ ui.click('undo-services');assert.deepEqual(data(ui,'draft.services.map(s=>s.weight)'),edited);
+ weight('0');ui.click('rebalance-other-weights',{id});
+ assert.deepEqual(data(ui,'draft.services.map(s=>s.weight)'),[0,66.67,33.33,0]);
+ weight('99.99');assert.doesNotMatch(ui.elements['#root'].innerHTML,/Keep this weight and rebalance the others/);
+});

@@ -49,3 +49,17 @@ test('combined import size is checked before replacing any working data',async()
 test('a blocked session never reports a successful flush',async()=>{
  const db=database();db.records.set(Model.STORAGE_KEY,{revision:1,text:'broken'});const session=Session.create({local:local(),indexedDB:db.factory,seed});await session.open();assert.equal(await session.flush(),false);assert.equal(session.status,'error');
 });
+test('an older completed write cannot mark an unserializable collection saved',async()=>{
+ // Exercise the shared session independently of each editor's field limits.
+ let failure=false;
+ const model={...Model,serialize(book){if(failure)throw Error('Draft serialization failed.');return Model.serialize(book);}};
+ const db=database(),s=Session.create({indexedDB:db.factory,model,seed});await s.open();await s.flush();
+ const first=s.data.offerings[0].id;Model.setField(s.data,first,'price','100');s.changed();s.save();
+ Model.setField(s.data,first,'price','110');failure=true;
+ s.changed();assert.equal(await s.flush(),false);assert.equal(s.unsaved,true);assert.match(s.error,/serialization failed/);
+ const onDisk=Model.parseText(db.records.get(Model.STORAGE_KEY).text);
+ assert.equal(onDisk.offerings[0].price,'100');assert.equal(s.data.offerings[0].price,'110');
+ failure=false;
+ assert.equal(await s.flush(),true);assert.equal(s.unsaved,false);
+ assert.equal(Model.parseText(db.records.get(Model.STORAGE_KEY).text).offerings[0].price,'110');
+});

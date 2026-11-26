@@ -48,3 +48,186 @@ test('modeled disruption controls default off and normalize older configurations
 test('legacy configurations preserve their numeric trajectory when optional disruptions are off',()=>{const current=config({months:3,realism:true}),legacy=q.clone(current);delete legacy.disruptions;delete legacy.disruptionRates;assert.deepEqual(run(legacy,90),run(current,90));});
 test('accepted disruptions lock deterministic rush, reprint, repeated work and 30-60 day collection timing across reopen',()=>{const c=config({months:3,seed:91827,startingCash:1e7,ownerHours:120,designers:10,designerHours:120,conversion:1,inquiries:30,approvalDays:0,printDays:1,paymentDays:1,repeat:0,retention:0,realism:true,disruptions:Object.fromEntries(Object.keys(q.DEFAULT.disruptions).map(key=>[key,true])),disruptionRates:Object.fromEntries(Object.keys(q.DEFAULT.disruptionRates).map(key=>[key,1]))});c.services=[{...q.clone(q.DEFAULT.services[1]),weight:100}];const s=q.fresh(c);let p;for(let i=0;i<15&&!p;i++){q.step(s);p=s.projects.find(project=>project.accepted!==undefined);}assert.ok(p);const committed=q.clone(p.terms.disruptions);assert.equal(committed.rushDeadline,true);assert.equal(p.due-p.accepted,Math.max(2,Math.round(c.leadDays*.5)));assert.equal(committed.supplierReprint,true);assert.ok(committed.revisionRounds>=2&&committed.revisionRounds<=3);assert.ok(committed.extendedPaymentDays>=30&&committed.extendedPaymentDays<=60);const next=q.clone(s.config);next.inquiries=0;next.disruptions=Object.fromEntries(Object.keys(next.disruptions).map(key=>[key,false]));next.disruptionRates=Object.fromEntries(Object.keys(next.disruptionRates).map(key=>[key,0]));q.applyConfig(s,next);assert.deepEqual(p.terms.disruptions,committed);for(let i=0;i<80&&p.stage!=='payment'&&p.stage!=='complete';i++){q.step(s);p=s.projects.find(project=>project.id===p.id);}assert.equal(p.stage,'payment');assert.equal(p.revisionCount,committed.revisionRounds);assert.equal(p.log.filter(entry=>/modeled revision/.test(entry.text)).length,committed.revisionRounds);assert.equal(p.reprintCount,1);const reprints=s.ledger.filter(entry=>entry.project===p.id&&/Supplier reprint/.test(entry.note));assert.equal(reprints.length,1);assert.equal(reprints[0].amount,-p.printCost);assert.equal(p.receiveDay-p.paymentDue,committed.extendedPaymentDays);const diagnostic=q.projectDiagnostic(s,p.id);assert.equal(diagnostic.reasonCode,'extended-late-payment');assert.equal(diagnostic.disruptions.reprintCount,1);assert.equal(diagnostic.disruptions.revisionCount,committed.revisionRounds);const reopened=q.restore(s);assert.deepEqual(reopened,s);for(let i=0;i<70&&p.stage!=='complete';i++){q.step(s);q.step(reopened);p=s.projects.find(project=>project.id===p.id);}assert.equal(p.stage,'complete');assert.deepEqual(reopened,s);});
 test('disruption selection is reproducible for equal workload identities',()=>{const c=config({months:3,startingCash:1e7,ownerHours:120,designers:10,designerHours:120,conversion:1,inquiries:90,approvalDays:0,printDays:1,paymentDays:1,repeat:0,retention:0,realism:true,disruptions:Object.fromEntries(Object.keys(q.DEFAULT.disruptions).map(key=>[key,true]))});c.services=[{...q.clone(q.DEFAULT.services[1]),weight:100}];assert.deepEqual(run(c,60),run(c,60));});
+
+function restaurantPaymentRun({offer='menu-refresh',price,deposit=.5,days=60}){
+ const service=require('./service-catalog.js').createService(offer);
+ Object.assign(service,{weight:100,hours:0,review:0});
+ if(price!==undefined)service.price=price;
+ if(service.fulfillment)service.fulfillment.managedShare=0;
+ const s=q.fresh(config({months:2,seed:78,startingCash:50000,inquiries:30,conversion:1,
+  retention:0,repeat:0,deposit,profileStrength:0,customerMix:{food:100,retail:0,services:0},
+  services:[service],quoteHours:0,deliveryHours:0,approvalDays:0,paymentDays:2,realism:true,
+  uncertainty:Object.fromEntries(Object.keys(q.DEFAULT.uncertainty).map(key=>[key,false])),
+  disruptions:{...q.DEFAULT.disruptions,extendedLatePayments:true},
+  disruptionRates:{...q.DEFAULT.disruptionRates,extendedLatePayments:1}}));
+ assert.equal(q.step(s),true);
+ q.applyConfig(s,{...s.config,inquiries:0});
+ while(s.day<days)assert.equal(q.step(s),true);
+ return s;
+}
+
+test('restaurant collection posts only positive receipts and models lateness only on the unpaid balance',()=>{
+ for(const [price,deposit,upfront,final] of [[350,0,0,350],[350,.25,87.5,262.5],[2.55,.5,1.28,1.27],[.45,.7,.32,.13],[.45,.6999999999999999,.31,.14],[.01,.6,.01,0],[0,.5,0,0]]){
+  const s=restaurantPaymentRun({price,deposit}),[p]=s.projects;
+  const receipts=s.ledger.filter(e=>e.type==='receipt'&&e.project===p.id);
+  assert.deepEqual(receipts.map(e=>[e.note,e.amount]),[
+   ...(upfront?[['Client deposit',upfront]]:[]),
+   ...(final?[['Final payment',final]]:[])
+  ]);
+  if(upfront)assert.equal(receipts[0].day,p.accepted);
+  const acceptance=p.log.find(e=>e.text.startsWith('Quote accepted at'));
+  assert.ok(acceptance.text.includes(upfront?'deposit received':'no deposit collected'));
+  assert.equal(q.depositAmount(price,deposit),upfront);
+  assert.equal(p.price,price);
+  assert.equal(p.paid,price);
+  assert.equal(p.stage,'complete');
+  assert.equal(p.terms.disruptions.extendedPaymentDays>0,final>0);
+  assert.equal(p.log.some(e=>e.text.startsWith('Modeled late-payment incident')),final>0);
+  assert.equal(q.projectDiagnostic(s,p).disruptions.extendedPaymentDays,p.terms.disruptions.extendedPaymentDays);
+  if(final)assert.equal(receipts.at(-1).day,p.deliveredDay+2+p.terms.disruptions.extendedPaymentDays);
+  else assert.equal(p.entered,p.deliveredDay);
+  assert.equal(q.restore(s).cash,s.cash);
+ }
+});
+
+test('a separately quoted restaurant campaign can decline after intake without creating a charge',()=>{
+ const s=restaurantPaymentRun({offer:'monthly-promo-5',deposit:1}),[first,next]=s.projects;
+ assert.equal(first.stage,'complete');
+ assert.equal(next.orderKind,'campaign-reoffer');
+ assert.equal(next.stage,'lost');
+ assert.equal(next.log[0].text,'Campaign entered quote intake for a new decision');
+ assert.equal(q.projectEventText(next,'Confirmed repeat cycle entered quote intake',0),next.log[0].text);
+ assert.equal(q.projectEventText({orderKind:'confirmed-repeat'},'Confirmed repeat cycle entered quote intake',0),'Confirmed repeat cycle entered quote intake');
+ assert.equal(s.ledger.some(e=>e.project===next.id),false);
+ assert.equal(s.revenue,first.price);
+});
+
+test('capacity replay recognizes older zero deposit receipts and obsolete prepaid delay messages',()=>{
+ for(const [price,deposit] of [[350,0],[.01,.6]]){
+  const s=restaurantPaymentRun({price,deposit,days:30}),[p]=s.projects;
+  if(deposit===0){
+   const acceptance=p.log.find(row=>row.text.startsWith('Quote accepted at'));
+   acceptance.text=acceptance.text.replace('no deposit collected','deposit received');
+   s.ledger.push({day:p.accepted,amount:0,type:'receipt',project:p.id,note:'Client deposit'});
+  }else{
+   p.terms.disruptions.extendedPaymentDays=41;
+   p.receiveDay=p.paymentDue+41;
+   const delivery=p.log.findIndex(row=>row.text==='Delivered; revenue recognized');
+   const oldMessage='Modeled late-payment incident: collection expected 41 days after the contractual due date';
+   p.log.splice(delivery+1,0,{day:p.deliveredDay,text:oldMessage});
+   assert.equal(q.projectEventText(p,oldMessage,price),null);
+   assert.equal(q.projectDiagnostic(s,p).disruptions.extendedPaymentDays,0);
+  }
+  const session=q.startCapacityReplay(s,{month:1,key:'designerHours',value:25});
+  while(session.phase!=='done')q.stepCapacityReplay(session);
+  assert.equal(q.capacityReplayResult(session).comparable,true);
+ }
+});
+
+function anchoredRestaurant({offer='monthly-promo-5',paymentDays=90,retention=0,legacy=false}={}){
+ const service=require('./service-catalog.js').createService(offer);
+ Object.assign(service,{weight:100,hours:0,review:0});
+ service.fulfillment.managedShare=0;
+ const s=q.fresh(config({months:12,startingCash:10000,conversion:1,inquiries:30,deposit:0,
+  retention,profileStrength:0,realism:false,approvalDays:0,quoteHours:0,deliveryHours:0,paymentDays,services:[service]}));
+ if(legacy)delete s.campaignCalendarFromDay;
+ assert.equal(q.step(s),true);
+ q.applyConfig(s,{...s.config,inquiries:0});
+ return s;
+}
+
+test('campaign quotes respect collection and the current calendar window without accumulating expired offers',()=>{
+ for(const [offer,paymentDays,expectedDay,missed] of [
+  ['monthly-promo-5',0,31,0],['monthly-promo-5',29,31,0],['monthly-promo-5',30,32,0],
+  ['monthly-promo-5',45,47,0],['monthly-promo-5',89,91,2],['monthly-promo-5',90,92,2],
+  ['seasonal-campaign',89,91,0],['seasonal-campaign',90,92,0]
+ ]){
+  const s=anchoredRestaurant({offer,paymentDays}),first=s.projects[0];
+  while(s.day<1+paymentDays)assert.equal(q.step(s),true);
+  assert.deepEqual(s.repeatQueue.map(item=>[item.day,item.cycle]),[[expectedDay,2]]);
+  const contract=q.analytics(s).contracts[0];
+  assert.equal(contract.missedCadences,missed);
+  assert.equal(contract.skippedCampaigns,missed);
+  assert.equal(s.projects[0].log.some(e=>e.text==='Campaign periods missed while prior work was open: '+missed),missed>0);
+  const paid=s.ledger.filter(e=>e.type==='receipt');
+  assert.deepEqual(paid.map(e=>[e.day,e.project]),[[1+paymentDays,first.id]]);
+  assert.deepEqual(q.restore(s),s);
+  while(s.day<expectedDay)assert.equal(q.step(s),true);
+  assert.deepEqual(s.projects.map(p=>[p.cycle,p.created]),[[1,1],[2,expectedDay]]);
+  assert.equal(s.projects[1].stage,'lost');
+  assert.equal(q.projectDiagnostic(s,s.projects[1]).campaign.skippedCampaigns,missed+1);
+  assert.equal(s.ledger.some(e=>e.project===s.projects[1].id),false);
+  while(s.day<360)assert.equal(q.step(s),true);
+  const finished=q.analytics(s).contracts[0],slotLimit=offer==='monthly-promo-5'?12:4;
+  assert.equal(finished.skippedCampaigns,slotLimit-1);
+  assert.equal(finished.missedCadences,missed);
+  assert.equal(finished.status,'ended');
+  assert.equal(s.projects.length+missed,slotLimit);
+  assert.deepEqual(q.restore(s),s);
+ }
+});
+
+test('a saved campaign honors a previously queued quote, preserves recorded catch-up history and then uses calendar dates',()=>{
+ for(const savedDay of [91,95]){
+  const old=anchoredRestaurant({legacy:true});
+  while(old.day<savedDay)assert.equal(q.step(old),true);
+  const oldLedger=q.clone(old.ledger),oldProjects=old.projects.map(p=>[p.cycle,p.created]),promised=q.clone(old.repeatQueue);
+  const restored=q.restore(old);
+  assert.equal(restored.campaignCalendarFromDay,savedDay+1);
+  assert.deepEqual(restored.repeatQueue,promised);
+  while(restored.day<125)assert.equal(q.step(restored),true);
+  assert.deepEqual(restored.ledger.slice(0,oldLedger.length),oldLedger);
+  assert.deepEqual(restored.projects.slice(0,oldProjects.length).map(p=>[p.cycle,p.created]),oldProjects);
+  const byCycle=restored.projects.map(p=>[p.cycle,p.created]);
+  assert.deepEqual(byCycle,savedDay===91?[[1,1],[2,92],[3,121]]:[[1,1],[2,92],[3,93],[4,94],[5,121]]);
+  assert.deepEqual(q.restore(restored),restored);
+  const session=q.startCapacityReplay(restored,{month:4,key:'designerHours',value:25});
+  while(session.phase!=='done')q.stepCapacityReplay(session);
+  assert.equal(q.capacityReplayResult(session).comparable,true);
+ }
+});
+
+test('an older half-cent deposit survives reopen and replay while the next quote gets the new cent split',()=>{
+ const service=require('./service-catalog.js').createService('menu-refresh');
+ Object.assign(service,{price:2.55,weight:100,hours:0,review:0});
+ const s=q.fresh(config({months:1,startingCash:10000,conversion:1,inquiries:30,deposit:.5,repeat:0,
+  profileStrength:0,realism:false,quoteHours:0,deliveryHours:0,approvalDays:0,paymentDays:5,services:[service],
+  customerMix:{food:100,retail:0,services:0}}));
+ delete s.depositRoundingFromDay;
+ assert.equal(q.step(s),true);
+ const restored=q.restore(s);
+ assert.equal(restored.campaignCalendarFromDay,1);
+ assert.equal(restored.depositRoundingFromDay,2);
+ assert.equal(q.step(restored),true);
+ q.applyConfig(restored,{...restored.config,inquiries:0});
+ while(q.step(restored)){}
+ const receipts=id=>restored.ledger.filter(e=>e.project===id&&e.type==='receipt').map(e=>e.amount);
+ assert.deepEqual(receipts('P001'),[1.27,1.28]);
+ assert.deepEqual(receipts('P002'),[1.28,1.27]);
+ const session=q.startCapacityReplay(restored,{month:1,key:'designerHours',value:25});
+ while(session.phase!=='done')q.stepCapacityReplay(session);
+ assert.equal(q.capacityReplayResult(session).comparable,true);
+ assert.deepEqual(q.restore(restored),restored);
+});
+
+test('a full rerun keeps each historical order rule while comparisons distinguish rules in elapsed days only',()=>{
+ const source=anchoredRestaurant();
+ source.depositRoundingFromDay=92;
+ source.campaignCalendarFromDay=61;
+ while(source.day<95)assert.ok(q.step(source));
+ const same=q.freshComparison(source.replayJournal.changes[0].config,source);
+ assert.deepEqual([same.depositRoundingFromDay,same.campaignCalendarFromDay],[92,61]);
+ assert.ok(q.step(same));
+ q.applyConfig(same,{...same.config,inquiries:0});
+ while(same.day<source.day)assert.ok(q.step(same));
+ assert.deepEqual(q.restore(same).ledger,source.ledger);
+ assert.deepEqual(same.projects,source.projects);
+ assert.equal(q.compareRuns(same,source).flags.likeForLike,true);
+ const changed=q.clone(same);
+ changed.depositRoundingFromDay=93;
+ assert.equal(q.workloadComparison(changed,source,91).sameOrderRules,true);
+ assert.equal(q.workloadComparison(changed,source,92).sameOrderRules,false);
+ const comparison=q.compareRuns(changed,source);
+ assert.equal(comparison.flags.likeForLike,false);
+ assert.deepEqual(comparison.warnings.map(w=>w.code),['different-order-rules']);
+});

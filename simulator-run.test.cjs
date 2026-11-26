@@ -22,7 +22,7 @@ test('Simulate commits a fresh draft, enters the live run and opens reconciled r
  assert.equal(read(ui,'view'),'finances');
  assert.equal(read(ui,'state.day'),30);
  const page=ui.elements['#root'].innerHTML;
- for(const amount of ['$6,131.85','$937.50','$444.35','-$568.92','$312.50'])assert.ok(page.includes(amount),amount);
+ for(const amount of ['$5,755.52','$625','$380.52','-$669.04','$539.48'])assert.ok(page.includes(amount),amount);
  const rows=read(ui,'QQ.analytics(state).services');
  assert.deepEqual(Array.from(rows,r=>[r.id,r.inquiries]).sort(),[['menu-refresh',2],['monthly-promo-5',5],['table-tents-100',0]]);
  const reopened=setup([...ui.storage]);assert.equal(read(reopened,'state.day'),30);

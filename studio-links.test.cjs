@@ -59,6 +59,28 @@ test('Planner shows the three latest delivered real jobs with recorded owner hou
  assert.deepEqual(plan,copy);assert.deepEqual(Jobs.recentOwnerHours(book,undefined),[]);
 });
 
+test('restaurant price units carry into the agreed scope and printed work settles only when the outstanding balances clear',()=>{
+ const studio=Ideas.fresh(),idea=Ideas.create(studio,{name:'Table tents',unit:'One print run for two restaurant locations',scope:'One artwork revision',deliverables:'Press files and printed tents',price:'1200'}),book=Jobs.fresh();
+ const job=Jobs.fromIdea(book,idea),current=()=>book.jobs[0],post=(type,day,fields)=>Jobs.postEntry(book,job.id,{type,date:'2026-11-'+day,...fields});
+ assert.equal(job.draft.scope,[idea.unit,idea.scope,idea.deliverables].join('\n\n'));
+ Jobs.updateDraft(book,job.id,{client:'Corner restaurant',ownerHours:'3',ownerRate:'40',estimatedDirectCost:'165',overhead:'45',dueDate:'2026-11-25'});
+ Jobs.recordAgreement(book,job.id,{date,reference:'Practice agreement'});
+ for(const [day,amount]of [['20','300'],['24','450']])post('receipt',day,{amount});
+ const print=post('cost','21',{amount:'150',supplier:'Press',description:'Print run'});
+ post('work','23',{person:'Owner',kind:'owner',hours:'2.75'});post('cost-payment','23',{costId:print.id,amount:'60'});
+ post('delivery','24',{description:'Both locations received table tents'});
+ const delivered=Jobs.metrics(current());
+ assert.equal(delivered.status,'delivered');assert.equal(delivered.outstanding,45000);assert.equal(delivered.unpaidCosts,9000);assert.equal(delivered.jobCash,69000);
+ post('receipt','25',{amount:'450'});assert.equal(Jobs.metrics(current()).status,'delivered');
+ post('cost-payment','26',{costId:print.id,amount:'90'});
+ const restored=Jobs.parseText(Jobs.serialize(book)).jobs[0],paid=Jobs.metrics(restored);
+ assert.equal(paid.status,'settled');assert.equal(paid.jobCash,105000);assert.equal(paid.actualOwnerAllowance,11000);assert.equal(paid.remainderAfterAllowances,89500);assert.equal(paid.lastDelivery,'2026-11-24');assert.equal(paid.agreement.snapshot.scope,job.draft.scope);
+ const max=Ideas.update(studio,idea.id,{unit:'u'.repeat(300),scope:'s'.repeat(10000),deliverables:'d'.repeat(10000)});
+ assert.equal(Jobs.fromIdea(book,max).draft.scope.length,20304);
+ const same=Ideas.update(studio,idea.id,{unit:'One location',scope:'One location',deliverables:'PDF'});
+ assert.equal(Jobs.fromIdea(book,same).draft.scope,'One location\n\nPDF');
+});
+
 test('stable links survive separate backups, local renumbering and edits while duplicate ideas get independent history',()=>{
  const studio=Ideas.fresh(),idea=service(studio),plans=Planner.fresh(),book=Jobs.fresh();
  const edited=Ideas.update(studio,idea.id,{name:'Revised menu'});assert.equal(edited.linkKey,idea.linkKey);

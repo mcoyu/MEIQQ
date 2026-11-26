@@ -16,4 +16,13 @@ function setup(initial,options={}){
  const drainTimers=(limit=100)=>{let count=0;while(timeouts.size&&count<limit){runNextTimer();count++;}if(timeouts.size)throw Error('Timer queue did not settle.');return count;};
  return{ctx,elements,handlers,storage,click,downloads,options,runNextTimer,drainTimers,pendingTimers:()=>timeouts.size};
 }
-module.exports={setup};
+// The carry-forward walkthrough has published job IDs and amounts from the
+// original balanced buyer mix. Keep that workload independent of new starters.
+function startBalancedRestaurant(ui,overrides={}){
+ const {QQ,QQPresets,QQServiceCatalog}=ui.ctx;
+ const config=QQPresets.newWorkspaceConfig({...QQ.DEFAULT,name:'Restaurant studio example',fixedInquiriesEntered:false,services:QQServiceCatalog.starterServices()},'balanced');
+ ui.ctx.fixtureState=QQ.fresh({...config,...overrides});
+ vm.runInContext('state=fixtureState;draft=QQ.clone(state.config)',ui.ctx);
+ delete ui.ctx.fixtureState;
+}
+module.exports={setup,startBalancedRestaurant};

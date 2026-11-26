@@ -30,14 +30,18 @@
     db.onversionchange=()=>db.close();
     function write(text,fallbackFingerprint=null){
       return new Promise((resolve,reject)=>{
-        let conflict=null;
+        let conflict=null,nextRevision=revision;
         const tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),request=store.get(key);
         request.onsuccess=()=>{
           const latest=request.result,current=version(latest);
           if(current!==revision){conflict=Error('Another window changed this workspace.');conflict.code='STALE_WORKSPACE';tx.abort();return;}
-          store.put({revision:revision+1,text,fallbackFingerprint},key);
+          // Opening or closing an unchanged workspace must not invalidate a
+          // second editor. A new fallback fingerprint still needs to commit.
+          if(latest?.text===text&&latest.revision===revision&&latest.fallbackFingerprint===fallbackFingerprint)return;
+          nextRevision=revision+1;
+          store.put({revision:nextRevision,text,fallbackFingerprint},key);
         };
-        tx.oncomplete=()=>{revision++;resolve();};
+        tx.oncomplete=()=>{revision=nextRevision;resolve();};
         tx.onabort=tx.onerror=()=>reject(conflict||tx.error||request.error||Error('Browser save failed.'));
       });
     }
@@ -70,7 +74,7 @@
       failed=false;
       while(latest!==null){
         const text=latest;latest=null;
-        if(text===last)continue;
+        if(text===last){failed=false;continue;}
         onStatus('saving');
         try{await write(text);last=text;failed=false;}catch(e){failed=true;onStatus('error',e);if(e.code==='STALE_WORKSPACE'){conflict=e;latest=null;break;}}
       }

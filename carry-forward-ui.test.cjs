@@ -1,14 +1,14 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
-const {setup}=require('./ui-test-host.cjs');
+const {setup,startBalancedRestaurant}=require('./ui-test-host.cjs');
 const read=(ui,code)=>vm.runInContext(code,ui.ctx);
 const dialog=ui=>ui.elements['#modal'].innerHTML;
 
 function monthReplay({observed=90,hours=6,value=12,months=3}={}){
  const ui=setup();
- read(ui,`state=QQ.fresh({...restaurantConfig(),designerHours:${hours},months:${months}});
-  while(state.day<${observed}&&QQ.step(state)){}
+ startBalancedRestaurant(ui,{designerHours:hours,months});
+ read(ui,`while(state.day<${observed}&&QQ.step(state)){}
   draft=QQ.clone(state.config);draft.ownerHours=null;view='map';render();`);
  ui.click('open-replay',{id:'P003'});
  if(observed>30)ui.handlers.change({target:{id:'replay-month',value:'1',dataset:{}}});

@@ -251,6 +251,7 @@
       return {...workspace({...data,saved:data.saved||[]}),archives:[],full:true};
     }
     if (['qq-studio-setup','meiqq-setup'].includes(data?.format) && data.version===1) {
+      if(!object(data.config))throw Error('This setup file is missing its studio assumptions.');
       const state=q.fresh(data.config);
       return {...workspace({state,saved:[],draft:state.config}),archives:[],full:false};
     }

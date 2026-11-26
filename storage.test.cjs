@@ -9,6 +9,28 @@ test('a stale browser window cannot overwrite a newer committed workspace',async
   await a.write('latest');await assert.rejects(b.write('stale'),{code:'STALE_WORKSPACE'});
   assert.equal(db.records.get('test').text,'latest');
 });
+test('opening an unchanged simulator in another window preserves editing rights until a real edit',async()=>{
+  const db=database(),key='qq-studio-lab-v1';
+  const open=async()=>{
+    const ui=setup(undefined,{indexedDB:db.factory});await vm.runInContext('appReady',ui.ctx);
+    assert.equal(await vm.runInContext('saveWriter.flush()',ui.ctx),true);return ui;
+  };
+  const first=await open(),revision=db.records.get(key).revision,second=await open();
+  assert.equal(db.records.get(key).revision,revision);
+  vm.runInContext('draft.ownerHours=37;save()',first.ctx);
+  assert.equal(await vm.runInContext('saveWriter.flush()',first.ctx),true);
+  vm.runInContext('draft.ownerHours=25;save()',second.ctx);
+  assert.equal(await vm.runInContext('saveWriter.flush()',second.ctx),false);
+  assert.match(vm.runInContext('saveLabel()',second.ctx),/Another MEIQQ window/);
+  assert.equal(require('./workspace.js').parseText(db.records.get(key).text).draft.ownerHours,37);
+});
+test('unchanged text still records a new fallback fingerprint and upgrades a legacy string',async()=>{
+  const db=database();db.records.set('test','unchanged');
+  const backend=await storage.connect(db.factory,'test');
+  await backend.write('unchanged','first');await backend.write('unchanged','second');
+  assert.deepEqual(db.records.get('test'),{revision:2,text:'unchanged',fallbackFingerprint:'second'});
+  await backend.write('unchanged','second');assert.equal(db.records.get('test').revision,2);
+});
 test('save writer serializes transactions and coalesces pending versions to the newest',async()=>{
   const writes=[],statuses=[];let finish;
   const writer=storage.writer(text=>{writes.push(text);return new Promise(resolve=>{finish=resolve;});},s=>statuses.push(s));
@@ -20,6 +42,13 @@ test('write failures report unsaved state and can be retried',async()=>{
   let fail=true;const statuses=[],writer=storage.writer(async()=>{if(fail)throw Error('full');},s=>statuses.push(s));
   writer.push('new');assert.equal(await writer.flush(),false);assert.equal(await writer.flush(),false);assert.equal(statuses.at(-1),'error');
   fail=false;writer.push('new');assert.equal(await writer.flush(),true);assert.equal(statuses.at(-1),'saved');
+});
+test('reverting to the committed version while a newer write fails leaves the workspace saved',async()=>{
+  let rejectWrite;const statuses=[];
+  const w=storage.writer(text=>text==='kept'?Promise.resolve():new Promise((resolve,reject)=>{rejectWrite=reject;}),s=>statuses.push(s));
+  w.push('kept');await w.flush();
+  w.push('new edit');w.push('kept');const flushed=w.flush();rejectWrite(Error('Quota exceeded'));
+  assert.equal(await flushed,true);assert.equal(statuses.at(-1),'saved');
 });
 test('startup waits for primary storage and migrates legacy storage without deleting it',async()=>{
   const q=require('./engine.js'),old=q.fresh();old.version=2;

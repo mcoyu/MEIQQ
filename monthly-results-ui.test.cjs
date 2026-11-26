@@ -1,23 +1,39 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
-const {setup}=require('./ui-test-host.cjs');
+const {setup,startBalancedRestaurant}=require('./ui-test-host.cjs');
 
 const read=(ui,code)=>vm.runInContext(code,ui.ctx);
 const visibleOverview=ui=>ui.elements['#root'].innerHTML.split('<details class="result-details"')[0];
 const chooseMonth=(ui,month)=>ui.handlers.change({target:{id:'result-month',value:String(month),dataset:{}}});
 
+test('contract receipts and the monthly table retain the same cents as the cash ledger',()=>{
+ const ui=setup();
+ read(ui,`const service={...QQ.clone(QQ.DEFAULT.services[0]),price:.49,weight:100,hours:0,review:0,print:0,recurring:false};
+  state=QQ.fresh({...QQ.clone(QQ.DEFAULT),months:1,inquiries:30,conversion:1,quoteHours:0,deliveryHours:0,
+   approvalDays:0,overhead:0,profileStrength:0,services:[service]});
+  while(QQ.step(state)){};draft=QQ.clone(state.config);view='finances';render()`);
+ ui.click('analytics-tab',{tab:'contracts'});
+ const contracts=ui.elements['#root'].innerHTML;
+ assert.match(contracts,/Booked value<\/span><b>\$0\.49</);
+ assert.match(contracts,/Collected, including deposits<\/span><b>\$0\.49</);
+ ui.click('analytics-tab',{tab:'performance'});
+ const revenue=read(ui,'offerAmount(QQ.monthResult(state,1).revenue)');
+ assert.match(revenue,/\.\d\d$/);
+ assert.ok(ui.elements['#root'].innerHTML.includes('<td>'+revenue+'</td>'));
+});
+
 test('the restaurant month explains profit, ranked spending, owner time and cash without expanding a control',()=>{
  const ui=setup();
  ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('view',{view:'map'});ui.click('finish');ui.drainTimers();ui.click('view',{view:'finances'});
  const html=visibleOverview(ui);
- assert.match(html,/Month 1 made \$444\.35/);
+ assert.match(html,/Month 1 made \$380\.52/);
  assert.match(html,/2 deliveries earned <b>\$1,250<\/b>/);
- assert.match(html,/Design labor accounted for <b>\$475\.65<\/b> of the <b>\$805\.65<\/b>/);
- assert.match(html,/\$1,013\.27 .*\-\$568\.92/);
+ assert.match(html,/Design labor accounted for <b>\$539\.48<\/b> of the <b>\$869\.48<\/b>/);
+ assert.match(html,/\$1,049\.56 .*\-\$669\.04/);
  assert.match(html,/Monthly physical offer kit earned \$1,250 from 2 deliveries/);
- assert.match(html,/\$6,131\.85.*Up \$131\.85 from \$6,000/);
- assert.match(html,/\$312\.50 remained due/);
+ assert.match(html,/\$5,755\.52.*Down \$244\.48 from \$6,000/);
+ assert.match(html,/\$625 remained due/);
  assert.match(html,/data-action="month-cash" data-month="1"/);
  assert.match(ui.elements['#root'].innerHTML,/<details class="result-details"[^>]*><summary>Run-to-date financial details/);
 });
@@ -44,7 +60,8 @@ test('month zero and a partially elapsed month tell distinct stories and changin
 
 test('the first month opens its verified P002/P003 waits, launches that month’s replay and returns focus',()=>{
  const ui=setup(),modal=()=>ui.elements['#modal'].innerHTML;
- read(ui,"state=QQ.fresh({...restaurantConfig(),designerHours:6});while(QQ.step(state)){}draft=QQ.clone(state.config);view='finances';render()");
+ startBalancedRestaurant(ui,{designerHours:6});
+ read(ui,"while(QQ.step(state)){}draft=QQ.clone(state.config);view='finances';render()");
  chooseMonth(ui,1);
  const before=read(ui,'JSON.stringify(currentWorkspace())');
  const trigger={dataset:{action:'month-jobs',month:'1'},focus(){this.focused=true;}};
@@ -72,7 +89,8 @@ test('the first month opens its verified P002/P003 waits, launches that month’
 
 test('a historical view without usable setup history shows dated facts and current records only',()=>{
  const ui=setup();
- read(ui,"state=QQ.fresh({...restaurantConfig(),designerHours:6});while(state.day<30)QQ.step(state);QQ.applyConfig(state,{...state.config,ownerTarget:100});while(QQ.step(state)){};delete state.replayJournal;draft=QQ.clone(state.config);view='finances';render()");
+ startBalancedRestaurant(ui,{designerHours:6});
+ read(ui,"while(state.day<30)QQ.step(state);QQ.applyConfig(state,{...state.config,ownerTarget:100});while(QQ.step(state)){};delete state.replayJournal;draft=QQ.clone(state.config);view='finances';render()");
  chooseMonth(ui,1);
  assert.match(visibleOverview(ui),/rate history unavailable, current target \$100/);
  ui.click('month-jobs',{month:'1'});ui.drainTimers();
@@ -106,7 +124,8 @@ test('a zero-capacity loss links to accepted work even when its direct cost is z
 
 test('the carried historical owner valuation reconciles on screen, on reopening and in an offline report',async()=>{
  const ui=setup();
- read(ui,"state=QQ.fresh({...restaurantConfig(),designerHours:6});while(state.day<30)QQ.step(state);QQ.applyConfig(state,{...state.config,ownerTarget:100});while(QQ.step(state)){};draft=QQ.clone(state.config);view='finances';render()");
+ startBalancedRestaurant(ui,{designerHours:6});
+ read(ui,"while(state.day<30)QQ.step(state);QQ.applyConfig(state,{...state.config,ownerTarget:100});while(QQ.step(state)){};draft=QQ.clone(state.config);view='finances';render()");
  ui.click('open-replay',{id:'P003',month:'1'});
  ui.elements['#replay-value']={value:'12'};ui.click('run-replay');ui.drainTimers();ui.click('carry-replay');ui.drainTimers();
  const expected=/after owner time at each period’s closing target[\s\S]*?days 1–90[\s\S]*?-\$538\.71/i;

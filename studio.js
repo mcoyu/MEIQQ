@@ -123,11 +123,11 @@
     return result;
   }
   function create(studio, draft = {}) {
-    validate(studio);
     if (studio.offerings.length >= MAX_OFFERINGS) throw Error('Studio has reached its idea limit.');
     if (studio.nextId >= Number.MAX_SAFE_INTEGER - 1) throw Error('Studio has exhausted its idea IDs.');
     const result = offering(draft, 'idea-' + studio.nextId, 1, true);
     result.linkKey = newLinkKey();
+    serialize({...studio, nextId:studio.nextId + 1, offerings:[...studio.offerings, result]});
     studio.offerings.push(result);
     studio.nextId++;
     return result;
@@ -141,6 +141,7 @@
     if (JSON.stringify(next) === JSON.stringify(current)) return current;
     if (current.version >= Number.MAX_SAFE_INTEGER - 1) throw Error('Idea has exhausted its versions.');
     next.version++;
+    serialize({...studio, offerings:studio.offerings.map(item => item === current ? next : item)});
     studio.offerings[studio.offerings.indexOf(current)] = next;
     return next;
   }
@@ -178,19 +179,22 @@
   }
   function merge(studio, incoming) {
     const next = validate(studio), links = new Set(next.offerings.map(idea => idea.linkKey));
-    for (const {id, version, linkKey, ...draft} of validate(incoming).offerings) {
-      const copy = create(next, draft);
-      if (linkKey && !links.has(linkKey)) {
-        copy.linkKey = linkKey;
-        copy.version = version;
-      }
+    const additions = validate(incoming).offerings;
+    if (next.offerings.length + additions.length > MAX_OFFERINGS) throw Error('Studio has reached its idea limit.');
+    for (const idea of additions) {
+      const keepLink = idea.linkKey && !links.has(idea.linkKey);
+      const copy = {...idea, id:'idea-' + next.nextId++, version:keepLink ? idea.version : 1,
+        linkKey:keepLink ? idea.linkKey : newLinkKey()};
+      next.offerings.push(copy);
       links.add(copy.linkKey);
     }
     serialize(next);
     return next;
   }
   function rename(studio, name) {
-    studio.name = text(name, 300, 'Studio name');
+    text(name, 300, 'Studio name');
+    serialize({...studio, name});
+    studio.name = name;
     return studio;
   }
 

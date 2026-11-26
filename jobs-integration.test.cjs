@@ -4,6 +4,27 @@ const Jobs=require('./jobs.js'),Session=require('./studio-session.js');
 const get=(h,source)=>vm.runInContext(source,h.ctx);
 function edit(h,field,value,type){h.handlers.input({target:{id:'jobs-test-'+field,tagName:'INPUT',value,dataset:type?{jobsDraft:field,entryType:type,jobId:get(h,'jobsController.ui.selectedId')}:{jobsField:field,jobId:get(h,'jobsController.ui.selectedId')}}});}
 function post(h,type,fields){h.click('jobs-today',{type});for(const [key,value]of Object.entries(fields))edit(h,key,value,type);h.click('jobs-post',{type});}
+test('backdated refunds cannot spend a later receipt, and the latest handoff uses its event date',async()=>{
+ const h=setup();await get(h,'jobsReady');h.click('view',{view:'jobs'});h.click('jobs-practice');
+ h.click('jobs-tab',{tab:'money'});h.click('jobs-form',{type:'receipt'});
+ post(h,'receipt',{date:'2026-11-25',amount:'100'});
+ h.click('jobs-form',{type:'refund'});post(h,'refund',{date:'2026-11-20',amount:'100'});
+ assert.match(h.elements['#root'].innerHTML,/Refunds cannot exceed customer receipts available on 2026-11-20/);
+ assert.equal(get(h,'jobsSession.data.jobs[0].entries.length'),1);
+ assert.equal(get(h,'jobsSession.data.jobs[0].forms.refund.amount'),'100');
+ edit(h,'date','2026-11-25','refund');h.click('jobs-post',{type:'refund'});
+ assert.equal(get(h,'QQJobs.metrics(jobsSession.data.jobs[0]).jobCash'),0);
+ h.click('jobs-tab',{tab:'work'});
+ for(const type of ['delivery','approval']){
+  h.click('jobs-form',{type});
+  for(const date of ['2026-11-24','2026-11-21'])post(h,type,{date,reference:'Dated handoff'});
+ }
+ await get(h,'jobsSession.flush()');
+ const reopened=setup([...h.storage]);await get(reopened,'jobsReady');reopened.click('view',{view:'jobs'});reopened.click('jobs-tab',{tab:'overview'});
+ for(const label of ['Latest delivery','Latest approval']){
+  assert.ok(reopened.elements['#root'].innerHTML.includes(label+'</dt><dd>2026-11-24</dd>'));
+ }
+});
 test('packaged Jobs flow posts only explicit actions, survives reopening and keeps all three domains separate',async()=>{
  const h=setup(undefined,{built:true});await get(h,'Promise.all([jobsReady,studioReady,appReady])');
  const simulator=get(h,'JSON.stringify(currentWorkspace())'),ideas=get(h,'QQStudio.serialize(studioSession.data)');

@@ -71,6 +71,24 @@ test('changing the Offers menu leaves the selected stream in place until it is e
  ui.click('clear-client-demand');assert.equal(read(ui,'draft.clientDemand'),undefined);assert.equal(metric(ui,'other'),'60');
 });
 
+test('a restored blank or invalid client share stays visible and can be repaired with exactly zero',()=>{
+ for(const savedShare of [null,101]){
+  const ui=restaurant();
+  read(ui,`draft.clientDemand={profileId:'restaurant',share:${savedShare}};save()`);
+  const reopened=setup([...ui.storage]);reopened.click('view',{view:'setup'});reopened.click('setup-step',{step:'1'});
+  const field=page(reopened).match(/<input[^>]+id="client-demand-share"[^>]+>/)[0];
+  assert.match(field,new RegExp('value="'+(savedShare??'')+'"'));assert.match(field,/aria-invalid="true"/);
+  assert.equal(metric(reopened,'targeted'),'—');
+  input(reopened,'client-demand-share','-10',true);
+  assert.match(reopened.elements['#client-demand-error'].textContent,/Enter a whole percentage/);
+  input(reopened,'client-demand-share',0,true);
+  assert.equal(read(reopened,'draft.clientDemand.share'),0);assert.equal(read(reopened,'draftError()'),'');
+  assert.equal(metric(reopened,'targeted'),'0');assert.equal(metric(reopened,'other'),'60');
+  ui.drainTimers();reopened.drainTimers();
+  assert.equal(read(setup([...reopened.storage]),'draft.clientDemand.share'),0);
+ }
+});
+
 test('a rerun without menu metadata can still tune a known client and reports missing volume separately from a known zero',()=>{
  const ui=restaurant();input(ui,'client-demand-share',50);
  read(ui,"delete draft.clientMenu; draft.inquiries=null;draft.customerMix=undefined;render()");

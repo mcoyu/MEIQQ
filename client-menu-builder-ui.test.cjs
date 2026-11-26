@@ -60,3 +60,39 @@ test('incomplete inputs and capacity constraints are exposed during comparison',
  assert.match(markup(ui),/Estimate needs more inputs/);
  assert.ok(!markup(ui).includes('id="apply-client-menu" disabled'));
 });
+
+test('menu previews and targeted outreach distinguish expected orders from impossible deliveries',()=>{
+ const ui=open('business');
+ read(ui,"draft.designerHours=0;draft.overhead=101.114;draft.months=3");
+ choose(ui);
+ assert.match(markup(ui),/No new jobs can ship\./);
+ assert.match(markup(ui),/Revenue from new deliveries<\/span><strong>\$0<\/strong>/);
+ assert.match(markup(ui),/Scheduled overhead<\/span> · \$303\.33/);
+ assert.match(markup(ui),/Targeted outreach to this client<\/span> · 0%/);
+ ui.click('apply-client-menu');ui.click('setup-step',{step:'1'});
+ const panel=()=>ui.elements['#root'].innerHTML.split('id="client-demand-panel"')[1].split('id="demand-reach-title"')[0];
+ assert.match(panel(),/No new jobs can ship\./);
+ assert.match(panel(),/data-client-demand-metric="result">\$0</);
+ assert.match(panel(),/data-client-demand-metric="overhead">\$303\.33</);
+ read(ui,"draft.clientDemand={profileId:'restaurant',share:35};draft.designerHours=24;draft.conversion=0;render()");
+ assert.match(panel(),/No new orders are expected\./);
+ ui.click('build-client-menu');
+ assert.match(markup(ui),/No new orders are expected\./);
+ assert.match(markup(ui),/Targeted outreach to this client<\/span> · 35%/);
+});
+
+test('loading a starter mix on an older unsegmented setup preserves routing and skips existing copies when adding',()=>{
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
+ read(ui,`delete draft.customerMix;delete draft.profileStrength;delete draft.focusType;
+  draft.services.forEach(s=>s.audience='all');var original=JSON.stringify(draft);`);
+ ui.click('add-starter',{id:'services-starter'});
+ assert.equal(read(ui,'draft.services.length'),5);
+ assert.equal(read(ui,'draft.services.filter(s=>s.spec.packageId==="monthly-promo-5").length'),1);
+ ui.click('add-starter',{id:'services-starter'});assert.equal(read(ui,'draft.services.length'),5);
+ ui.click('undo-services');assert.equal(read(ui,'JSON.stringify(draft)'),read(ui,'original'));
+ ui.click('review-starter',{id:'retail-starter'});ui.click('confirm-starter');
+ assert.equal(read(ui,'draft.customerMix'),undefined);
+ assert.ok(read(ui,"draft.services.every(s=>s.audience==='all')"));
+ assert.deepEqual(Array.from(read(ui,'draftValidationIssues()')),[]);
+ ui.click('undo-services');assert.equal(read(ui,'JSON.stringify(draft)'),read(ui,'original'));
+});

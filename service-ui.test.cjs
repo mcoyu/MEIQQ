@@ -62,6 +62,20 @@ test('blank and out-of-range print choices remain invalid and cannot be applied'
  input(ui,'services.1.fulfillment.managedShare',101,true);assert.equal(read(ui,'QQ.configIssues(draft).some(v=>v.path.endsWith("managedShare"))'),true);
 });
 
+test('price alternatives for a files-only mix edit the quoted fee and show the fixed win assumption',()=>{
+ const ui=setup();
+ read(ui,'var print=draft.services[1];print.price=400;print.fulfillment.managedShare=0;print.fulfillment.designOnlyPrice=200;draft.conversion=.37;');
+ ui.click('price-experiment',{index:'1'});
+ const dialog=ui.elements['#modal'].innerHTML;
+ assert.match(dialog,/Files-only fee/);
+ assert.match(dialog,/Assumed share of first quotes accepted<\/span> <strong>37%/);
+ assert.match(dialog,/data-price="230" data-route="files"/);
+ ui.click('use-service-price',{index:'1',price:'230',route:'files'});
+ assert.equal(read(ui,'draft.services[1].fulfillment.designOnlyPrice'),230);
+ assert.equal(read(ui,'draft.services[1].price'),400);
+ assert.equal(read(ui,'draft.conversion'),.37);
+});
+
 test('added service and unfinished print-choice numbers survive save and reload intact',()=>{
  const ui=setup();ui.click('catalog-package',{id:'seasonal-campaign'});ui.elements['#catalog-price']={value:'925'};ui.click('confirm-catalog-service');
  assert.equal(read(ui,'draft.services.length'),4);input(ui,'services.3.fulfillment.managedShare',101,true);input(ui,'services.3.fulfillment.designOnlyPrice','');
@@ -125,11 +139,11 @@ test('parked custom offers survive edits, month runs and workspace recovery with
 test('mix editor shows effective audience shares, paired route costs and one group-level correction',()=>{
  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  const html=ui.elements['#root'].innerHTML;
- for(const value of ['18%','13.5%','68.5%'])assert.ok(html.includes(value+' of all new inquiries'));
+ for(const value of ['32%','24%','44%'])assert.ok(html.includes(value+' of all new inquiries'));
  assert.match(html,/\$395 price · \$185 direct cost/);assert.match(html,/\$275 price · \$90 direct cost/);
  const q=require('./engine.js'),draft=JSON.parse(read(ui,'JSON.stringify(draft)'));
  const onlyFood={...draft.services[0],weight:100};const e=q.estimate({...draft,services:[onlyFood],acquisition:'preset',inquiries:0});
- assert.equal(e.services[0].effectiveShare,.45);assert.equal(e.unservedShare,.55);
+ assert.equal(e.services[0].effectiveShare,.8);assert.equal(e.unservedShare,.2);
  input(ui,'services.0.weight',39);
  assert.match(ui.elements['#root'].innerHTML,/1% left to assign/);
  assert.doesNotMatch(ui.elements['#root'].innerHTML,/aria-invalid="true"/);

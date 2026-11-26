@@ -7,7 +7,7 @@
   let data=seed(),revision=null,backend=null,writer=null,timer=null,loaded=false,status='opening',error='',blocked=false,originals=[];
   // Track the latest submitted payload, not only the last completed write:
   // reverting while another write is in flight must enqueue the reverted state.
-  let lastWriteText=null,writePending=false,localParsed=false;
+  let lastWriteText=null,writePending=false,localParsed=false,preparationError='';
   function notify(next,message=''){status=next;error=message;onStatus(status,error);}
   function keep(raw,label){if(typeof raw==='string'&&!originals.some(v=>v.text===raw))originals.push({label,text:raw});}
   let localReadError=null;
@@ -30,6 +30,7 @@
      }
      writer=Storage.writer(text=>{lastWriteText=text;return backend.write(text,fingerprint);},(next,e)=>{
       writePending=next==='saving';if(e)lastWriteText=null;
+      if(preparationError){notify('error',preparationError);return;}
       notify(next==='saved'&&timer!==null?'pending':next,e?.code==='STALE_WORKSPACE'?'Another window saved '+label+'. Download this session before reopening.':e?label+' could not be saved. Download a backup before closing.':'');
      });
     }catch(e){
@@ -47,8 +48,13 @@
    clearTimeout(timer);timer=null;
    if(!loaded)return;
    if(blocked){notify('error',error);return;}
+   let text;
+   try{text=Model.serialize(data);preparationError='';}
+   catch(e){
+    // A write already in flight only covers its older snapshot.
+    preparationError=e.message||label+' could not be saved.';notify('error',preparationError);return;
+   }
    try{
-    const text=Model.serialize(data);
     if(text===lastWriteText){notify(writePending?'saving':'saved');return;}
     if(writer){lastWriteText=text;writer.push(text);}
     else{

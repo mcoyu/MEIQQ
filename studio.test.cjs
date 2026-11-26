@@ -197,3 +197,34 @@ test('optional seed ideas import as editable hypotheses with unknown economics a
   assert.deepEqual(studio.parseText(studio.serialize(state)), state);
   assert.equal(new Set(state.offerings.map(idea => idea.id)).size, seeds.EXAMPLES.length);
 });
+
+test('a full ideas library keeps its last downloadable version after an edit or copy exceeds the backup limit', () => {
+  const book = studio.fresh();
+  const fields = ['buyer','problem','scope','deliverables','inputs','handoffs','acceptance','researchNotes','sources','nextAction'];
+  const template = studio.create(book, Object.fromEntries(fields.map(key => [key, '界'.repeat(10000)])));
+  // Assemble a legacy notebook just under the file limit in UTF-8 bytes.
+  delete template.linkKey;
+  const rowBytes = Buffer.byteLength(JSON.stringify(template));
+  const rows = Math.floor((studio.MAX_BYTES - 2000) / (rowBytes + 10));
+  book.offerings = Array.from({length:rows}, (_, i) => ({...template, id:'idea-'+(i+1)}));
+  book.nextId = rows + 1;
+  const final = studio.create(book, {name:'Last idea'});
+  let space = studio.MAX_BYTES - Buffer.byteLength(studio.serialize(book)) - 5;
+  for (const field of fields) {
+    const chars = Math.min(10000, Math.floor(space / 3));
+    final[field] = '界'.repeat(chars);
+    space -= chars * 3;
+  }
+  const before = studio.serialize(book);
+  for (const change of [
+    () => studio.setField(book, final.id, 'name', 'New name much longer than before'),
+    () => studio.duplicate(book, template.id),
+    () => studio.create(book),
+    () => studio.rename(book, 'Longer library title than before')
+  ]) {
+    assert.throws(change, /8 MiB/);
+    assert.equal(studio.serialize(book), before);
+  }
+  studio.setField(book, final.id, 'name', '');
+  assert.equal(studio.parseText(studio.serialize(book)).offerings.at(-1).name, '');
+});

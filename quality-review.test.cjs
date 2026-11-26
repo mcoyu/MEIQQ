@@ -21,3 +21,39 @@ test('owner bottleneck capacity accounts for sales outreach without fabricating 
  s.config.ownerHours=0;s.projects[0].work.quote=0;
  b=q.bottleneck(s);assert.equal(b.days,0);
 });
+
+test('design wait estimates follow parallel work and the per-job limit in the daily schedule',()=>{
+ const offer={...q.clone(q.DEFAULT.services[0]),print:0,review:0,recurring:false,weight:50};
+ const s=q.fresh({...q.clone(q.DEFAULT),months:1,seed:3,acquisition:'preset',inquiries:60,conversion:1,
+  ownerHours:40,designers:2,designerHours:0,quoteHours:0,deliveryHours:0,approvalDays:0,profileStrength:0,
+  repeat:0,retention:0,services:[{...offer,id:'long',hours:18},{...offer,id:'short',hours:2}]});
+ q.step(s);
+ assert.deepEqual(s.projects.map(p=>p.serviceId),['long','short']);
+ assert.equal(q.projectDiagnostic(s,s.projects[0]).estimatedWorkdays,null);
+ q.applyConfig(s,{...s.config,designerHours:20,inquiries:0});
+ const [long,short]=s.projects.map(p=>q.projectDiagnostic(s,p));
+ assert.equal(short.queueAheadCount,1);
+ assert.equal(short.estimatedWorkdays,1);
+ assert.equal(long.estimatedWorkdays,5);
+ assert.equal(q.bottleneck(s).days,4.5);
+ const reopened=q.restore(s);
+ for(const run of [s,reopened]){
+  while(!run.projects.every(p=>p.delivered))assert.equal(q.step(run),true);
+  assert.deepEqual(run.projects.map(p=>q.workingDays(p.deliveredDay)-1),[long.estimatedWorkdays,short.estimatedWorkdays]);
+ }
+});
+
+test('design wait estimates reuse spare hours on the same day in priority order',()=>{
+ const offer={...q.clone(q.DEFAULT.services[0]),hours:6,print:0,review:0,weight:100};
+ const s=q.fresh({...q.clone(q.DEFAULT),months:1,acquisition:'preset',inquiries:120,conversion:1,
+  ownerHours:40,designers:2,designerHours:0,quoteHours:0,deliveryHours:0,approvalDays:0,profileStrength:0,
+  repeat:0,retention:0,services:[offer]});
+ q.step(s);
+ q.intervene(s,s.projects.at(-1).id,'priority');
+ q.applyConfig(s,{...s.config,designerHours:20,inquiries:0});
+ const estimates=s.projects.map(p=>q.projectDiagnostic(s,p).estimatedWorkdays);
+ assert.deepEqual(estimates,[2,3,4,2]);
+ assert.equal(q.bottleneck(s).days,3.5);
+ for(let i=0;i<4;i++)assert.equal(q.step(s),true);
+ assert.deepEqual(s.projects.map(p=>p.deliveredDay-1),estimates);
+});

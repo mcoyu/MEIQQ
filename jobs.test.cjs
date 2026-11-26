@@ -51,6 +51,37 @@ test('a delivered job with excess receipts settles only after refund or agreed a
  J.updateDraft(s.book,s.id,{price:'650'});assert.equal(J.metrics(s.get()).status,'delivered');
  J.recordAgreement(s.book,s.id,{date:'2026-12-04',reference:'Accepted expanded scope',reason:'Client agreed to an additional review'});m=J.metrics(s.get());assert.equal(m.overpayment,0);assert.equal(m.status,'settled');assert.equal(s.get().agreements[0].priceCents,60000);
 });
+test('dated refunds and voided receipts preserve customer cash coverage on every affected day',()=>{
+ const s=sample('real'),add=input=>J.postEntry(s.book,s.id,input);
+ const first=add(receipt('70','2026-12-01'));add(receipt('100','2026-12-10'));
+ const refund=(amount,date)=>({type:'refund',amount,date,reference:'Customer credit'});
+ add(refund('50','2026-12-05'));
+ const before=J.serialize(s.book);
+ assert.throws(()=>add(refund('21','2026-12-01')),/2026-12-05/);
+ assert.throws(()=>J.voidEntry(s.book,s.id,first.id,{date:'2026-12-11',reason:'Wrong deposit'}),/2026-12-05/);
+ assert.equal(J.serialize(s.book),before);
+ const earlier=add(refund('20','2026-12-01'));
+ assert.equal(J.metrics(s.get()).refundDateToCheck,null);
+ J.voidEntry(s.book,s.id,earlier.id,{date:'2026-12-11',reason:'Not issued'});
+ add(receipt('50','2026-12-02'));
+ J.voidEntry(s.book,s.id,first.id,{date:'2026-12-11',reason:'Duplicate deposit'});
+ assert.equal(J.metrics(s.get()).netReceipts,10000);
+});
+test('older jobs with a refund predating its covering receipt can be restored, inspected and repaired',()=>{
+ const s=sample();agree(s);
+ J.postEntry(s.book,s.id,receipt('650','2026-12-05'));
+ const refund=J.postEntry(s.book,s.id,{type:'refund',date:'2026-12-05',amount:'50'});
+ J.postEntry(s.book,s.id,{type:'delivery',date:'2026-12-06',reference:'Final files'});
+ const legacy=JSON.parse(J.serialize(s.book));
+ legacy.jobs.jobs[0].entries[1].date='2026-12-02';
+ const copy=J.parseText(JSON.stringify(legacy));
+ assert.equal(J.metrics(copy.jobs[0]).refundDateToCheck,'2026-12-02');
+ assert.equal(J.metrics(copy.jobs[0]).status,'delivered');
+ J.voidEntry(copy,s.id,refund.id,{date:'2026-12-07',reason:'Transposed refund date'});
+ J.postEntry(copy,s.id,{type:'refund',date:'2026-12-05',amount:'50'});
+ assert.equal(J.metrics(copy.jobs[0]).status,'settled');
+ assert.equal(J.metrics(copy.jobs[0]).refundDateToCheck,null);
+});
 test('invalid posted amounts, impossible dates and bad references reject atomically',()=>{
  const s=sample(),before=J.serialize(s.book);
  for(const amount of ['', 'unknown','-5','1.234','1e3','0','100000001'])assert.throws(()=>J.postEntry(s.book,s.id,receipt(amount)));

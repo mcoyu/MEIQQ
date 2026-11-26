@@ -2,7 +2,7 @@
 (function(root){
  'use strict';
  const Ideas=typeof module!=='undefined'?require('./studio.js'):root.QQStudio;
- const MAX_SCOPE=20002; // Both Studio text fields plus a paragraph break.
+ const MAX_SCOPE=20304; // Priced unit, scope and deliverables with paragraph breaks.
  const VERSION=2,FORMAT='meiqq-jobs',STORAGE_KEY='meiqq-jobs-v1',MAX_BYTES=8*1024*1024,MAX_JOBS=500,MAX_ENTRIES=10000,MAX_AGREEMENTS=1000;
  const DRAFT_FIELDS=['title','client','scope','owner','nextAction','nextActionDate','dueDate','paymentTerms','price','estimatedDirectCost','ownerHours','ownerRate','overhead'];
  const FORM_FIELDS={agreement:['date','reference','reason'],work:['date','person','kind','hours','description'],cost:['date','amount','supplier','description'],'cost-payment':['date','costId','amount','reference'],receipt:['date','amount','reference'],refund:['date','amount','reference'],approval:['date','reference','description'],delivery:['date','reference','description'],void:['date','targetId','reason']};
@@ -88,6 +88,21 @@
   }
   return {activeEntries:entries.filter(v=>v.type!=='void'&&!voided.has(v.id)),voidedIds:[...voided],costs:[...costs.values()].map(v=>({...v,paidCents:paid.get(v.id)||0,unpaidCents:v.amountCents-(paid.get(v.id)||0)}))};
  }
+ function uncoveredRefundDate(activeEntries,fromDate=''){
+  const byDate=new Map();
+  if(fromDate)byDate.set(fromDate,0);
+  for(const entry of activeEntries){
+   if(entry.type!=='receipt'&&entry.type!=='refund')continue;
+   const change=entry.type==='receipt'?entry.amountCents:-entry.amountCents;
+   byDate.set(entry.date,(byDate.get(entry.date)||0)+change);
+  }
+  let balance=0;
+  for(const date of [...byDate.keys()].sort()){
+   balance+=byDate.get(date);
+   if(date>=fromDate&&balance<0)return date;
+  }
+  return null;
+ }
  function validateJob(value,version){
   const fields=['id','mode','draft','forms','nextAgreementId','agreements','nextEntryId','entries'];
   if(version!==1)fields.push('location');
@@ -121,7 +136,9 @@
   serialize({...book,nextId:book.nextId+1,jobs:[...book.jobs,job]});book.nextId++;book.jobs.push(job);return job;
  }
  function fromIdea(book,idea){
-  const draft={title:idea.name,scope:[idea.scope,idea.deliverables].filter(part=>part.trim()).join('\n\n'),price:idea.price};
+  const scope=[idea.scope,idea.deliverables].filter(part=>part.trim());
+  if(idea.unit?.trim()&&!scope.some(part=>part.trim()===idea.unit.trim()))scope.unshift(idea.unit);
+  const draft={title:idea.name,scope:scope.join('\n\n'),price:idea.price};
   return create(book,{draft,source:{ideaKey:idea.linkKey,ideaId:idea.id,ideaVersion:idea.version,name:idea.name,jobKey:Ideas.newLinkKey()}});
  }
  function updateDraft(book,id,patch){shape(patch,DRAFT_FIELDS,'Draft changes',[]);const job=find(book,id,true);return commit(book,id,{...job,draft:normalizeDraft({...job.draft,...patch},true)});}
@@ -140,13 +157,26 @@
   const agreement={id:'agreement-'+job.nextAgreementId,date:form.date,reference:form.reference,reason:form.reason,snapshot:clone(job.draft),priceCents:decimal(job.draft.price)};
   commit(book,id,{...job,nextAgreementId:job.nextAgreementId+1,agreements:[...job.agreements,agreement]});return agreement;
  }
+ function appendEntry(book,job,entry){
+  const entries=[...job.entries,entry];
+  const receipt=entry.type==='void'?job.entries.find(e=>e.id===entry.targetId&&e.type==='receipt'):null;
+  if(entry.type==='refund'||receipt){
+   validDate(entry.date,'entry date');
+   // Corrections remove the original transaction from its effective day.
+   // Older books may already have a dated discrepancy; allow them to open
+   // and be repaired, while checking the days affected by each new debit.
+   const day=uncoveredRefundDate(ledger(entries).activeEntries,receipt?.date??entry.date);
+   if(day)throw Error('Refunds cannot exceed customer receipts available on '+day+'.');
+  }
+  commit(book,job.id,{...job,nextEntryId:job.nextEntryId+1,entries});return entry;
+ }
  function postEntry(book,id,input){
   if(!object(input)||!own(ENTRY_FIELDS,input.type)||input.type==='void')throw Error('Choose a supported entry type.');
   const type=input.type;shape(input,['type',...FORM_FIELDS[type]],'Entry form', ['type']);const form={...emptyForms()[type],...input},job=find(book,id,true),entry={id:'entry-'+job.nextEntryId,type,date:form.date};
   for(const field of ENTRY_FIELDS[type])entry[field]=field==='amountCents'?postedNumber(form.amount,'an amount'):field==='hoursHundredths'?postedNumber(form.hours,'work hours',1000000):form[field];
-  commit(book,id,{...job,nextEntryId:job.nextEntryId+1,entries:[...job.entries,entry]});return entry;
+  return appendEntry(book,job,entry);
  }
- function voidEntry(book,id,entryId,input){shape(input,['date','reason'],'Correction form',[]);const job=find(book,id,true),entry={id:'entry-'+job.nextEntryId,type:'void',date:input.date??'',targetId:entryId,reason:input.reason??''};commit(book,id,{...job,nextEntryId:job.nextEntryId+1,entries:[...job.entries,entry]});return entry;}
+ function voidEntry(book,id,entryId,input){shape(input,['date','reason'],'Correction form',[]);const job=find(book,id,true),entry={id:'entry-'+job.nextEntryId,type:'void',date:input.date??'',targetId:entryId,reason:input.reason??''};return appendEntry(book,job,entry);}
  function merge(book,incoming){const candidate=validate(book),source=validate(incoming);for(const sourceJob of source.jobs){if(candidate.nextId>=Number.MAX_SAFE_INTEGER-1)throw Error('Job IDs are exhausted.');candidate.jobs.push({...clone(sourceJob),id:'job-'+candidate.nextId++});}serialize(candidate);return candidate;}
  function metrics(job){
   const {activeEntries,voidedIds,costs}=ledger(job.entries),agreement=job.agreements.at(-1)||null,snapshot=agreement?.snapshot;
@@ -157,9 +187,12 @@
   const estimatedDirectCost=snapshot?decimal(snapshot.estimatedDirectCost):null,ownerRate=snapshot?decimal(snapshot.ownerRate,1000000):null,overhead=snapshot?decimal(snapshot.overhead):null,estimatedHours=snapshot?decimal(snapshot.ownerHours,1000000):null;
   const estimatedOwnerAllowance=mul(estimatedHours,ownerRate),actualOwnerAllowance=ownerHundredths===0?0:mul(ownerHundredths,ownerRate),remainderAfterIncurredCosts=minus(acceptedPrice,incurredCosts),remainderAfterOwnerTime=minus(remainderAfterIncurredCosts,actualOwnerAllowance),remainderAfterAllowances=minus(remainderAfterOwnerTime,overhead);
   const outstanding=acceptedPrice===null?null:Math.max(0,acceptedPrice-netReceipts),overpayment=acceptedPrice===null?null:Math.max(0,netReceipts-acceptedPrice),unpaidCosts=incurredCosts-paidCosts;
-  const has=type=>activeEntries.some(v=>v.type===type),hasDelivery=has('delivery'),hasActualEntries=activeEntries.length>0;
-  const status=!agreement?'draft':hasDelivery&&outstanding===0&&overpayment===0&&unpaidCosts===0?'settled':hasDelivery?'delivered':hasActualEntries?'working':'agreed';
-  return {status,agreement,acceptedPrice,estimatedDirectCost,estimatedOwnerHours:estimatedHours===null?null:estimatedHours/100,ownerRate,overhead,estimatedOwnerAllowance,estimatedRemainder:minus(acceptedPrice,estimatedDirectCost,estimatedOwnerAllowance,overhead),received,refunded,netReceipts,outstanding,overpayment,incurredCosts,paidCosts,unpaidCosts,jobCash:netReceipts-paidCosts,ownerHours:ownerHundredths/100,externalHours:externalHundredths/100,totalHours:(ownerHundredths+externalHundredths)/100,actualOwnerAllowance,remainderAfterIncurredCosts,remainderAfterOwnerTime,remainderAfterAllowances,costs,activeEntries,voidedIds,hasReceipts:has('receipt'),hasCosts:has('cost'),hasWork:has('work'),hasApproval:has('approval'),hasDelivery,hasActualEntries};
+  const has=type=>activeEntries.some(v=>v.type===type);
+  const latestDate=type=>activeEntries.reduce((latest,e)=>e.type===type&&(!latest||e.date>latest)?e.date:latest,null);
+  const lastApproval=latestDate('approval'),lastDelivery=latestDate('delivery'),hasDelivery=!!lastDelivery,hasActualEntries=activeEntries.length>0;
+  const refundDateToCheck=refunded?uncoveredRefundDate(activeEntries):null;
+  const status=!agreement?'draft':hasDelivery&&outstanding===0&&overpayment===0&&unpaidCosts===0&&!refundDateToCheck?'settled':hasDelivery?'delivered':hasActualEntries?'working':'agreed';
+  return {status,agreement,acceptedPrice,estimatedDirectCost,estimatedOwnerHours:estimatedHours===null?null:estimatedHours/100,ownerRate,overhead,estimatedOwnerAllowance,estimatedRemainder:minus(acceptedPrice,estimatedDirectCost,estimatedOwnerAllowance,overhead),received,refunded,netReceipts,outstanding,overpayment,incurredCosts,paidCosts,unpaidCosts,jobCash:netReceipts-paidCosts,ownerHours:ownerHundredths/100,externalHours:externalHundredths/100,totalHours:(ownerHundredths+externalHundredths)/100,actualOwnerAllowance,remainderAfterIncurredCosts,remainderAfterOwnerTime,remainderAfterAllowances,costs,activeEntries,voidedIds,refundDateToCheck,lastApproval,lastDelivery,hasReceipts:has('receipt'),hasCosts:has('cost'),hasWork:has('work'),hasApproval:!!lastApproval,hasDelivery,hasActualEntries};
  }
  function recentOwnerHours(book,ideaKey){
   if(!ideaKey)return [];
@@ -178,11 +211,10 @@
    if(job.location==='trash'||!job.agreements.length)continue;
    const m=metrics(job);
    if(!m.hasDelivery||!m.ownerHours)continue;
-   const delivered=m.activeEntries.reduce((latest,e)=>e.type==='delivery'&&e.date>latest?e.date:latest,'');
-   samples.push({id:job.id,title:m.agreement.snapshot.title,delivered,hours:m.ownerHours});
+   samples.push({id:job.id,title:m.agreement.snapshot.title,delivered:m.lastDelivery,hours:m.ownerHours});
   }
   return samples.sort((a,b)=>b.delivered.localeCompare(a.delivered)||ordinal(b.id,'job')-ordinal(a.id,'job')).slice(0,3);
  }
- const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_JOBS,MAX_ENTRIES,MAX_AGREEMENTS,DRAFT_FIELDS:Object.freeze([...DRAFT_FIELDS]),FORM_FIELDS:Object.freeze(Object.fromEntries(Object.entries(FORM_FIELDS).map(([k,v])=>[k,Object.freeze([...v])]))),fresh,create,fromIdea,draftLimit,recentOwnerHours,updateDraft,setForm,canTrash,move,recordAgreement,postEntry,voidEntry,metrics,merge,validate,serialize,parse,parseText};
+ const api={VERSION,FORMAT,STORAGE_KEY,MAX_BYTES,MAX_JOBS,MAX_ENTRIES,MAX_AGREEMENTS,DRAFT_FIELDS:Object.freeze([...DRAFT_FIELDS]),FORM_FIELDS:Object.freeze(Object.fromEntries(Object.entries(FORM_FIELDS).map(([k,v])=>[k,Object.freeze([...v])]))),fresh,create,fromIdea,draftLimit,decimal,recentOwnerHours,updateDraft,setForm,canTrash,move,recordAgreement,postEntry,voidEntry,metrics,merge,validate,serialize,parse,parseText};
  root.QQJobs=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

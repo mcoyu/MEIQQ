@@ -125,3 +125,19 @@ test('historical owner time uses each period’s last simulated rate, including 
  assert.equal(fallback.rateHistoryAvailable,false);assert.equal(fallback.ownerRate,85);
  assert.equal(fallback.profit,close.profit);assert.equal(fallback.closingCash,close.closingCash);
 });
+
+test('unserved first inquiries respect the reporting close and missing historical arrivals',()=>{
+ const offer=require('./service-catalog.js').createService('menu-refresh');
+ const s=q.fresh({...q.clone(q.DEFAULT),months:2,services:[{...offer,weight:100}],startingCash:50000,
+  customerMix:{food:0,retail:100,services:0},inquiries:30,conversion:1,repeat:1});
+ while(s.day<30)assert.equal(q.step(s),true);
+ q.applyConfig(s,{...s.config,customerMix:{food:100,retail:0,services:0}});
+ while(s.day<60)assert.equal(q.step(s),true);
+ const before=q.runActualsThrough(s,30),after=q.runActualsThrough(s,60);
+ assert.deepEqual([before.leads,before.unservedInquiries,before.orders],[30,30,0]);
+ assert.deepEqual([after.leads,after.unservedInquiries],[60,30]);
+ assert.equal(after.leads,after.unservedInquiries+after.orders+after.declinedQuotes+after.awaitingQuote);
+ assert.equal(q.runActualsThrough(q.restore(s),30).unservedInquiries,30);
+ delete s.history[0].externalArrivals;
+ assert.equal(q.runActualsThrough(s,60).unservedInquiries,null);
+});

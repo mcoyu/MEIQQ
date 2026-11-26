@@ -129,8 +129,21 @@ function numbers(idea,ui){
  </div>${roleFields(idea,c,true)}</details></div>${economicsSummary(idea,c,ui)}</div>`;
 }
 function sourceLinks(value){
- const found=[...new Set((String(value||'').match(/https?:\/\/[^\s<>"']+/g)||[]).map(url=>url.replace(/[.,;)]+$/,'')))].slice(0,12);
- const links=[];for(const value of found){try{const url=new URL(value);if(['http:','https:'].includes(url.protocol))links.push({url:url.href,label:url.hostname});}catch(e){}}
+ const links=[],seen=new Set();
+ for(let candidate of String(value||'').match(/https?:\/\/[^\s<>"']+/gi)||[]){
+  candidate=candidate.replace(/[.,;]+$/,'');
+  // A source can contain parentheses of its own, even when cited in parentheses.
+  if(candidate.endsWith(')')){
+   const unmatched=(candidate.match(/\)/g)||[]).length-(candidate.match(/\(/g)||[]).length;
+   if(unmatched>0)candidate=candidate.replace(/\)+$/,tail=>tail.slice(0,Math.max(0,tail.length-unmatched)));
+  }
+  try{
+   const url=new URL(candidate);
+   if(!['http:','https:'].includes(url.protocol)||seen.has(url.href))continue;
+   seen.add(url.href);links.push({url:url.href,label:url.hostname});
+   if(links.length===12)break;
+  }catch(e){/* A partial reference can remain in the research notes. */}
+ }
  return links;
 }
 function research(idea){

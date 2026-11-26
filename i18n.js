@@ -32,7 +32,8 @@
     }
     pattern += escapeRegex(source.slice(end));
     if (!patterns.has(anchor)) patterns.set(anchor, []);
-    patterns.get(anchor).push({expression: new RegExp('^' + pattern + '$'), order, translated, weight: fixed.trim().length});
+    const ending = source.match(/(:|\.| ·)$/)?.[0];
+    patterns.get(anchor).push({expression: new RegExp('^' + pattern + '$'), order, translated, ending, weight: fixed.trim().length});
   }
 
   function phrase(value, depth = 0) {
@@ -43,16 +44,18 @@
       const unit = {h:'小时',hour:'小时',day:'天',month:'个月',job:'个项目',project:'个项目',idea:'个构想','%':'%'}[units[2].toLowerCase().replace(/s$/, '')];
       return units[1] + (unit === '%' ? '' : ' ') + unit;
     }
-    const suffix = /^(.*?)([:.]| ·)$/.exec(value);
-    if (suffix) {
-      const label = phrase(suffix[1], depth + 1);
-      if (label !== suffix[1]) return label + ({':':'：','.':'。',' ·':' ·'}[suffix[2]]);
-    }
     const candidates = [];
     for (const word of new Set(words(value))) {
       if (patterns.has(word)) candidates.push(...patterns.get(word));
     }
     candidates.sort((a, b) => b.weight - a.weight);
+    // Keep terminal punctuation when it is part of a complete message
+    // template. Stripping it first can make a generic fragment win.
+    const suffix = /^(.*?)([:.]| ·)$/.exec(value);
+    if (suffix && !candidates.some(item => item.ending === suffix[2] && item.expression.test(value))) {
+      const label = phrase(suffix[1], depth + 1);
+      if (label !== suffix[1]) return label + ({':':'：','.':'。',' ·':' ·'}[suffix[2]]);
+    }
     for (const item of candidates) {
       const match = item.expression.exec(value);
       if (!match) continue;

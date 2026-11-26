@@ -87,6 +87,16 @@ test('readable original browser saves and legacy setup files are importable',()=
   const a=fresh(),b=w.parse({version:2,state:a.state,saved:[],draft:a.draft});assert.equal(b.state.cash,6000);
   const c=w.parse({format:'qq-studio-setup',version:1,config:q.DEFAULT});assert.equal(c.state.day,0);
 });
+test('an incomplete legacy setup cannot silently import the default studio instead',()=>{
+  for(const format of ['qq-studio-setup','meiqq-setup']){
+    for(const config of [undefined,null,[]]){
+      assert.throws(()=>w.parseText(JSON.stringify({format,version:1,config})),/missing its studio assumptions/);
+    }
+    const config={...q.DEFAULT,name:'Actual saved studio',startingCash:1250};
+    const opened=w.parseText(JSON.stringify({format,version:1,config}));
+    assert.equal(opened.state.config.name,'Actual saved studio');assert.equal(opened.state.cash,1250);
+  }
+});
 test('Prototype 02 fixture migrates only the known missing funding observation',()=>{
   const old=require('./fixtures/prototype-02-run.json'),s=q.restore(old);
   assert.equal(s.version,3);assert.equal(s.cash,old.cash);assert.equal(s.history.at(-1).cash,s.cash);

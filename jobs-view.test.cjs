@@ -188,6 +188,34 @@ test('practice reopening, explicit new copies and undo have distinguishable cont
  assert.doesNotMatch(removed,/Empty trash|permanent/i);
 });
 
+test('archived jobs show open balances and actual cash without restoring the job or posting its unfinished entries',()=>{
+ const f=fixture();post(f,'receipt',{amount:'200'});
+ assert.match(View.render(f.workspace),/aria-label="Job status based on recorded entries">No recorded agreement yet\./);
+ agree(f);
+ const cost=post(f,'cost',{amount:'170',supplier:'Printer',description:'Short run'});
+ const wrong=post(f,'cost-payment',{amount:'70',costId:cost.id});
+ Jobs.voidEntry(f.workspace,f.id,wrong.id,{date:'2026-11-20',reason:'Wrong transfer amount'});
+ post(f,'cost-payment',{amount:'50',costId:cost.id});
+ Jobs.setForm(f.workspace,f.id,'receipt',{amount:'400',reference:'Awaiting confirmation'});
+ Jobs.move(f.workspace,f.id,'archive');
+ const before=Jobs.serialize(f.workspace),reopened=Jobs.parseText(before),html=View.render(reopened,{filter:'archive'});
+ assert.match(html,/Customer balance due<\/dt><dd>\$400\.00/);
+ assert.match(html,/Costs still unpaid<\/dt><dd>\$120\.00/);
+ assert.match(html,/Job cash movement<\/dt><dd>\$150\.00/);
+ assert.doesNotMatch(html,/data-action="jobs-(post|void)"|data-jobs-draft=/);
+ assert.equal(Jobs.serialize(reopened),before);
+});
+
+test('preserved estimates keep unfinished numeric text when viewing a job in another currency',()=>{
+ const f=fixture();Jobs.updateDraft(f.workspace,f.id,{estimatedDirectCost:'1e3'});agree(f);
+ Jobs.move(f.workspace,f.id,'archive');
+ const ui=require('./ui-test-host.cjs').setup();ui.ctx.QQI18n.choose('zh-CN');
+ const html=ui.ctx.QQJobsView.render(f.workspace,{filter:'archive'});
+ assert.match(html,/Estimated direct costs · USD<\/dt><dd>[^<]*1e3[^<]*<\/dd>/);
+ assert.ok(html.includes(ui.ctx.QQI18n.yuan(600)));
+ assert.ok(!html.includes(ui.ctx.QQI18n.yuan(1000)));
+});
+
 test('posting errors are persistent and focusable beside the retained form',()=>{
  const f=fixture();Jobs.setForm(f.workspace,f.id,'receipt',{amount:'not sure'});
  for(const ui of [{tab:'overview'},{tab:'work',form:'work'},{tab:'money',form:'receipt'}]){

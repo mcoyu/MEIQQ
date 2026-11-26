@@ -13,6 +13,72 @@ function finish(ui){
  read(ui,'while(QQ.step(state)){}render()');
 }
 
+function restaurantRun(ui,options){
+ openResults(ui,`{seed:23,months:1,inquiries:11,conversion:1,profileStrength:0,repeat:0,
+  customerMix:{food:100,retail:0,services:0},designers:2,designerHours:28,ownerHours:36,
+  services:[{...QQServiceCatalog.createService('menu-refresh'),weight:100}],...${options}}`);
+ finish(ui);
+}
+
+test('a restaurant that booked every expected dollar and is waiting on delivery explains the whole revenue gap',()=>{
+ const ui=setup();
+ restaurantRun(ui,"{approvalDays:30,inquiries:30,designerHours:60,designers:20,ownerHours:100}");
+ const page=html(ui);
+ assert.match(page,/Accepted first orders worth \$10,500 were still awaiting delivery/);
+ assert.match(page,/Deposits received for undelivered work<\/span> <b>\$5,250</);
+ assert.match(page,/The undelivered first orders account for the entire gap in delivery revenue/);
+ assert.match(page,/Test approval time/);
+ assert.doesNotMatch(page,/Test client price|Test quote acceptance/);
+});
+
+test('whole-run Results reconcile prepaid café jobs and show inquiries excluded by the offer mix',()=>{
+ const ui=setup();
+ restaurantRun(ui,`{months:5,deposit:1,retention:.6,services:[
+  {...QQServiceCatalog.createService('bilingual-order-guide'),weight:50},
+  {...QQServiceCatalog.createService('counter-screen-loop'),weight:25},
+  {...QQServiceCatalog.createService('seasonal-preorder-kit'),weight:25}]}`);
+ let notes=html(ui).split('class="run-work-notes">')[1].split('class="run-owner-line"')[0];
+ assert.match(notes,/Client payments collected<\/span> <b>\$23,490</);
+ assert.match(notes,/Deposits received for undelivered work<\/span> <b>\$480</);
+ assert.equal(read(ui,'state.revenue'),23010);
+ restaurantRun(ui,"{customerMix:{food:55,retail:25,services:20},paymentDays:2}");
+ notes=html(ui).split('class="run-work-notes">')[1].split('class="run-owner-line"')[0];
+ assert.match(notes,/Inquiries with no matching offer<\/span> <b>5</);
+ assert.match(notes,/Delivered balances to collect<\/span> <b>\$175</);
+ assert.doesNotMatch(notes,/First quotes declined by buyers/);
+});
+
+test('unquoted inquiries and buyer declines lead to different actions at the recorded close',()=>{
+ const ui=setup();
+ openResults(ui,"{months:1,acquisition:'preset',inquiries:30,conversion:0,ownerHours:0}");
+ finish(ui);
+ assert.match(html(ui),/Inquiries still awaiting a first quote<\/span> <b>30</);
+ assert.doesNotMatch(html(ui),/First quotes declined by buyers|Test quote acceptance|Test client price/);
+ ui.click('test-assumption',{path:'ownerHours'});
+ assert.equal(read(ui,'workspaceRoute()'),'setup/rerun/people');
+ ui.click('return-rerun-results');
+ read(ui,"state.config.months=2;QQ.applyConfig(state,{...state.config,ownerHours:100});while(QQ.step(state)){};render()");
+ const atEnd=read(ui,'QQ.runActualsThrough(state,60)');
+ assert.ok(atEnd.declinedQuotes>=30);
+ const atFirstClose=read(ui,'QQ.runActualsThrough(state,30)');
+ assert.equal(atFirstClose.declinedQuotes,0);assert.equal(atFirstClose.awaitingQuote,30);
+ read(ui,"state.projects.find(p=>p.stage==='lost').log=[]");
+ assert.equal(read(ui,'QQ.runActualsThrough(state,30).awaitingQuote'),null);
+ openResults(ui,"{months:1,acquisition:'preset',inquiries:30,conversion:0,ownerHours:100}");
+ finish(ui);
+ assert.match(html(ui),/First quotes declined by buyers<\/span> <b>30</);
+ assert.match(html(ui),/Test quote acceptance/);
+ assert.doesNotMatch(html(ui),/Inquiries still awaiting a first quote/);
+});
+
+test('the project list retains the cents in an accepted fee',()=>{
+ const ui=setup();
+ read(ui,`var sample=restaurantConfig();state=QQ.fresh({...sample,months:1,acquisition:'preset',inquiries:30,conversion:1,
+  services:[{...sample.services[0],audience:'all',price:325.49,weight:100}]});while(QQ.step(state)){};`);
+ ui.click('view',{view:'projects'});
+ assert.match(html(ui),/<td>\$325\.49<\/td>/);
+});
+
 test('completed results carry the setup estimate, explain the actual gap, and retain the monthly reports',()=>{
  const ui=setup();
  openResults(ui,'{months:2}');
@@ -47,6 +113,25 @@ test('a matched zero-activity run explains that no net difference arose, includi
  assert.match(html(ui),/\$0 actual against \$0 estimated\./);
  assert.doesNotMatch(html(ui),/class="run-driver-list"/);
  assert.match(html(ui),/class="run-exact"[^<]*[\s\S]*?data-action="test-assumption" data-path="inquiries"/);
+});
+
+test('a blocked launch carries overhead and deliveries through the live run, results and reload',()=>{
+ const ui=setup();
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
+ read(ui,'draft.designerHours=0;render()');ui.click('simulate');
+ assert.match(html(ui),/Overhead in the opening plan<\/dt><dd>\$540</);
+ assert.doesNotMatch(html(ui),/data-run-estimate="profit"/);
+ ui.drainTimers();
+ const reopened=setup([...ui.storage]);
+ reopened.click('review-latest-results');
+ for(const session of [ui,reopened]){
+  assert.match(html(session),/id="run-comparison-title"[^>]*>0 jobs delivered</);
+  assert.match(html(session),/Overhead incurred<\/dt><dd>\$540</);
+  assert.match(html(session),/Simulated operating result<\/dt><dd>-\$540</);
+  assert.match(html(session),/Deposits received for undelivered work/);
+  assert.match(html(session),/If all expected new orders ship/);
+  assert.doesNotMatch(html(session),/below estimate/);
+ }
 });
 
 test('an extended or shortened run never presents mismatched time windows as an earnings gap',()=>{

@@ -10,6 +10,23 @@ function original(){
  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  ui.click('simulate');ui.drainTimers();assert.equal(read(ui,'state.day'),90);return ui;
 }
+
+test('changing overhead on an older restaurant run preserves its recorded deposit and campaign rules',()=>{
+ const ui=setup();
+ read(ui,`const config={...QQ.clone(QQ.DEFAULT),months:1,conversion:1,deposit:.5,startingCash:10000,
+  services:[{...QQServiceCatalog.createService('menu-refresh'),audience:'all',weight:100,price:2.55}]};
+  state=QQ.fresh(config);state.campaignCalendarFromDay=31;state.depositRoundingFromDay=31;
+  QQ.captureRunLaunch(state);while(QQ.step(state)){};draft=QQ.clone(config);view='finances';render()`);
+ const receipts=read(ui,"JSON.stringify(state.ledger.filter(e=>e.type==='receipt'))");
+ assert.ok(receipts.includes('"amount":1.27'));
+ ui.click('test-assumption',{path:'overhead'});
+ assert.match(read(ui,'cashInputs()'),/<dt>At acceptance<\/dt><dd>\$1\.27</);
+ edit(ui,'overhead',20);
+ ui.click('simulate-again');ui.drainTimers();
+ assert.equal(read(ui,'state.campaignCalendarFromDay'),31);
+ assert.equal(read(ui,'state.depositRoundingFromDay'),31);
+ assert.equal(read(ui,"JSON.stringify(state.ledger.filter(e=>e.type==='receipt'))"),receipts);
+});
 test('opening an assumption parks an unrelated unfinished draft and restores both independently across a reload',()=>{
  const ui=original();
  read(ui,"draft.name='Unfinished source draft';draft.services[0].hours=null;");

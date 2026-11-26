@@ -1,12 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const {setup} = require('./ui-test-host.cjs');
+const {setup,startBalancedRestaurant} = require('./ui-test-host.cjs');
 
 test('an exported saved carry reconciles the early gain with both terminal runs after reopening', async () => {
   const first = setup(undefined,{built:true});
+  startBalancedRestaurant(first,{designerHours:6});
   vm.runInContext(`
-    state=QQ.fresh({...restaurantConfig(),designerHours:6});
     while(state.day<30)QQ.step(state);
     draft=QQ.clone(state.config);
   `,first.ctx);

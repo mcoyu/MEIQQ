@@ -47,3 +47,30 @@ test('changing the Demand method and acceptance immediately updates an unfinishe
  assert.match(html(),/<dt>Expected new orders over 90 days<\/dt><dd>—<\/dd>/);
  assert.equal(vm.runInContext('JSON.stringify(state.config)',ui.ctx),applied);
 });
+
+test('only the active demand method gates a run and switching back restores its unfinished entries',()=>{
+ const read=(ui,code)=>vm.runInContext(code,ui.ctx);
+ const change=(ui,value)=>ui.handlers.change({target:{id:'input-acquisition',dataset:{input:'acquisition'},type:'select-one',tagName:'SELECT',value}});
+ const input=(ui,key,value)=>ui.handlers.input({target:{id:'input-'+key,dataset:{input:key},type:'number',tagName:'INPUT',value}});
+ for(const method of ['preset','sales']){
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('setup-step',{step:'1'});
+  if(method==='preset'){
+   input(ui,'leadsPerHour','');input(ui,'outreachHours','-2');change(ui,'preset');input(ui,'inquiries','15');
+  }else{
+   change(ui,'preset');input(ui,'inquiries','');change(ui,'sales');
+  }
+  const unfinished=method==='preset'?'leadsPerHour':'inquiries';
+  assert.equal(read(ui,'draftError()'),'');
+  assert.equal(read(ui,'QQ.estimate(draftRunConfig()).leads'),method==='preset'?45:15.6);
+  ui.click('simulate');ui.drainTimers();
+  assert.equal(read(ui,'state.day'),90);
+  assert.equal(read(ui,'state.config.acquisition'),method);
+  assert.equal(read(ui,'QQ.configIssues(state.config).length'),0);
+  const reopened=setup([...ui.storage]);reopened.click('view',{view:'setup'});reopened.click('setup-step',{step:'1'});
+  assert.equal(read(reopened,'draft.'+unfinished),null);
+  if(method==='preset')assert.equal(read(reopened,'draft.outreachHours'),-2);
+  change(reopened,method==='preset'?'sales':'preset');
+  assert.ok(read(reopened,'draftValidationIssues().map(i=>i.path)').includes(unfinished));
+  assert.match(reopened.elements['#root'].innerHTML,new RegExp('id="input-'+unfinished+'"'));
+ }
+});

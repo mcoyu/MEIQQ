@@ -16,6 +16,25 @@ function verifyBridge(report){
  assert.equal(a.newDelivered+a.returnDelivered,a.delivered);
 }
 
+test('launch revenue and supplier costs use the cents actually committed for each purchase route',()=>{
+ const c=run({months:1,inquiries:30,conversion:1,profileStrength:0,quoteHours:0,deliveryHours:0,
+  approvalDays:0,paymentDays:0,printDays:0,repeat:0,overhead:0}).config;
+ const service={...c.services[0],hours:0,review:0,weight:100,price:100.015,print:10.011};
+ c.services=[service];
+ for(const managedShare of [undefined,0,1]){
+  if(managedShare!==undefined)service.fulfillment={mode:'customer-choice',managedShare,designOnlyPrice:63.015};
+  const state=q.fresh(c);advance(state,30);
+  const {estimate,actual}=q.runEstimateComparison(state);
+  assert.equal(actual.delivered,30);assert.equal(estimate.revenue,actual.revenue);
+  assert.equal(estimate.supplierCost,actual.supplierCost);
+  assert.equal(estimate.profit,actual.profit);
+ }
+ service.fulfillment.managedShare=.5;
+ const mixed=q.estimate(c);
+ assert.equal(q.round(mixed.revenue),q.round(30*(q.round(service.price)+q.round(service.fulfillment.designOnlyPrice))/2));
+ assert.equal(q.round(mixed.services[0].printCost),q.round(15*q.round(service.print)));
+});
+
 test('the estimate and its accounting bridge stay anchored to the starting setup after edits, checkpoints, archives and backups',()=>{
  const s=run(),estimate=q.estimate(s.config);
  assert.equal(q.runEstimateComparison(s),null);
@@ -88,6 +107,25 @@ test('the saved launch forecast rejects malformed amounts, mismatched cost break
   const bad=q.clone(s);bad.launchEstimate[key]=value;
   assert.throws(()=>q.restore(bad),/launch estimate/);
  }
+});
+
+test('capacity at launch and monthly cash rounding survive later staffing changes and old backups',()=>{
+ const s=run({months:2,designers:0,overhead:10.015});
+ const opening=q.captureRunLaunch(s);
+ assert.equal(opening.deliveryStatus,'blocked');
+ assert.equal(opening.overhead,20.04);
+ advance(s,30);
+ q.applyConfig(s,{...s.config,designers:2});
+ advance(s,60);
+ const report=q.runEstimateComparison(q.restore(s));
+ assert.equal(report.estimate.deliveryStatus,'blocked');
+ assert.equal(report.actual.overhead,20.04);
+ assert.ok(report.actual.delivered>0);
+ const older=q.clone(s);
+ delete older.launchEstimate.deliveryStatus;
+ assert.deepEqual(q.runLaunchEstimate(q.restore(older)),{...older.launchEstimate,basis:'launch'});
+ s.launchEstimate.deliveryStatus='guaranteed';
+ assert.throws(()=>q.restore(s),/delivery status/);
 });
 
 test('replaying an extended run preserves its launch period and later forks keep the same original forecast',()=>{

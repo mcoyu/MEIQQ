@@ -162,3 +162,36 @@ test('a broken client-menu link in a backup can be forgotten without losing any 
   assert.equal(read(ui,'JSON.stringify(restoredMenuDraft.services)===originalRows'),true);
  }
 });
+
+test('a restaurant role uses an eligible copy while keeping a retail customization as a separate offer',()=>{
+ const ui=editor();
+ read(ui,`applyClientMenu(profile,ids);var storeOffer=draft.services[0];storeOffer.audience='retail';storeOffer.price=815;
+  draft.clientDemand={profileId:'restaurant',share:100};
+  var originalDraft=JSON.stringify(draft),candidate=clientMenuCandidate(profile,ids);`);
+ assert.equal(read(ui,'currentClientMenu()'),null);
+ assert.equal(read(ui,'currentClientMenu(draft,true).serviceIds[0]'),null);
+ assert.equal(read(ui,'candidate.added.length'),1);
+ assert.equal(read(ui,'candidate.config.services.find(s=>s.id===storeOffer.id).price'),815);
+ assert.equal(read(ui,'JSON.stringify(draft)'),read(ui,'originalDraft'));
+ read(ui,`applyClientMenu(profile,ids);var menu=currentClientMenu(),config=draftRunConfig(),e=QQ.estimate(config);
+   var actual=new Set();for(let day=1;day<=90;day++)QQ.visitExternalInquiries(config,day,(id,type,service)=>actual.add(service?.id));`);
+ assert.notEqual(read(ui,'menu.serviceIds[0]'),read(ui,'storeOffer.id'));
+ assert.ok(read(ui,'e.services.find(s=>s.id===menu.serviceIds[0]).inquiries>0'));
+ assert.equal(read(ui,'e.services.find(s=>s.id===storeOffer.id).inquiries'),0);
+ assert.equal(read(ui,'actual.has(storeOffer.id)'),false);
+ ui.click('undo-services');
+ assert.equal(read(ui,'JSON.stringify(draft)'),read(ui,'originalDraft'));
+});
+
+test('swapping a remaining role after removing a different role retires only its linked predecessor',()=>{
+ const ui=editor();
+ read(ui,`applyClientMenu(profile,ids);var prior=currentClientMenu(),retired=prior.serviceIds[1],retained=prior.serviceIds[2];
+  removeDraftService(0);var old=JSON.stringify(draft),replacement=[ids[0],profile.slots[1].options[1].id,ids[2]];
+  var candidate=applyClientMenu(profile,replacement);`);
+ assert.deepEqual(data(ui,'candidate.removed.map(s=>s.id)'),[read(ui,'retired')]);
+ assert.equal(read(ui,'draft.services.length'),3);
+ assert.equal(read(ui,'currentClientMenu().serviceIds[2]'),read(ui,'retained'));
+ assert.equal(read(ui,'draft.services.some(s=>s.id===retired)'),false);
+ assert.deepEqual(data(ui,'currentClientMenu().packageIds'),data(ui,'replacement'));
+ ui.click('undo-services');assert.equal(read(ui,'JSON.stringify(draft)'),read(ui,'old'));
+});

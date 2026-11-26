@@ -72,8 +72,8 @@ function compose(selection,base,options={preserveServices:true}){
  c.recipe={profile,catalog:CATALOG.id,version:CATALOG.version,ledger:CATALOG.ledger,ledgerHash:CATALOG.ledgerHash,market:chosen.market.id,operation:chosen.operation.id,mix:chosen.mix.id,condition:chosen.condition.id,applied,appliedHash:fingerprint(applied)};return ENGINE.withCurrentAssumptionRecords(c);
 }
 function flatten(value,prefix='',out={}){if(value&&typeof value==='object'){if(Array.isArray(value))value.forEach((item,index)=>flatten(item,`${prefix}.${index}`,out));else for(const [key,item]of Object.entries(value))if(key!=='recipe')flatten(item,prefix?`${prefix}.${key}`:key,out);}else if(prefix)out[prefix]=clone(value);return out;}
-function newWorkspaceConfig(defaults){
- const c=compose({market:'metro',operation:'solo',mix:'balanced',condition:'steady',profile:'new-workspace'},defaults);c.recipe.profile='new-workspace';
+function newWorkspaceConfig(defaults,mix='balanced'){
+ const c=compose({market:'metro',operation:'solo',mix,condition:'steady',profile:'new-workspace'},defaults);
  const all=flatten(c);c.recipe.applied=all;c.recipe.appliedHash=fingerprint(all);return c;
 }
 function audit(config){

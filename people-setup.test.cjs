@@ -33,7 +33,7 @@ test('weekly staffing is visible in an unfinished draft, with a conditional cost
  assert.match(ui.elements['#root'].innerHTML,/<meter class="decision-meter"[^>]*max="8" value="2.5"/);
  assert.equal(value(ui,'Design capacity / week'),'18 h');
  assert.equal(value(ui,'Average design work / week'),'—');
- assert.equal(value(ui,'Design labor over the run'),'—');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),'—');
  assert.match(ui.elements['#root'].innerHTML,/One week at full design capacity would cost<\/span> <strong>\$216/);
  set(ui,'ownerHours',1);
  assert.equal(value(ui,'Outreach / week'),'1 h');
@@ -52,17 +52,19 @@ test('a larger team increases capacity while the labor estimate follows expected
  const expected=read(ui,'effortHours(getDraftEstimate().hours / (getDraftEstimate().workdays / 5))')+' h';
  assert.equal(value(ui,'Design capacity / week'),'10 h');
  assert.equal(value(ui,'Average design work / week'),expected);
- assert.equal(value(ui,'Design labor over the run'),read(ui,'offerAmount('+labor+' * 10)'));
+ assert.equal(value(ui,'Design cost if all expected orders ship'),read(ui,'offerAmount('+labor+' * 10)'));
  set(ui,'designers',3);
  assert.equal(value(ui,'Design capacity / week'),'30 h');
- assert.equal(value(ui,'Design labor over the run'),read(ui,'offerAmount('+labor+' * 10)'));
+ assert.equal(value(ui,'Design cost if all expected orders ship'),read(ui,'offerAmount('+labor+' * 10)'));
  set(ui,'designerRate',20);
- assert.equal(value(ui,'Design labor over the run'),read(ui,'offerAmount('+labor+' * 20)'));
+ assert.equal(value(ui,'Design cost if all expected orders ship'),read(ui,'offerAmount('+labor+' * 20)'));
  set(ui,'designers',0);
  assert.equal(value(ui,'Design capacity / week'),'0 h');
- assert.match(ui.elements['#root'].innerHTML,/Expected design work exceeds team capacity/);
+ assert.match(ui.elements['#root'].innerHTML,/Jobs that require design hours must wait for a designer/);
+ assert.equal(value(ui,'Design labor charged at zero capacity'),'$0');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),read(ui,'offerAmount('+labor+' * 20)'));
  set(ui,'designerRate',0);
- assert.equal(value(ui,'Design labor over the run'),'$0');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),'$0');
 });
 
 test('fixed inquiry volume reserves the full working week for clients and owner valuation stays economic',()=>{
@@ -76,25 +78,25 @@ test('fixed inquiry volume reserves the full working week for clients and owner 
  const before=read(ui,'getDraftEstimate().profit');
  set(ui,'ownerTarget',25);
  const ownerCost=read(ui,'offerAmount(getDraftEstimate().owner * 25)');
- assert.ok(ui.elements['#root'].innerHTML.includes('Value of your expected time over the run</span> <strong>'+ownerCost));
+ assert.ok(ui.elements['#root'].innerHTML.includes('Value of owner time for the expected workload</span> <strong>'+ownerCost));
  assert.equal(read(ui,'getDraftEstimate().profit'),before);
  assert.ok(Math.abs(read(ui,'getDraftEstimate().surplus - (getDraftEstimate().profit - getDraftEstimate().owner * 25)'))<.001);
 });
 
 test('unpriced services and unfinished cash terms retain known workload and staffing costs',()=>{
  const ui=people();
- const hoursLabels=['Average client work / week','Average design work / week','Design labor over the run'];
+ const hoursLabels=['Average client work / week','Average design work / week','Design cost if all expected orders ship'];
  const complete=hoursLabels.map(label=>value(ui,label));
  const ownerValue=read(ui,'offerAmount(getDraftEstimate().owner*draft.ownerTarget)');
  read(ui,"Object.assign(draft.services[0],{name:'',price:null});Object.assign(draft,{startingCash:null,paymentDays:null,leadDays:null});render()");
  assert.deepEqual(hoursLabels.map(label=>value(ui,label)),complete);
- assert.ok(ui.elements['#root'].innerHTML.includes('Value of your expected time over the run</span> <strong>'+ownerValue));
+ assert.ok(ui.elements['#root'].innerHTML.includes('Value of owner time for the expected workload</span> <strong>'+ownerValue));
  set(ui,'designerRate','');
- assert.equal(value(ui,'Design labor over the run'),'—');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),'—');
  assert.deepEqual(hoursLabels.slice(0,2).map(label=>value(ui,label)),complete.slice(0,2));
  set(ui,'ownerTarget','');
  assert.equal(value(ui,'Average client work / week'),complete[0]);
- assert.doesNotMatch(ui.elements['#root'].innerHTML,/Value of your expected time over the run/);
+ assert.doesNotMatch(ui.elements['#root'].innerHTML,/Value of owner time for the expected workload/);
 });
 
 test('capacity and each kind of work use their own inputs after a parked service is skipped',()=>{
@@ -105,16 +107,32 @@ test('capacity and each kind of work use their own inputs after a parked service
   draft.services[1].hours=null;render()`);
  assert.equal(value(ui,'Average client work / week'),client);
  assert.equal(value(ui,'Average design work / week'),'—');
- assert.equal(value(ui,'Design labor over the run'),'—');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),'—');
  assert.notEqual(value(ui,'Design capacity / week'),'—');
  read(ui,`draft.services[1].hours=${originalHours};draft.services[1].review=null;render()`);
  assert.equal(value(ui,'Average client work / week'),'—');
  assert.equal(value(ui,'Average design work / week'),design);
- assert.notEqual(value(ui,'Design labor over the run'),'—');
+ assert.notEqual(value(ui,'Design cost if all expected orders ship'),'—');
  set(ui,'designers',0);
  assert.match(ui.elements['#root'].innerHTML,/Additional design time needed \/ week<\/span> <strong>[\d.]+ h/);
  set(ui,'designers',50);
  assert.match(ui.elements['#root'].innerHTML,/Spare design time \/ week<\/span> <strong>[\d.]+ h/);
+});
+
+test('known zero staffing survives other unfinished fields and zero-work offers can still deliver',()=>{
+ const ui=people();
+ set(ui,'designers',0);set(ui,'designerHours','');set(ui,'designerRate','');
+ assert.equal(value(ui,'Design capacity / week'),'0 h');
+ assert.equal(value(ui,'Design labor charged at zero capacity'),'$0');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),'—');
+ set(ui,'designerHours',10);
+ read(ui,`Object.assign(draft,{acquisition:'preset',ownerHours:0,quoteHours:0,deliveryHours:0});
+  draft.services.forEach(offer=>Object.assign(offer,{hours:0,review:0}));render()`);
+ assert.equal(value(ui,'Available for clients / week'),'0 h');
+ assert.equal(value(ui,'Design cost if all expected orders ship'),'$0');
+ assert.doesNotMatch(ui.elements['#root'].innerHTML,/must wait for a designer|must wait\.<\/p>/);
+ set(ui,'quoteHours',.5);
+ assert.match(ui.elements['#root'].innerHTML,/Jobs that need your time for a quote, review or handoff must wait/);
 });
 
 test('partial workload matches the full forecast for focused and unserved groups at every run length',()=>{

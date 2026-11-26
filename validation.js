@@ -108,6 +108,12 @@
     const cash = v => finite(v, -1e12) && Math.abs(v - q.round(v)) < 1e-7;
     const same = (a, b, label) => { if (cents(a) !== cents(b)) throw Error(label + ' does not reconcile.'); };
     if (!day(s.day, s.config.months * 30)) throw Error('Saved run has an invalid day.');
+    // Preserve the order rules used on recorded days. Already scheduled quotes
+    // and posted deposits survive an upgrade. New decisions use the new rules.
+    for(const key of ['campaignCalendarFromDay','depositRoundingFromDay']){
+      s[key]??=s.day+1;
+      if(!Number.isInteger(s[key])||s[key]<1||s[key]>361)throw Error('Saved order rule start day is invalid.');
+    }
     if(s.launchEstimate!==undefined){
       const e=s.launchEstimate;
       const validFigure=value=>Number.isFinite(value)&&Number.isSafeInteger(cents(value))&&q.round(value)===value;
@@ -117,6 +123,7 @@
         e.orders>e.leads||e.afterOwner>e.profit||
         Math.abs(cents(e.cost)-cents(e.designLabor)-cents(e.supplierCost)-cents(e.overhead))>1||
         Math.abs(cents(e.profit)-cents(e.revenue)+cents(e.cost))>1)throw Error('Saved launch estimate is invalid.');
+      if(e.deliveryStatus!==undefined&&!['fits','overloaded','blocked','partial','no-orders'].includes(e.deliveryStatus))throw Error('Saved launch estimate has an invalid delivery status.');
       if(e.clientDemand!==undefined){
         const t=e.clientDemand;
         if(!t||Object.keys(t).sort().join(',')!=='active,matched,orders,other,profileId,share,targeted'||!q.clientDemandType(t.profileId)||
@@ -156,7 +163,7 @@
       }else if(contract.campaign!==undefined||contract.status!=='active')throw Error('Saved contract campaign terms are invalid.');
       contracts.set(contract.id,contract);
     }
-    const projects = new Map(),campaignSkipCounts=new Map(),campaignSettledCycles=new Map();
+    const projects = new Map(),campaignSkipCounts=new Map(),campaignSettledCycles=new Map(),missedCadences=new Map();
     for (const p of s.projects) {
       if (!p || typeof p.id !== 'string' || !/^[a-zA-Z0-9_-]{1,60}$/.test(p.id) || projects.has(p.id) ||
           typeof p.client !== 'string' || p.client.length > 200 || ![...q.STAGES,'lost'].includes(p.stage)) throw Error('Saved project is invalid.');
@@ -187,6 +194,12 @@
       for (const e of p.log) {
         if (!e || !day(e.day) || e.day < previous || typeof e.text !== 'string' || e.text.length > 5000) throw Error('Project history dates are invalid.');
         previous = e.day;
+        const missed=/^Campaign periods missed while prior work was open: (\d+)$/.exec(e.text);
+        if(missed){
+          const contract=contracts.get(p.contractId),count=Number(missed[1]);
+          if(!contract?.campaign||e.day<s.campaignCalendarFromDay||count<1||count>Math.floor(contract.campaign.relationshipDays/contract.campaign.cadenceDays)-p.cycle)throw Error('Saved missed campaign dates are invalid.');
+          missedCadences.set(contract.id,(missedCadences.get(contract.id)||0)+count);
+        }
       }
       const accepted = !['inquiry','quote','lost'].includes(p.stage);
       if (legacy && accepted) {
@@ -246,7 +259,7 @@
       } else if (p.deliveredDay !== undefined || p.paymentDue !== undefined || p.receiveDay !== undefined) throw Error('Undelivered project has payment dates.');
       if(p.fulfillmentStatus!==(p.delivered?'delivered':'open')||p.paymentStatus!==(q.round(p.price-p.paid)===0&&accepted?'paid':p.paid>0?'partial':'unpaid'))throw Error('Project lifecycle status does not reconcile.');
     }
-    for(const contract of contracts.values())if(contract.kind==='campaign-relationship'&&(contract.skipped!==(campaignSkipCounts.get(contract.id)||0)||contract.cycles!==(campaignSettledCycles.get(contract.id)||1)))throw Error('Saved campaign relationship counts do not reconcile.');
+    for(const contract of contracts.values())if(contract.kind==='campaign-relationship'&&(contract.skipped!==(campaignSkipCounts.get(contract.id)||0)||(contract.missedCadences??0)!==(missedCadences.get(contract.id)||0)||contract.cycles!==(campaignSettledCycles.get(contract.id)||1)))throw Error('Saved campaign relationship counts do not reconcile.');
     const reference = value => value === null || projects.has(value);
     const receipts = new Map(), costs = new Map(), flows = Array.from({length:s.day+1},()=>({amount:0,expense:0,funding:0,revenue:0}));
     const postedHours=new Map(),undatedHours=new Set();

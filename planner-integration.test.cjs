@@ -107,3 +107,11 @@ test('service mix Undo restores the original row and preserves intervening workl
  assert.equal(p().services[0].allocations.length,first.allocations.length);
  assert.equal(await run(h,'plannerSession.flush()'),true);
 });
+
+test('an unfinished service has no proposed simulator terms or copy fields until its plan is usable',async()=>{
+ const h=await open();h.click('planner-add');h.click('planner-service-add');
+ run(h,`{const b=plannerSession.data,p=b.plans.find(item=>item.id===plannerController.ui.selectedId);QQPlanner.update(b,p.id,'services.0.quantity','3');QQPlanner.setAllocation(b,p.id,p.services[0].id,'',{hours:'ask designer'});}`);
+ h.click('planner-bridge');
+ assert.match(h.elements['#modal'].innerHTML,/Resolve the planner’s missing or invalid assumptions/);
+ assert.doesNotMatch(h.elements['#modal'].innerHTML,/NaN|No paid-role work|<table|data-planner-bridge/);
+});

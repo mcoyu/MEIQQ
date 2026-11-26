@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),q=require('./engine.js'),presets=require('./presets.js'),vm=require('node:vm');
-const {setup}=require('./ui-test-host.cjs');
+const {setup,startBalancedRestaurant}=require('./ui-test-host.cjs');
 
 test('every local scenario recipe produces a valid transparent configuration',()=>{
  let count=0;const distinct=new Set();
@@ -164,6 +164,41 @@ test('new workspace uses the conservative active-outreach funnel and audits ever
  assert.ok(Object.values(config.disruptions).every(Boolean));assert.deepEqual(config.disruptionRates,{rushDeadlines:.1,supplierReprints:.03,repeatedRevisions:.15,extendedLatePayments:.15});
  assert.equal(report.compatible,true);assert.equal(report.coverage,1);assert.equal(report.edited.length,0);assert.equal(report.empiricallyCalibrated,false);assert.ok(report.lineage.length>60);assert.ok(report.lineage.every(row=>row.recordIds.length&&row.derivation));
  config.services[0].price+=1;assert.ok(presets.audit(config).edited.includes('services.0.price'));
+});
+
+test('the restaurant example serves the buyer mix named in setup and keeps the generic business separate',()=>{
+ const ui=setup(),read=expression=>vm.runInContext(expression,ui.ctx);
+ ui.click('start-restaurant');
+ assert.match(ui.elements['#root'].innerHTML,/80% of inquiries come from food businesses, 10% from retailers and 10% from local services/);
+ ui.click('enter-setup',{mode:'guided'});
+ const restaurant=JSON.parse(read('JSON.stringify(draft)'));
+ assert.equal(restaurant.recipe.mix,'restaurant');
+ assert.equal(restaurant.focusType,'dining');
+ assert.deepEqual(restaurant.customerMix,{food:80,retail:10,services:10});
+ assert.equal(presets.audit(restaurant).edited.length,0);
+ assert.deepEqual(q.estimate(restaurant).services.map(row=>[row.id,Math.round(row.effectiveShare*100)]),
+  [['menu-refresh',32],['table-tents-100',24],['monthly-promo-5',44]]);
+ for(const offer of restaurant.services)assert.ok(offer.spec.scope.length);
+ ui.click('new-scenario');ui.click('start-business');ui.click('enter-setup',{mode:'guided'});
+ assert.equal(read('draft.recipe.mix'),'balanced');
+ assert.equal(read('draft.focusType'),'none');
+ assert.equal(read('draft.services.length'),1);
+ assert.equal(read('draft.services[0].price'),null);
+});
+
+test('the earlier restaurant starter resumes with its own mix, lineage and offer routing',()=>{
+ const ui=setup();
+ startBalancedRestaurant(ui);
+ vm.runInContext('save()',ui.ctx);ui.drainTimers();
+ const reopened=setup([...ui.storage]);
+ reopened.click('start-restaurant');
+ assert.match(reopened.elements['#root'].innerHTML,/45% of inquiries come from food businesses, 30% from retailers and 25% from local services/);
+ reopened.click('enter-setup',{mode:'guided'});
+ const config=JSON.parse(vm.runInContext('JSON.stringify(draft)',reopened.ctx));
+ assert.equal(config.recipe.mix,'balanced');
+ assert.deepEqual(config.customerMix,{food:45,retail:30,services:25});
+ assert.ok(Math.abs(q.estimate(config).services.find(row=>row.id==='monthly-promo-5').effectiveShare-.685)<1e-8);
+ assert.equal(presets.audit(config).edited.length,0);
 });
 
 test('frozen evidence hashes and ledger projection are reproducible',()=>{

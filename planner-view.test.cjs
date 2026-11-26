@@ -279,3 +279,21 @@ test('removing canonical partner capacity leaves a visible restore action withou
  assert.match(html,/Removed role work still needs mapping in Service mix/);
  assert.equal(f.current().services[0].allocations[0].poolId,'');
 });
+
+test('capacity belongs to roles in the plan, including when effort is unknown or a partner is removed',()=>{
+ const f=fixture();
+ f.book.studio={planId:f.id,partnerPoolId:f.pool.id,ownerWeeklyHours:'8',partnerWeeklyHours:'8',partnerAdminHours:'40'};
+ Planner.update(f.book,f.id,'pools.0.hours','-8');
+ Planner.update(f.book,f.id,'services.0.allocations.0.hours','');
+ const m=Planner.metrics(f.current()),results=View.render(f.book,{tab:'results'});
+ assert.equal(m.capacityStatus,'overloaded');assert.equal(m.feasibleAtCurrentVolume,false);
+ assert.match(results,/The entered workload exceeds capacity/);assert.match(results,/Limiting capacity<\/dt><dd>Analyst/);
+ Planner.removePool(f.book,f.id,f.pool.id);
+ const unmapped=View.render(f.book,{tab:'earnings'});
+ assert.match(unmapped,/Capacity needs more information/);assert.doesNotMatch(unmapped,/Partner non-project work exceeds availability/);
+ Planner.removeAllocation(f.book,f.id,f.current().services[0].id,0);
+ const solo=View.render(f.book,{tab:'earnings'});
+ assert.match(solo,/Work fits the current capacity budget/);assert.doesNotMatch(solo,/Partner non-project work exceeds availability/);
+ Planner.update(f.book,f.id,'nonProjectHours','40');Planner.update(f.book,f.id,'services.0.quantity','0');Planner.update(f.book,f.id,'services.0.setupCount','0');Planner.update(f.book,f.id,'bufferPct','');
+ assert.match(View.render(f.book,{tab:'results'}),/Limiting capacity<\/dt><dd>Owner/);
+});

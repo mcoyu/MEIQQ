@@ -144,6 +144,15 @@ test('stable action and field identities allow delegated editing of distinct ide
   assert.doesNotMatch(html, /data-studio-field="scenarioQuantity"/);
 });
 
+test('research links retain balanced URL parentheses and ignore invalid or duplicated references when counting links',()=>{
+  const address='https://example.org/wiki/Menu_(restaurant)';
+  const notes=[...Array.from({length:12},(_,i)=>'https://invalid:'+('bad'+i)),
+    '('+address+').',address,'HTTPS://EXAMPLE.ORG/wiki/Menu_(restaurant)','https://example.org/report'].join('\n');
+  const {studio}=costedIdea({sources:notes});
+  assert.deepEqual(View.sourceLinks(notes).map(link=>link.url),[address,'https://example.org/report']);
+  assert.match(openFirst(studio,{section:'research'}),/href="https:\/\/example.org\/wiki\/Menu_\(restaurant\)"/);
+});
+
 test('rendering examples and comparison never changes saved planning data', () => {
   const studio = Studio.fresh();
   for (const example of Seeds.EXAMPLES) Studio.create(studio, Seeds.create(example.id));

@@ -3,6 +3,20 @@
 'use strict';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const round=x=>Math.round(x*100)/100;
+// Apply the entered decimal rate to an agreed fee in cents and round a
+// half-cent up. Binary multiplication alone can turn an exact tie into .49999.
+function depositAmount(price,rate,legacy=false){
+ if(!Number.isFinite(price)||price<0||!Number.isFinite(rate)||rate<0||rate>1)return null;
+ const cents=Math.round(price*100);
+ if(!Number.isSafeInteger(cents))return null;
+ if(legacy)return round(cents/100*rate);
+ const [coefficient,exponent='0']=String(rate).split('e');
+ const [whole,fraction='']=coefficient.split('.');
+ const denominator=10n**BigInt(fraction.length-Number(exponent));
+ const numerator=BigInt(cents)*BigInt(whole+fraction);
+ return Number((2n*numerator+denominator)/(2n*denominator))/100;
+}
+const WORK_EPSILON=0.00001;
 const STAGES=['inquiry','quote','design','review','approval','production','delivery','payment','complete'];
 const LABELS={inquiry:'Inquiry',quote:'Quote & deposit',design:'Design',review:'Internal review',approval:'Client approval',production:'Print production',delivery:'Delivery',payment:'Final payment',complete:'Complete'};
 const CUSTOMER_TYPES=[
@@ -165,7 +179,7 @@ function averageProfileFactor(c,key){
  },0);
 }
 function workingDays(days=30){let n=0;for(let d=0;d<days;d++)if(d%7<5)n++;return n;}
-function fresh(config=DEFAULT){let c=normalize(config);validateConfig(c);return{version:3,modelVersion:MODEL_VERSION,workloadId:'model2-seed-'+c.seed,config:c,replayJournal:{version:1,changes:[]},day:0,projects:[],clients:[],contracts:[],cash:round(c.startingCash),initialCash:round(c.startingCash),revenue:0,expenses:0,ownerHours:0,designHours:0,funding:0,ledger:[],history:[],events:[],blocked:null,nextId:1,repeatQueue:[],lost:0,unserved:0};}
+function fresh(config=DEFAULT){let c=normalize(config);validateConfig(c);return{version:3,modelVersion:MODEL_VERSION,campaignCalendarFromDay:1,depositRoundingFromDay:1,workloadId:'model2-seed-'+c.seed,config:c,replayJournal:{version:1,changes:[]},day:0,projects:[],clients:[],contracts:[],cash:round(c.startingCash),initialCash:round(c.startingCash),revenue:0,expenses:0,ownerHours:0,designHours:0,funding:0,ledger:[],history:[],events:[],blocked:null,nextId:1,repeatQueue:[],lost:0,unserved:0};}
 function event(s,p,text){const e={day:s.day,text};if(p)p.log.push(e);s.events.unshift({...e,project:p?.id||null});s.events=s.events.slice(0,120);}
 function entry(s,amount,type,p,note,designHours){
  amount=round(amount);
@@ -195,7 +209,8 @@ function create(s,service,id,client,renewal=false,identity=null){
  const effort=profile?profileFactor(c,{clientType:profile.id},'effort'):1,quoteHours=c.quoteHours*effort;
  const p={id:projectId,demandId,serviceId:service.id,service:clone(service),client:record.name,clientId,brief:record.brief,cycle:identity?.cycle||1,orderKind:renewal?(identity?.orderKind||'confirmed-repeat'):'new-business',stage:'quote',created:s.day,entered:s.day,due:s.day+c.leadDays,work:{quote:quoteHours,design:0,review:0,delivery:0},commitments:{quoteHours,quoteSetDay:s.day},random:projectRandomness(c,demandId),price:0,paid:0,cost:0,ownerHours:0,designHours:0,priority:false,log:[],renewal,wait:0,revised:false,revisionCount:0,reprintCount:0,delivered:false,fulfillmentStatus:'open',paymentStatus:'unpaid',renewalStatus:'ineligible'};
  if(record.type!==undefined)p.clientType=record.type;if(identity?.contractId)p.contractId=identity.contractId;
- event(s,p,renewal?'Confirmed repeat cycle entered quote intake':'Inquiry received; entered quote intake');s.projects.push(p);return p;
+ const intake=p.orderKind==='campaign-reoffer'?'Campaign entered quote intake for a new decision':renewal?'Confirmed repeat cycle entered quote intake':'Inquiry received; entered quote intake';
+ event(s,p,intake);s.projects.push(p);return p;
 }
 function accept(s,p){
  const c=s.config,svc=c.services.find(x=>x.id===p.serviceId)||p.service,profile=profileFor(p.clientType);
@@ -205,7 +220,8 @@ function accept(s,p){
  const leadDays=rush?Math.min(c.leadDays,Math.max(DISRUPTION_RULES.rushDeadlines.minLeadDays,Math.round(c.leadDays*DISRUPTION_RULES.rushDeadlines.leadFactor))):c.leadDays;
  const reprint=effectivePrint>0&&disruption(c,'supplierReprints')&&disruptionDraw(c,p,'reprint-selected')<c.disruptionRates.supplierReprints;
  const repeated=disruption(c,'repeatedRevisions')&&disruptionDraw(c,p,'revisions-selected')<c.disruptionRates.repeatedRevisions;
- const extended=c.deposit<1&&disruption(c,'extendedLatePayments')&&disruptionDraw(c,p,'late-payment-selected')<c.disruptionRates.extendedLatePayments;
+ const deposit=depositAmount(effectivePrice,c.deposit,s.day<(s.depositRoundingFromDay??Infinity));
+ const extended=deposit<effectivePrice&&disruption(c,'extendedLatePayments')&&disruptionDraw(c,p,'late-payment-selected')<c.disruptionRates.extendedLatePayments;
  const disruptionTerms={rushDeadline:rush,supplierReprint:reprint,revisionRounds:repeated?integer('revision-rounds',DISRUPTION_RULES.repeatedRevisions.minRounds,DISRUPTION_RULES.repeatedRevisions.maxRounds):0,extendedPaymentDays:extended?integer('late-payment-days',DISRUPTION_RULES.extendedLatePayments.minDays,DISRUPTION_RULES.extendedLatePayments.maxDays):0,reprintDays:reprint?integer('reprint-days',DISRUPTION_RULES.supplierReprints.extraDaysMin,DISRUPTION_RULES.supplierReprints.extraDaysMax)+c.printDays:0};
  p.service=clone(svc);p.price=effectivePrice;p.accepted=s.day;p.due=s.day+leadDays;
  p.terms={paymentDays:c.paymentDays,approvalDays:c.approvalDays+(profile?Math.round(profile.approval*(c.profileStrength??0)):0),printDays:c.printDays,deliveryHours:c.deliveryHours,leadDays,disruptions:disruptionTerms};
@@ -221,8 +237,9 @@ function accept(s,p){
  }else{
   const contract=s.contracts?.find(v=>v.id===p.contractId);if(contract)contract.cycles=Math.max(contract.cycles,p.cycle);
  }
- entry(s,p.price*c.deposit,'receipt',p,'Client deposit');p.paymentStatus=round(p.price-p.paid)===0?'paid':p.paid>0?'partial':'unpaid';
- event(s,p,'Quote accepted at $'+p.price+(fulfillmentMode?' for '+(fulfillmentMode==='agency-managed'?'agency-managed printing':'design only / client self-print'):'')+'; deposit received; delivery due day '+p.due+(rush?' under a modeled rush-event promise':''));move(s,p,'design');
+ if(deposit>0)entry(s,deposit,'receipt',p,'Client deposit');
+ p.paymentStatus=round(p.price-p.paid)===0?'paid':p.paid>0?'partial':'unpaid';
+ event(s,p,'Quote accepted at $'+p.price+(fulfillmentMode?' for '+(fulfillmentMode==='agency-managed'?'agency-managed printing':'design only / client self-print'):'')+(deposit>0?'; deposit received':'; no deposit collected')+'; delivery due day '+p.due+(rush?' under a modeled rush-event promise':''));move(s,p,'design');
 }
 function inquiryVolume(c){
  const days=c.months*30,workdays=workingDays(days),weeks=workdays/5;
@@ -321,8 +338,10 @@ function estimate(input){
  const c=normalize(input);
  if(!Number.isInteger(c.months)||c.months<1||c.months>12)throw Error('Choose a run length from 1 to 12 whole months.');
  const {days,workdays,weeks,outreach,leads}=inquiryVolume(c);
- const expectedPrice=service=>service.fulfillment?service.price*service.fulfillment.managedShare+service.fulfillment.designOnlyPrice*(1-service.fulfillment.managedShare):service.price;
- const expectedPrint=service=>service.fulfillment?service.print*service.fulfillment.managedShare:service.print;
+ // The daily engine commits each agreement and supplier batch in cents.
+ // Weight those committed amounts before multiplying by the number of orders.
+ const expectedPrice=service=>service.fulfillment?round(service.price)*service.fulfillment.managedShare+round(service.fulfillment.designOnlyPrice)*(1-service.fulfillment.managedShare):round(service.price);
+ const expectedPrint=service=>round(service.print)*(service.fulfillment?.managedShare??1);
  let orders=0,revenue=0,hours=0,owner=outreach,print=0,unserved=0,unservedShare=0;
  const serviceRows=new Map(c.services.map(v=>[v.id,{id:v.id,name:v.name,effectiveShare:0,inquiries:0,orders:0,revenue:0,designerHours:0,ownerHours:0,designerCost:0,printCost:0,directCost:0,contribution:0,ownerTimeValue:0,afterOwnerTime:0}]));
  for(const demand of inquiryGroups(c,leads)){
@@ -341,14 +360,15 @@ function estimate(input){
    row.printCost+=serviceOrders*expectedPrint(v);
   }
  }
- const expense=hours*c.designerRate+print+c.overhead*c.months,ownerCapacity=c.ownerHours*weeks,designCapacity=c.designers*c.designerHours*weeks;
+ const expense=hours*c.designerRate+print+round(c.overhead)*c.months,ownerCapacity=c.ownerHours*weeks,designCapacity=c.designers*c.designerHours*weeks;
+ const projectCapacity=Math.max(0,ownerCapacity-outreach);
  const ratio=(used,cap)=>cap?used/cap:used?Infinity:0;
  const services=[...serviceRows.values()].map(row=>{
   const service=c.services.find(v=>v.id===row.id),baseOwnerHours=c.quoteHours+service.review+c.deliveryHours;
   const unit=(price,printCost)=>{const value={price:round(price),designerHours:round(service.hours),ownerHours:round(baseOwnerHours),designerCost:round(service.hours*c.designerRate),printCost:round(printCost)};value.directCost=round(value.designerCost+value.printCost);value.contribution=round(value.price-value.directCost);value.ownerTimeValue=round(value.ownerHours*c.ownerTarget);value.afterOwnerTime=round(value.contribution-value.ownerTimeValue);return value;};
   row.designerCost=row.designerHours*c.designerRate;row.directCost=row.designerCost+row.printCost;row.contribution=row.revenue-row.directCost;
   row.ownerTimeValue=row.ownerHours*c.ownerTarget;row.afterOwnerTime=row.contribution-row.ownerTimeValue;
-  row.ownerCapacityShare=ratio(row.ownerHours,ownerCapacity);row.designCapacityShare=ratio(row.designerHours,designCapacity);
+  row.ownerCapacityShare=ratio(row.ownerHours,projectCapacity);row.designCapacityShare=ratio(row.designerHours,designCapacity);
   row.perProject=unit(expectedPrice(service),expectedPrint(service));
   row.fulfillmentOptions=service.fulfillment?{mode:service.fulfillment.mode,managedShare:service.fulfillment.managedShare,agencyManaged:unit(service.price,service.print),designOnly:unit(service.fulfillment.designOnlyPrice,0)}:null;
   row.spec=service.spec?clone(service.spec):null;
@@ -358,6 +378,83 @@ function estimate(input){
   return row;
  });
  return{days,workdays,leads,unserved,unservedShare,orders,revenue,expense,profit:revenue-expense,owner,hours,outreach,ownerCapacity,designCapacity,ownerLoad:ratio(owner,ownerCapacity),designLoad:ratio(hours,designCapacity),surplus:revenue-expense-owner*c.ownerTarget,services};
+}
+// Earliest possible delivery for one inquiry arriving on day one. Other work,
+// cash limits, revisions and optional delays can only make this date later.
+function canShipOneJob(config,offer,profile,minComplexity,horizon){
+ const daily=workCapacity(config),perDesigner=config.designers>0?config.designerHours/5:0;
+ let day=1,ownerLeft=daily.owner,designLeft=perDesigner;
+ const advanceBy=days=>{
+  if(!days)return;
+  day+=days;
+  const weekday=(day-1)%7<5;
+  ownerLeft=weekday?daily.owner:0;
+  designLeft=weekday?perDesigner:0;
+ };
+ const work=(hours,owner)=>{
+  while(day<=horizon){
+   const used=Math.min(hours,owner?ownerLeft:designLeft);
+   if(owner)ownerLeft-=used;
+   else designLeft-=used;
+   hours-=used;
+   if(hours<=WORK_EPSILON)return;
+   advanceBy(1);
+  }
+ };
+ const effort=profileFactor(config,{clientType:profile?.id},'effort');
+ work((config.quoteHours??DEFAULT.quoteHours)*effort,true);
+ work(offer.hours*effort*minComplexity,false);
+ work(offer.review*effort,true);
+ const approval=config.approvalDays+Math.round((profile?.approval||0)*(config.profileStrength??0));
+ const mustPrint=round(offer.print)>0&&(!offer.fulfillment||offer.fulfillment.managedShare===1);
+ advanceBy(approval+(mustPrint?config.printDays:0));
+ work(config.deliveryHours??DEFAULT.deliveryHours,true);
+ return day<=horizon;
+}
+// The estimate prices a fully delivered workload. An offer is impossible only
+// when even its fastest eligible customer and route cannot finish by the close.
+function deliveryCapacity(config,work=estimate(config)){
+ const designShortfall=Math.max(0,work.hours-work.designCapacity);
+ const ownerShortfall=Math.max(0,work.owner-work.ownerCapacity);
+ const blockedBy={owner:false,design:false},blockedOffers=[],overlongOffers=[],ownerTimeOffers=[],timingOffers=[];
+ const perJobDesignHours=config.designers>0?work.workdays*(config.designerHours/5):0;
+ const result={status:'no-orders',blockedBy,blockedOffers,overlongOffers,ownerTimeOffers,timingOffers,perJobDesignHours,designShortfall,ownerShortfall};
+ if(!work.orders)return result;
+ const noOwner=work.ownerCapacity<=work.outreach,noDesigner=work.designCapacity===0;
+ const eligible=new Map();
+ for(const group of inquiryGroups(config,work.leads)){
+  if(group.groupShare<=0||!group.eligible.length)continue;
+  const types=group.target?[clientDemandType(config.clientDemand.profileId)]:CUSTOMER_TYPES.filter(type=>type.group===group.group);
+  for(const offer of group.eligible){
+   if(!eligible.has(offer))eligible.set(offer,new Set());
+   for(const type of types.length?types:[null])eligible.get(offer).add(type);
+  }
+ }
+ // Give each offer its least demanding eligible buyer and the whole working
+ // period to itself. Other designers can process different jobs in parallel.
+ const minComplexity=variable(config,'complexity') ? 0.75 : 1;
+ for(const [offer,types] of eligible){
+  const minEffort=Math.min(...Array.from(types,type=>profileFactor(config,{clientType:type?.id},'effort')));
+  const ownerStages=[(config.quoteHours??DEFAULT.quoteHours)*minEffort,offer.review*minEffort,config.deliveryHours??DEFAULT.deliveryHours];
+  const needsOwner=noOwner&&ownerStages.some(hours=>hours>WORK_EPSILON);
+  const minDesign=offer.hours*minEffort*minComplexity;
+  const needsDesign=noDesigner&&minDesign>WORK_EPSILON;
+  const overlong=!noDesigner&&minDesign-perJobDesignHours>WORK_EPSILON;
+  if(overlong)overlongOffers.push(offer.id);
+  const ownerWork=ownerStages.reduce((sum,hours)=>sum+Math.max(0,hours-WORK_EPSILON),0);
+  const exceedsOwner=!noOwner&&ownerWork>work.ownerCapacity-work.outreach;
+  if(exceedsOwner)ownerTimeOffers.push(offer.id);
+  if(needsOwner||needsDesign||overlong||exceedsOwner)blockedOffers.push(offer.id);
+  else if(!Array.from(types).some(profile=>canShipOneJob(config,offer,profile,minComplexity,work.days))){
+   timingOffers.push(offer.id);
+   blockedOffers.push(offer.id);
+  }
+  if(needsOwner)blockedBy.owner=true;
+  if(needsDesign)blockedBy.design=true;
+ }
+ if(blockedOffers.length)result.status=blockedOffers.length===eligible.size?'blocked':'partial';
+ else result.status=designShortfall>WORK_EPSILON||ownerShortfall>WORK_EPSILON?'overloaded':'fits';
+ return result;
 }
 // Charge costs in the month they were incurred and recognize the agreed price
 // on delivery. A later payment or delivery cannot rewrite an earlier month.
@@ -375,9 +472,9 @@ function periodOwnerValue(s,endDay,profit,hours){
 // Save the numbers displayed at launch. Later input edits and changes to the
 // estimator itself must not rewrite the forecast a person actually ran.
 function captureForecast(config){
- const e=estimate(config),labor=e.hours*config.designerRate,overhead=config.months*config.overhead;
+ const e=estimate(config),labor=e.hours*config.designerRate,overhead=config.months*round(config.overhead);
  const amount=value=>round(value)||0;
- const forecast={version:1,days:e.days,leads:amount(e.leads),orders:amount(e.orders),ownerHours:amount(e.owner),designHours:amount(e.hours),
+ const forecast={version:1,days:e.days,deliveryStatus:deliveryCapacity(config,e).status,leads:amount(e.leads),orders:amount(e.orders),ownerHours:amount(e.owner),designHours:amount(e.hours),
   revenue:amount(e.revenue),designLabor:amount(labor),supplierCost:amount(e.expense-labor-overhead),overhead:amount(overhead),
   cost:amount(e.expense),profit:amount(e.profit),afterOwner:amount(e.surplus)};
  if(config.clientDemand){
@@ -474,6 +571,17 @@ function runActualsThrough(s,days){
  const leads=history.every(day=>Number.isInteger(day.externalArrivals))?history.reduce((count,day)=>count+day.externalArrivals,0):null;
  const booked=s.projects.filter(p=>p.accepted!==undefined&&p.accepted<=days);
  const firstOrders=booked.filter(p=>p.orderKind==='new-business');
+ const inquiries=s.projects.filter(p=>p.orderKind==='new-business'&&p.created<=days);
+ let declinedQuotes=0;
+ for(const p of inquiries){
+  if(p.stage!=='lost')continue;
+  if(days===s.day){declinedQuotes++;continue;}
+  // A later decline must not travel back into an earlier month's results.
+  const decision=p.log.find(e=>e.text==='Client declined quote');
+  if(!decision){declinedQuotes=null;break;}
+  if(decision.day<=days)declinedQuotes++;
+ }
+ const awaitingQuote=declinedQuotes===null?null:inquiries.length-firstOrders.length-declinedQuotes;
  const isDelivered=p=>p.deliveredDay!==undefined&&p.deliveredDay<=days;
  const open=booked.filter(p=>!isDelivered(p)),returning=booked.filter(p=>p.orderKind!=='new-business'&&isDelivered(p));
  const value=projects=>round(projects.reduce((n,p)=>n+p.price,0));
@@ -487,7 +595,7 @@ function runActualsThrough(s,days){
   designHours=postings.every(e=>e.designHours!==undefined)?postings.reduce((n,e)=>n+e.designHours,0):null;
  }
  return {profit:sum('profit'),afterOwner:sum('afterOwner'),rateHistoryAvailable:Boolean(s.replayJournal),revenue:sum('revenue'),cost:sum('cost'),
-  ownerHours:sum('ownerHours'),designHours:designHours===null?null:round(designHours),leads,orders:firstOrders.length,
+  ownerHours:sum('ownerHours'),designHours:designHours===null?null:round(designHours),leads,unservedInquiries:leads===null?null:leads-inquiries.length,orders:firstOrders.length,declinedQuotes,awaitingQuote,
   designLabor:sum('designLabor'),supplierCost:sum('supplierCost'),overhead:sum('overhead'),otherCost:sum('otherProjectCost'),
   delivered:sum('delivered'),newDelivered:firstOrders.filter(isDelivered).length,newBooked:value(firstOrders),
   newBacklog:value(open.filter(p=>p.orderKind==='new-business')),returnDelivered:returning.length,returnRevenue:value(returning),
@@ -534,7 +642,7 @@ function analytics(s){
  for(const id of currentServices.keys())if(!serviceGroups.has(id))serviceGroups.set(id,[]);
  const services=[...serviceGroups].map(([id,ps])=>({id,name:ps.at(-1)?.service.name??currentServices.get(id).name,inquiries:ps.filter(p=>p.orderKind==='new-business').length,...group(ps)})).sort((a,b)=>b.contribution-a.contribution);
  const contractRecords=new Map(s.contracts.map(c=>[c.id,c]));
- const contracts=[...contractGroups].map(([id,ps])=>{const record=contractRecords.get(id),campaign=record?.campaign,next=s.repeatQueue.find(item=>item.contractId===id);return{id,client:ps[0].client,kind:record?.kind||'repeat-purchase',status:record?.status||'active',currentCycle:record?.cycles||Math.max(...ps.map(p=>p.cycle||1)),skippedCampaigns:record?.skipped||0,cadenceDays:campaign?.cadenceDays??null,relationshipEndDay:campaign?.endDay??null,nextQuoteDay:next?.day??null,campaignCharges:campaign?ps.filter(p=>p.accepted!==undefined).map(p=>({cycle:p.cycle,project:p.id,price:p.price,fulfillment:p.terms?.fulfillment?.mode||null})):[],projects:ps.map(p=>p.id),...group(ps)};}).sort((a,b)=>b.contribution-a.contribution);
+ const contracts=[...contractGroups].map(([id,ps])=>{const record=contractRecords.get(id),campaign=record?.campaign,next=s.repeatQueue.find(item=>item.contractId===id);return{id,client:ps[0].client,kind:record?.kind||'repeat-purchase',status:record?.status||'active',currentCycle:record?.cycles||Math.max(...ps.map(p=>p.cycle||1)),skippedCampaigns:(record?.skipped||0)+(record?.missedCadences||0),missedCadences:record?.missedCadences||0,cadenceDays:campaign?.cadenceDays??null,relationshipEndDay:campaign?.endDay??null,nextQuoteDay:next?.day??null,campaignCharges:campaign?ps.filter(p=>p.accepted!==undefined).map(p=>({cycle:p.cycle,project:p.id,price:p.price,fulfillment:p.terms?.fulfillment?.mode||null})):[],projects:ps.map(p=>p.id),...group(ps)};}).sort((a,b)=>b.contribution-a.contribution);
  const external=s.projects.filter(p=>p.orderKind==='new-business'), won=external.filter(p=>p.accepted!==undefined).length, lost=external.filter(p=>p.stage==='lost').length;
  const repeat=accepted.filter(p=>p.orderKind!=='new-business'), uniqueClients=new Set(accepted.map(p=>p.clientId)).size;
  const monthly=Array.from({length:Math.max(1,Math.ceil(s.day/30))},(_,i)=>{
@@ -595,10 +703,26 @@ function sameInquiries(current,baseline,days=current.day){
  return current.history.slice(0,days).every((h,i)=>h.externalArrivals===baseline.history[i].externalArrivals &&
   JSON.stringify(h.unservedInquiries||[])===JSON.stringify(baseline.history[i].unservedInquiries||[]));
 }
+// Compare the relative order of retained offers; additions and removals are
+// already reported individually. The seeded draw assigns inquiries in menu order.
+function changedOfferOrder(before,after){
+ const left=before.services.map(offer=>offer.id),right=after.services.map(offer=>offer.id);
+ const leftIds=new Set(left),rightIds=new Set(right);
+ const prior=left.filter(id=>rightIds.has(id)),next=right.filter(id=>leftIds.has(id));
+ return prior.some((id,index)=>id!==next[index])?{before:prior,after:next}:null;
+}
+const ORDER_RULE_STARTS=['campaignCalendarFromDay','depositRoundingFromDay'];
+const ORDER_RULE_WARNING='Campaign scheduling or deposit rounding used different rules during the compared days.';
+function sameOrderRules(left,right,days){
+ const start=(run,key)=>Math.min(days+1,run[key]??run.day+1);
+ return ORDER_RULE_STARTS.every(key=>start(left,key)===start(right,key));
+}
 function workloadComparison(current,baseline,throughDay){
  const flags={sameElapsedDay:current.day===baseline.day,sameWorkloadIdentity:current.config.seed===baseline.config.seed && Boolean(current.workloadId) && current.workloadId===baseline.workloadId,
   sameExternalDemandAssumptions:JSON.stringify(externalDemandSettings(current.config))===JSON.stringify(externalDemandSettings(baseline.config)),
   sameDemandHistory:null,sameRealizedInquiries:null};
+ const commonDays=Math.min(throughDay??Infinity,current.day,baseline.day);
+ flags.sameOrderRules=sameOrderRules(current,baseline,commonDays);
  const days=throughDay??(flags.sameElapsedDay?current.day:null);
  if(Number.isInteger(days)&&days>=0&&days<=Math.min(current.day,baseline.day)&&completeDemandHistory(current,days)&&completeDemandHistory(baseline,days)){
   const periods=s=>(s.demandHistory||[]).filter(row=>row.day<=days);
@@ -607,13 +731,14 @@ function workloadComparison(current,baseline,throughDay){
    period.day===baselinePeriods[i].day && sameReplayValue(period.settings,baselinePeriods[i].settings));
   flags.sameRealizedInquiries=sameInquiries(current,baseline,days);
  }
- flags.likeForLike=flags.sameElapsedDay && flags.sameWorkloadIdentity && flags.sameExternalDemandAssumptions && flags.sameDemandHistory===true && flags.sameRealizedInquiries===true;
+ flags.likeForLike=flags.sameElapsedDay && flags.sameWorkloadIdentity && flags.sameOrderRules && flags.sameExternalDemandAssumptions && flags.sameDemandHistory===true && flags.sameRealizedInquiries===true;
  return flags;
 }
 function compareRuns(current,baseline){
  const a=analytics(current),b=analytics(baseline),am=metrics(current),bm=metrics(baseline),delta=(x,y)=>round((x||0)-(y||0));
  const flags=workloadComparison(current,baseline);
  const warnings=[];
+ if(!flags.sameOrderRules)warnings.push({code:'different-order-rules',message:ORDER_RULE_WARNING});
  if(!flags.sameElapsedDay)warnings.push({code:'different-day',message:'Runs are at different elapsed days; result deltas are descriptive, not causal.'});
  if(!flags.sameWorkloadIdentity)warnings.push({code:'different-workload',message:'Runs do not share a workload identity; customer-level outcomes are not directly comparable.'});
  if(!flags.sameExternalDemandAssumptions)warnings.push({code:'different-demand-assumptions',message:'The current effective demand settings differ. Check the arrival method, available outreach hours and customer or service mix.'});
@@ -629,12 +754,56 @@ function workCapacity(config){
  const outreach=config.acquisition==='sales'?Math.min(config.ownerHours,config.outreachHours):0;
  return {owner:(config.ownerHours-outreach)/5,design:config.designers*config.designerHours/5};
 }
+// Drain the current design queue in scheduler order. Each job can use one
+// designer's daily hours, while unused hours go to the next job that day.
+// This estimate excludes future arrivals, revisions and cash decisions.
+function designQueueDays(projects,config,target=null){
+ const daily=config.designers*config.designerHours/5,perJob=config.designerHours/5;
+ const remaining=new Map();
+ for(const p of projects){
+  if(p.stage==='design'&&p.work.design>WORK_EPSILON)remaining.set(p,p.work.design);
+  if(p===target)break;
+ }
+ if(!remaining.size||target&&!remaining.has(target))return 0;
+ if(!daily)return Infinity;
+ let elapsed=0;
+ while(remaining.size){
+  let available=daily,days=Infinity,longest=0;
+  const allocations=[];
+  for(const [p,hours] of remaining){
+   const work=Math.min(perJob,available,hours);
+   allocations.push({p,hours,work});
+   longest=Math.max(longest,work);
+   days=Math.min(days,Math.floor(hours/work));
+   available-=work;
+   if(available<=0)break;
+  }
+  // Full workdays with identical allocations can be advanced together.
+  if(!Number.isFinite(days))return Infinity;
+  for(const {p,hours,work} of allocations){
+   const left=hours-days*work;
+   if(left<=WORK_EPSILON)remaining.delete(p);
+   else remaining.set(p,left);
+  }
+  if(!remaining.size||target&&!remaining.has(target)){
+   const lastDayLoad=Math.max(longest/perJob,(daily-available)/daily);
+   return elapsed+days-1+lastDayLoad;
+  }
+  elapsed+=days;
+ }
+}
 function projectDiagnostic(s,project,workOrder){
  const p=typeof project==='string'?s.projects.find(v=>v.id===project):project;
  if(!p||!s.projects.includes(p))throw Error('Project not found');
  const stage=p.stage,done=['complete','lost'].includes(stage),lateDays=p.accepted!==undefined&&!p.delivered?Math.max(0,s.day-p.due):0;
  const committedDisruptions=p.terms?.disruptions||{},contract=s.contracts.find(value=>value.id===p.contractId);
- const result={projectId:p.id,stage,kind:done?'done':['approval','production','payment'].includes(stage)?'external':'resource',responsible:{inquiry:'client',quote:'owner',design:'design-team',review:'owner',approval:'client',production:'supplier',delivery:'owner',payment:'client',complete:'none',lost:'none'}[stage],waitDays:Math.max(0,s.day-p.entered),lateDays,remainingWorkHours:round(p.work?.[stage]||0),remainingCalendarDays:0,dailyCapacity:0,queueAheadCount:0,queueAheadHours:0,estimatedWorkdays:null,reasonCode:done?stage:'waiting',fulfillment:p.terms?.fulfillment?clone(p.terms.fulfillment):null,campaign:contract?.campaign?{cycle:p.cycle,cadenceDays:contract.campaign.cadenceDays,relationshipEndDay:contract.campaign.endDay,status:contract.status,skippedCampaigns:contract.skipped||0}:null,disruptions:{rushDeadline:committedDisruptions.rushDeadline===true,supplierReprint:committedDisruptions.supplierReprint===true,reprintCount:p.reprintCount||0,revisionRounds:committedDisruptions.revisionRounds||0,revisionCount:p.revisionCount??(p.revised?1:0),extendedPaymentDays:committedDisruptions.extendedPaymentDays||0}};
+ const result={projectId:p.id,stage,kind:done?'done':['approval','production','payment'].includes(stage)?'external':'resource',responsible:{inquiry:'client',quote:'owner',design:'design-team',review:'owner',approval:'client',production:'supplier',delivery:'owner',payment:'client',complete:'none',lost:'none'}[stage],waitDays:Math.max(0,s.day-p.entered),lateDays,remainingWorkHours:round(p.work?.[stage]||0),remainingCalendarDays:0,dailyCapacity:0,queueAheadCount:0,queueAheadHours:0,estimatedWorkdays:null,reasonCode:done?stage:'waiting',fulfillment:p.terms?.fulfillment?clone(p.terms.fulfillment):null,campaign:contract?.campaign?{cycle:p.cycle,cadenceDays:contract.campaign.cadenceDays,relationshipEndDay:contract.campaign.endDay,status:contract.status,skippedCampaigns:(contract.skipped||0)+(contract.missedCadences||0),missedCadences:contract.missedCadences||0}:null,disruptions:{rushDeadline:committedDisruptions.rushDeadline===true,supplierReprint:committedDisruptions.supplierReprint===true,reprintCount:p.reprintCount||0,revisionRounds:committedDisruptions.revisionRounds||0,revisionCount:p.revisionCount??(p.revised?1:0),extendedPaymentDays:committedDisruptions.extendedPaymentDays||0}};
+ // Older accepted terms could record a collection delay even when the
+ // deposit had already paid the whole fee. A real delayed final receipt stays visible.
+ if(result.disruptions.extendedPaymentDays&&p.paymentStatus==='paid'&&
+    (p.price===0||s.ledger.some(e=>e.project===p.id&&e.type==='receipt'&&e.amount===p.price&&e.note==='Client deposit'))){
+  result.disruptions.extendedPaymentDays=0;
+ }
  if(done)return result;
  if(stage==='approval'){
   const committed=(p.terms?.approvalDays??s.config.approvalDays)+(variable(s.config,'approval')?Math.floor(p.random.approval*3):0);
@@ -648,7 +817,10 @@ function projectDiagnostic(s,project,workOrder){
  result.dailyCapacity=workCapacity(s.config)[stage==='design'?'design':'owner'];
  const ordered=workOrder||orderedProjects(s),position=ordered.indexOf(p),ahead=ordered.slice(0,Math.max(0,position)).filter(v=>resourceStages.includes(v.stage));
  result.queueAheadCount=ahead.length;result.queueAheadHours=round(ahead.reduce((n,v)=>n+(v.work[v.stage]||0),0));
- if(result.dailyCapacity>0){const ownDaily=stage==='design'?Math.min(result.dailyCapacity,s.config.designerHours/5):result.dailyCapacity;result.estimatedWorkdays=Math.ceil(result.queueAheadHours/result.dailyCapacity+result.remainingWorkHours/Math.max(ownDaily,Number.EPSILON));}
+ if(result.dailyCapacity>0){
+  const days=stage==='design'?designQueueDays(ordered,s.config,p):(ahead.reduce((hours,job)=>hours+job.work[job.stage],0)+p.work[stage])/result.dailyCapacity;
+  result.estimatedWorkdays=Math.ceil(days);
+ }
  return result;
 }
 function bottleneck(s){
@@ -658,7 +830,9 @@ function bottleneck(s){
   return{resource,stage:leading?.stage||stages[0],stages:breakdown,count:leading?.count||0,hours:leading?.hours||0,combinedCount:count,combinedHours:hours,capacity,days:capacity>0?hours/capacity:hours>0?Infinity:0,oldest:Math.max(0,...breakdown.map(v=>v.oldest))};
  };
  const capacity=workCapacity(c);
- const ranked=[describe('owner',['quote','review','delivery'],capacity.owner),describe('design',['design'],capacity.design)].filter(v=>v.count).sort((a,b)=>b.days-a.days);
+ const design=describe('design',['design'],capacity.design);
+ if(design.count)design.days=designQueueDays(orderedProjects({...s,projects:s.projects.filter(p=>p.stage==='design')}),c);
+ const ranked=[describe('owner',['quote','review','delivery'],capacity.owner),design].filter(v=>v.count).sort((a,b)=>b.days-a.days);
  if(ranked.length)return ranked[0];
  const waits=['approval','production','payment'].map(stage=>{const ps=s.projects.filter(p=>p.stage===stage);return{resource:'external',stage,count:ps.length,hours:0,capacity:0,days:0,oldest:ps.length?Math.max(...ps.map(p=>s.day-p.entered)):0,stages:[]};}).filter(v=>v.count).sort((a,b)=>b.oldest-a.oldest);
  return waits[0]||null;
@@ -686,8 +860,23 @@ function step(s){
 }
 function collectPayment(s,p,closedIntake){const balance=round(p.price-p.paid);if(balance<0)throw Error('Project balance cannot be negative.');if(balance>0)entry(s,balance,'receipt',p,'Final payment');p.paymentStatus='paid';completePaid(s,p,closedIntake);}
 function scheduleCampaign(s,p,contract,cycle){
- const cadence=contract.campaign.cadenceDays,maxCycles=Math.floor(contract.campaign.relationshipDays/cadence),day=Math.max(contract.started+(cycle-1)*cadence,s.day+1),demandId=contract.id+':cycle:'+cycle;
- if(cycle>maxCycles||day>contract.campaign.endDay){contract.status='ended';return null;}
+ const cadence=contract.campaign.cadenceDays,maxWindows=Math.floor(contract.campaign.relationshipDays/cadence);
+ let window=cycle;
+ if(s.day>=s.campaignCalendarFromDay){
+  // Cycle counts actual quotes and identifies the customer's seeded decision.
+  // A late settlement can miss whole calendar windows without generating offers.
+  const previousWindow=1+Math.floor(Math.max(0,p.created-contract.started)/cadence);
+  const nextWindow=Math.max(cycle,previousWindow+1);
+  const tomorrowWindow=1+Math.floor((s.day+1-contract.started)/cadence);
+  window=Math.max(nextWindow,tomorrowWindow);
+  const missed=Math.max(0,Math.min(window,maxWindows+1)-nextWindow);
+  if(missed){
+   contract.missedCadences=(contract.missedCadences||0)+missed;
+   event(s,p,'Campaign periods missed while prior work was open: '+missed);
+  }
+ }
+ const day=Math.max(contract.started+(window-1)*cadence,s.day+1),demandId=contract.id+':cycle:'+cycle;
+ if(window>maxWindows||day>contract.campaign.endDay){contract.status='ended';return null;}
  const existing=s.repeatQueue.find(item=>item.contractId===contract.id&&(item.cycle===cycle||item.demandId===demandId));if(existing)return existing.day;
  s.repeatQueue.push({day,serviceId:p.serviceId,client:p.client,clientType:p.clientType,clientId:p.clientId,contractId:contract.id,cycle,demandId,orderKind:'campaign-reoffer'});contract.status='active';return day;
 }
@@ -704,7 +893,7 @@ function advanceProject(s,p,capacity,closedIntake){
     else{capacity.owner-=h;s.ownerHours+=h;p.ownerHours+=h;}
     p.work[stage]=Math.max(0,p.work[stage]-h);
    }
-   if(p.work[stage]>0.00001)return true;
+   if(p.work[stage]>WORK_EPSILON)return true;
    if(stage==='quote'){
     const campaignReoffer=p.orderKind==='campaign-reoffer',campaignAcceptance=Math.min(1,c.retention*profileFactor(c,p,'repeat'));
     if(campaignReoffer?p.random.return<campaignAcceptance:p.renewal||p.random.conversion<c.conversion){accept(s,p);continue;}
@@ -715,9 +904,10 @@ function advanceProject(s,p,capacity,closedIntake){
    if(stage==='design'){move(s,p,'review');continue;}
    if(stage==='review'){move(s,p,'approval');continue;}
    p.delivered=true;p.fulfillmentStatus='delivered';p.deliveredDay=s.day;p.paymentDue=s.day+(p.terms?.paymentDays??c.paymentDays);
-   const extendedDelay=p.terms?.disruptions?.extendedPaymentDays||0,paymentDelay=extendedDelay||(variable(c,'payment')?Math.floor(p.random.payment*6):0);p.receiveDay=p.paymentDue+paymentDelay;s.revenue=round(s.revenue+p.price);event(s,p,'Delivered; revenue recognized');
+   const hasBalance=round(p.price-p.paid)>0,extendedDelay=hasBalance?(p.terms?.disruptions?.extendedPaymentDays||0):0;
+   const paymentDelay=extendedDelay||(hasBalance&&variable(c,'payment')?Math.floor(p.random.payment*6):0);p.receiveDay=p.paymentDue+paymentDelay;s.revenue=round(s.revenue+p.price);event(s,p,'Delivered; revenue recognized');
    if(extendedDelay)event(s,p,'Modeled late-payment incident: collection expected '+extendedDelay+' days after the contractual due date');
-   if(round(p.price-p.paid)===0){p.paymentStatus='paid';completePaid(s,p,closedIntake);return true;}
+   if(!hasBalance){p.paymentStatus='paid';completePaid(s,p,closedIntake);return true;}
    p.paymentStatus=p.paid>0?'partial':'unpaid';move(s,p,'payment');continue;
   }
   if(p.stage==='approval'){
@@ -997,33 +1187,62 @@ function applyReplayActions(session,s,alternative){
   if(action.kind!=='priority'||action.value!==p.priority)intervene(s,p.id,action.kind,action.value);
  }
 }
+// Older runs used the same intake wording for confirmed repeats and undecided
+// campaigns. Use the recorded deposit to interpret their payment messages.
+function projectEventText(project,text,deposit){
+ if(project?.orderKind==='campaign-reoffer'&&text==='Confirmed repeat cycle entered quote intake')return 'Campaign entered quote intake for a new decision';
+ if(deposit===0&&text.startsWith('Quote accepted at $'))return text.replace('; deposit received; delivery due day ','; no deposit collected; delivery due day ');
+ if(project?.accepted!==undefined&&deposit===project.price&&/^Modeled late-payment incident: collection expected \d+ days after the contractual due date$/.test(text))return null;
+ return text;
+}
 // Cross-check the unchanged replay against the saved business, including accepted
 // work that had no cash entries and all daily economics through the observed date.
 function verifyObservedReplay(source,control,end=control.day){
  const daily=h=>[h.cash,h.revenue,h.expenses,h.ownerHours,h.active,h.complete,h.late];
- const facts=p=>[p.id,p.demandId,p.clientId,p.serviceId,p.created,p.accepted<=end?p.accepted:null,p.accepted<=end?p.price:null,
-  p.deliveredDay<=end?p.deliveredDay:null,p.log.filter(e=>e.day<=end).map(e=>[e.day,e.text])];
  const originalDemand=(source.demandHistory||[]).filter(e=>e.day<=end);
  const sameDemand=originalDemand.every(e=>sameReplayValue(externalDemandSettings(replayConfigAt(source,e.day-1)),e.settings));
- const events=s=>s.ledger.filter(e=>e.day<=end);
+ // A legacy zero-dollar deposit was a placeholder, with no cash movement.
+ const events=s=>s.ledger.filter(e=>e.day<=end&&!(e.type==='receipt'&&e.note==='Client deposit'&&e.amount===0));
  const recorded=events(source),replayed=events(control);
  const samePostings=recorded.length===replayed.length&&recorded.every((e,i)=>{
   const other=replayed[i];
   return e.day===other.day&&e.type===other.type&&e.amount===other.amount&&e.project===other.project&&e.note===other.note&&
    (e.designHours===undefined||other.designHours===undefined||Math.abs(e.designHours-other.designHours)<1e-8);
  });
- const projects=s=>s.projects.filter(p=>p.created<=end).map(facts);
+ const compareCurrent=end===source.day&&end===control.day;
+ const projects=s=>{
+  const deposits=new Map(s.ledger.filter(e=>e.day<=end&&e.type==='receipt'&&e.note==='Client deposit').map(e=>[e.project,e.amount]));
+  return s.projects.filter(p=>p.created<=end).map(p=>{
+   const deposit=deposits.get(p.id)??0;
+   const log=[];
+   for(const e of p.log){
+    if(e.day>end)break;
+    const text=projectEventText(p,e.text,deposit);
+    if(text!==null)log.push([e.day,text]);
+   }
+   const facts=[p.id,p.demandId,p.clientId,p.serviceId,p.created,p.accepted<=end?p.accepted:null,p.accepted<=end?p.price:null,p.deliveredDay<=end?p.deliveredDay:null,log];
+   if(compareCurrent){
+    let terms=p.terms;
+    if(terms?.disruptions?.extendedPaymentDays&&deposit===p.price)terms={...terms,disruptions:{...terms.disruptions,extendedPaymentDays:0}};
+    facts.push(p.stage,p.work,p.entered,p.due,p.priority,p.approvalConfirmed||false,terms,p.paid,p.cost,p.designHours);
+   }
+   return facts;
+  });
+ };
  const sameDay=(h,original)=>original&&sameReplayValue(daily(h),daily(original))&&
   (original.externalArrivals===undefined||h.externalArrivals===original.externalArrivals&&sameReplayValue(h.unservedInquiries||[],original.unservedInquiries||[]));
- const currentWork=s=>s.projects.map(p=>[p.demandId,p.stage,p.work,p.entered,p.due,p.priority,p.approvalConfirmed||false,p.terms,p.paid,p.cost,p.designHours]);
  if(!sameDemand||!control.history.slice(0,end).every((h,i)=>sameDay(h,source.history[i]))||
-   !samePostings||!sameReplayValue(projects(control),projects(source))||
-   end===source.day&&end===control.day&&!sameReplayValue(currentWork(control),currentWork(source))){
+   !samePostings||!sameReplayValue(projects(control),projects(source))){
   throw Error('The unchanged replay did not reproduce the recorded month. Its saved history cannot support a one-change comparison.');
  }
 }
+function freshComparison(config,source){
+ const run=fresh(config);
+ for(const key of ORDER_RULE_STARTS)run[key]=source[key]??source.day+1;
+ return run;
+}
 function replayOpening(source){
- const opening=fresh(replayConfigAt(source,0));
+ const opening=freshComparison(replayConfigAt(source,0),source);
  if(source.launchEstimate)opening.launchEstimate={...source.launchEstimate};
  return opening;
 }
@@ -1144,7 +1363,8 @@ function capacityPairResult(control,variant,{month,key,before,value,demandId=nul
  let reason='';
  if(control.blocked||variant.blocked)reason='At least one replay paused for funding. Its figures stop at the last completed day.';
  else if(control.day!==endDay||variant.day!==endDay)reason='Both replays must reach the end of the same month to compare outcomes.';
- else if(!compareRuns(variant,control).flags.likeForLike)reason='Incoming demand did not match. The difference cannot be attributed to one change.';
+ else if(!sameOrderRules(variant,control,endDay))reason=ORDER_RULE_WARNING;
+ else if(!workloadComparison(variant,control).likeForLike)reason='Incoming demand did not match. The difference cannot be attributed to one change.';
  else{
   try{verifyCapacityPair(control,variant,firstDay,key,before,value);}
   catch(error){reason=error.message;}
@@ -1287,7 +1507,7 @@ function replayDecision(control,variant,firstDay,key,costs){
 // period boundary. The two schedules shared this opening work.
 function openingDesignerHours(control,day){
  try{
-  const opening=fresh(replayConfigAt(control,0)),session={actions:replayActions(control,day)};
+  const opening=replayOpening(control),session={actions:replayActions(control,day)};
   applyReplayActions(session,opening,false);
   while(opening.day<day){
    if(!step(opening))return null;
@@ -1376,7 +1596,8 @@ function capacityCarryPairResult(control,variant,descriptor){
  let reason='';
  if(baseline.blocked||alternative.blocked)reason='At least one run paused for funding. The payoff through day '+endDay+' is unknown.';
  else if(baseline.day!==endDay||alternative.day!==endDay)reason='Both runs must reach day '+endDay+' to compare the result.';
- else if(!compareRuns(variant,control).flags.likeForLike)reason='Incoming demand did not match through the end of the run.';
+ else if(!sameOrderRules(variant,control,endDay))reason=ORDER_RULE_WARNING;
+ else if(!workloadComparison(variant,control).likeForLike)reason='Incoming demand did not match through the end of the run.';
  else{
   try{
    verifyCapacityPair(control,variant,firstDay,key,before,value);
@@ -1448,7 +1669,8 @@ function startAcceptedProjection(baseline,alternative){
     [baseline,alternative].some(run=>run.blocked||run.day!==run.config.months*30)){
   throw Error('Finish both runs through the same configured horizon before projecting accepted work.');
  }
- if(!compareRuns(alternative,baseline).flags.likeForLike)throw Error('The projection requires a completed comparison with matching incoming demand.');
+ if(!sameOrderRules(alternative,baseline,baseline.day))throw Error(ORDER_RULE_WARNING);
+ if(!workloadComparison(alternative,baseline).likeForLike)throw Error('The projection requires a completed comparison with matching incoming demand.');
  const cutoffDay=baseline.day;
  const session={phase:'running',reason:'',cutoffDay,endDay:cutoffDay+360,sourceBaseline:baseline,sourceAlternative:alternative,
   baseline:clone(baseline),alternative:clone(alternative),opening:{baseline:projectionOpening(baseline),alternative:projectionOpening(alternative)},
@@ -1487,8 +1709,8 @@ function acceptedProjectionResult(session){
   profitDelta:settled?round(alternative.profit-baseline.profit):null};
 }
 function restore(input){return (root.MEIQQValidation||(typeof require==='function'?require('./validation.js'):null)).restore(input,api);}
-const api={ASSUMPTION_FIELDS,assumptionRecordValue,validAssumptionRecords,withCurrentAssumptionRecords,MODEL_VERSION,DEFAULT,DISRUPTION_RULES,RECIPE_V2,CUSTOMER_TYPES,STAGES,LABELS,clone,round,random,demandDraw,recipeFingerprint,validServiceSpec,validServiceFulfillment,validServiceCampaign,fresh,step,metrics,analytics,monthResult,estimate,estimateDemand,estimateWorkload,compareRuns,workCapacity,projectDiagnostic,bottleneck,orderedProjects,fund,intervene,configIssues,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};
-Object.assign(api,{clientDemandType,profileFor,clientDemandForecast,clientDemandActuals,effectiveCustomerMix,directExpenseKind,captureRunLaunch,runLaunchEstimate,runActualsThrough,runEstimateComparison,workloadComparison,recordedMonthClose,externalDemandSettings,visitExternalInquiries,validateReplayJournal,capacityReplaySetup,startCapacityReplay,stepCapacityReplay,capacityReplayResult,capacityPairResult,
+const api={freshComparison,depositAmount,projectEventText,changedOfferOrder,ASSUMPTION_FIELDS,assumptionRecordValue,validAssumptionRecords,withCurrentAssumptionRecords,MODEL_VERSION,DEFAULT,DISRUPTION_RULES,RECIPE_V2,CUSTOMER_TYPES,STAGES,LABELS,clone,round,random,demandDraw,recipeFingerprint,validServiceSpec,validServiceFulfillment,validServiceCampaign,fresh,step,metrics,analytics,monthResult,estimate,estimateDemand,estimateWorkload,compareRuns,workCapacity,projectDiagnostic,bottleneck,orderedProjects,fund,intervene,configIssues,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};
+Object.assign(api,{clientDemandType,profileFor,clientDemandForecast,clientDemandActuals,effectiveCustomerMix,deliveryCapacity,directExpenseKind,captureRunLaunch,runLaunchEstimate,runActualsThrough,runEstimateComparison,workloadComparison,recordedMonthClose,externalDemandSettings,visitExternalInquiries,validateReplayJournal,capacityReplaySetup,startCapacityReplay,stepCapacityReplay,capacityReplayResult,capacityPairResult,
  replayConfigAt,startCapacityCarry,stepCapacityCarry:stepCapacityReplay,capacityCarryResult,capacityCarryPairResult,
  startAcceptedProjection,stepAcceptedProjection,acceptedProjectionResult});
 root.QQ=api;if(typeof module!=='undefined')module.exports=api;

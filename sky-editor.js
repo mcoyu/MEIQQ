@@ -11,21 +11,34 @@
     humidity:['Humidity',0,100],drift:['Star drift',0,100],meteors:['Shooting star frequency',0,100]
   };
   const bounds=(layer,k)=>layer==='horizon'&&k==='y'?[76,100]:fields[k].slice(1);
-  function restore(){
+  function restore(raw){
     const clean=structuredClone(defaults);
     try{
-      const saved=JSON.parse(localStorage.getItem(key))||{};
+      const saved=JSON.parse(raw)||{};
       for(const [id,layer] of Object.entries(clean)) for(const k of Object.keys(layer)){
         const v=saved[id]?.[k];
         if(k==='visible'){if(typeof v==='boolean')layer[k]=v;}
-        else if(k==='type'){if(v==='auto'||Object.hasOwn(types,v))layer[k]=v;}
+        else if(k==='type'){if(typeof v==='string'&&(v==='auto'||Object.hasOwn(types,v)))layer[k]=v;}
         else if(Number.isFinite(v))layer[k]=clamp(v,...bounds(id,k));
       }
     }catch{/* Use the original composition if a local preference is unavailable. */}
     return clean;
   }
-  let settings=restore(),original,selected='west',opener,drag=null;
+  let saved=structuredClone(defaults),storedText;
+  function latestSaved(){
+    try{
+      const text=localStorage.getItem(key);
+      if(text!==storedText){saved=restore(text);storedText=text;}
+    }catch{/* Keep the session composition when storage is unavailable. */}
+    return saved;
+  }
+  let settings=structuredClone(latestSaved()),original,selected='west',opener,drag=null,resetAll=false;
   update(settings);
+  window.addEventListener('storage',e=>{
+    if((e.key===key||e.key===null)&&!dialog.open){
+      settings=structuredClone(latestSaved());update(settings);
+    }
+  });
   const t=s=>QQI18n.text(s);
   const panel=dialog.querySelector('.sky-controls');
   const fieldset=dialog.querySelector('.sky-fields');
@@ -61,6 +74,7 @@
   }
   function open(button){
     if(dialog.open)return;
+    settings=structuredClone(latestSaved());resetAll=false;
     original=structuredClone(settings);
     const preferences=button.closest('.sky-preferences');
     opener=preferences?.querySelector('summary')||button;
@@ -68,10 +82,10 @@
     for(const el of panel.querySelectorAll('[data-copy]'))el.textContent=t(el.dataset.copy);
     const select=panel.querySelector('select');
     select.innerHTML=Object.entries(layers).map(([id,label])=>'<option value="'+id+'">'+t(label)+'</option>').join('');
-    select.value=selected;showFields();dialog.showModal();select.focus();
+    select.value=selected;showFields();update(settings);dialog.showModal();select.focus();
   }
   document.addEventListener('click',e=>{const button=e.target.closest?.('[data-edit-sky]');if(button)open(button);});
-  panel.querySelector('select').addEventListener('change',e=>{selected=e.target.value;showFields();});
+  panel.querySelector('select').addEventListener('change',e=>{drag=null;selected=e.target.value;showFields();});
   fieldset.addEventListener('input',e=>{
     const k=e.target.name;if(!Object.hasOwn(settings[selected],k))return;
     if(k==='type')settings[selected].type=e.target.value;
@@ -80,12 +94,22 @@
   });
   panel.addEventListener('click',e=>{
     const action=e.target.closest('button')?.value;
-    if(action==='reset'){settings=structuredClone(defaults);showFields();update(settings);}
+    if(action==='reset'){drag=null;resetAll=true;settings=structuredClone(defaults);showFields();update(settings);}
     if(action==='cancel'){dialog.close('cancel');}
-    if(action==='save'){try{localStorage.setItem(key,JSON.stringify(settings));}catch{toast(t('Sky changes apply to this session.'));}dialog.close('save');}
+    if(action==='save'){
+      // Retain other windows' saved edits to fields untouched in this preview.
+      const next=structuredClone(latestSaved());
+      for(const [id,layer] of Object.entries(settings))for(const [k,value] of Object.entries(layer)){
+        if(resetAll||value!==original[id][k])next[id][k]=value;
+      }
+      saved=next;
+      try{const text=JSON.stringify(saved);localStorage.setItem(key,text);storedText=text;}
+      catch{toast(t('Sky changes apply to this session.'));}
+      dialog.close('save');
+    }
   });
   dialog.addEventListener('cancel',e=>{e.preventDefault();dialog.close('cancel');});
-  dialog.addEventListener('close',()=>{if(dialog.returnValue!=='save'){settings=original;update(settings);}drag=null;opener?.focus();});
+  dialog.addEventListener('close',()=>{if(dialog.open)return;settings=structuredClone(latestSaved());update(settings);drag=null;opener?.focus();});
   const viewport=dialog.querySelector('.sky-viewport');
   const point=e=>window.SunsetScene.layerPoint?.(selected,e.clientX/innerWidth,e.clientY/innerHeight)||[e.clientX/innerWidth,e.clientY/innerHeight];
   viewport.addEventListener('pointerdown',e=>{

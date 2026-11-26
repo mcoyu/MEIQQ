@@ -1,6 +1,9 @@
 'use strict';
 const $=s=>{const el=document.querySelector(s);return s==='#root'?patchableRoot(el):el;},esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const money=x=>QQI18n.language==='zh-CN'?QQI18n.yuan(x||0):new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(x||0),num=x=>Number(x||0).toFixed(1),pct=x=>Math.round(x*100)+'%';
+const currencyFormat=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',trailingZeroDisplay:'stripIfInteger'});
+const offerAmount=value=>Number.isFinite(value)?(QQI18n.language==='zh-CN'?QQI18n.yuan(value):currencyFormat.format(value)):'—';
+const quantityFormat=new Intl.NumberFormat('en-US',{useGrouping:false,minimumFractionDigits:1,maximumFractionDigits:2});
+const num=x=>Number.isFinite(x)?quantityFormat.format(x):'—',pct=x=>QQ.round(x*100)+'%';
 const icons={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',map:'M3 3h6v6H3z M15 15h6v6h-6z M15 3h6v6h-6z M6 9v9h9 M9 6h6',box:'M3 7l9-4 9 4v11l-9 4-9-4z M3 7l9 4 9-4 M12 11v11',chart:'M4 20V4 M4 20h17 M8 16v-4 M13 16V6 M18 16v-7',compare:'M5 3v18 M19 3v18 M5 7h9l-3-3 M14 7l-3 3 M19 17h-9l3-3 M10 17l3 3',settings:'M4 7h16 M4 17h16 M8 4v6 M16 14v6',play:'M8 5l11 7-11 7z',pause:'M8 5v14 M16 5v14',step:'M5 5l10 7-10 7z M19 5v14',reset:'M4 10a8 8 0 1 1 1 8 M4 4v6h6',branch:'M7 3v14a3 3 0 1 0 3 3 M7 7h7a3 3 0 0 0 3-3 M17 2v4',arrow:'M5 12h14 M14 7l5 5-5 5',plus:'M12 5v14 M5 12h14',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',upload:'M12 16V4 M7 9l5-5 5 5 M4 17v4h16v-4',info:'M12 10v7 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',people:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a7 7 0 0 1 14 0v2 M17 5a4 4 0 0 1 0 8 M19 16a5 5 0 0 1 3 5',user:'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',close:'M6 6l12 12 M18 6L6 18',clock:'M12 7v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',check:'M5 12l4 4L20 5',wallet:'M3 6h17v15H3z M3 6V3h14 M15 11h6v5h-6z',file:'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6'};
 const icon=k=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[k]||icons.map}"/></svg>`;
 const btn=(text,action,cls='',extra='')=>`<button class="${cls}" data-action="${action}" ${extra}>${text}</button>`;
@@ -48,7 +51,7 @@ function serviceCopy(service,key){
  return original?.[key]===value ? QQI18n.text(value) : value;
 }
 function serviceName(service){return esc(QQI18n.literal(serviceCopy(service,'name')));}
-function restaurantConfig(){return QQPresets.newWorkspaceConfig({...QQ.DEFAULT,name:RESTAURANT_EXAMPLE,fixedInquiriesEntered:false,services:QQServiceCatalog.starterServices()});}
+function restaurantConfig(){return QQPresets.newWorkspaceConfig({...QQ.DEFAULT,name:RESTAURANT_EXAMPLE,fixedInquiriesEntered:false,services:QQServiceCatalog.starterServices()},'restaurant');}
 let state=QQ.fresh(restaurantConfig()),saved=[],draft=QQ.clone(state.config),view='setup',stepIndex=0;
 let analyticsTab='overview',contractSearch='',contractFilter='all',contractSort='contribution',contractPage=0;
 const resultsMonths=new WeakMap();
@@ -110,7 +113,7 @@ const steps=['Offers','Demand','People','Cash & timing'];
 const DISRUPTION_LABELS={rushDeadlines:'Rush-event deadlines',supplierReprints:'Supplier reprints',repeatedRevisions:'Repeated client revisions',extendedLatePayments:'Payments 30–60 days late'};
 function disruptionInputs(){
  const helps={rushDeadlines:'Some accepted projects have a shorter event deadline.',supplierReprints:'Some print jobs need another paid print batch and supplier wait.',repeatedRevisions:'Some clients request multiple rounds, consuming design and review time.',extendedLatePayments:'Some final balances arrive 30–60 days after their contractual due date.'};
- return `<section class="advanced"><h3>Real-life disruptions</h3><p class="helper">Each enabled situation can occur on selected projects when uncertainty is on. Frequencies are documented modeling estimates. New agreements lock their settings.</p>${Object.entries(DISRUPTION_LABELS).map(([key,label])=>`<div>${checkbox(label,'disruptions.'+key,draft.disruptions?.[key]||false,helps[key])}${draft.disruptions?.[key]||setupRepairPath==='disruptionRates.'+key?field('Share affected · '+label,key,draft.disruptionRates?.[key]??QQ.DEFAULT.disruptionRates?.[key],{path:'disruptionRates.'+key,percent:true,max:100,suffix:'%',disabled:!draft.realism&&setupRepairPath!=='disruptionRates.'+key,help:!draft.realism||!draft.disruptions?.[key]?'Used only when this disruption is enabled.':'An inferred frequency; adjust as actual project history becomes available.'}):''}</div>`).join('')}</section>`;
+ return `<section class="advanced"><h3>Real-life disruptions</h3><p class="helper">Each enabled situation can occur on selected projects when uncertainty is on. Frequencies are documented modeling estimates. New agreements lock their settings.</p>${Object.entries(DISRUPTION_LABELS).map(([key,label])=>`<div>${checkbox(label,'disruptions.'+key,draft.disruptions?.[key]||false,helps[key])}${draft.disruptions?.[key]||setupRepairPath==='disruptionRates.'+key?field('Share affected · '+label,key,Object.hasOwn(draft.disruptionRates||{},key)?draft.disruptionRates[key]:QQ.DEFAULT.disruptionRates[key],{path:'disruptionRates.'+key,percent:true,max:100,suffix:'%',disabled:!draft.realism&&setupRepairPath!=='disruptionRates.'+key,help:!draft.realism||!draft.disruptions?.[key]?'Used only when this disruption is enabled.':'An inferred frequency; adjust as actual project history becomes available.'}):''}</div>`).join('')}</section>`;
 }
 const WORKFLOW_LANES=[
  {id:'clients',name:'Clients',helper:'Briefs, decisions and payment',icon:'people'},
@@ -136,9 +139,20 @@ const shortLabels=Object.fromEntries(Object.entries(WORKFLOW_STAGES).map(([id,v]
 const businessType=id=>QQ.profileFor(id)?.label;
 function draftRunConfig(source=draft){
  const services=source.services.filter(s=>!(s.customOffer===true&&s.weight===0));
- if(services.length===source.services.length&&!source.clientMenu)return QQ.withCurrentAssumptionRecords(source);
- const config={...source,services};
- delete config.clientMenu;
+ let config=source;
+ if(services.length!==source.services.length||source.clientMenu){
+  config={...source,services};delete config.clientMenu;
+ }
+ // A draft retains unfinished entries for both ways to generate inquiries.
+ // The run requires a valid configuration, but never uses the inactive method.
+ const inactive=source.acquisition==='sales'?['inquiries']:source.acquisition==='preset'?['outreachHours','leadsPerHour']:[];
+ if(inactive.some(key=>source[key]!==state.config[key])){
+  const issues=QQ.configIssues(config);
+  for(const key of inactive)if(issues.some(issue=>issue.path===key)){
+   if(config===source)config={...source};
+   config[key]=state.config[key];
+  }
+ }
  return QQ.withCurrentAssumptionRecords(config);
 }
 function issuesForDraft(source,config){
@@ -1090,9 +1104,11 @@ function setupEntrance(){
  const current=editingCurrentSetup(),savedStyle=setupEntryPath==='style',restaurant=setupEntryPath==='restaurant';
  const back=newScenarioRequested&&setupReturnView?btn('Keep editing','cancel-new-setup','setup-back'):routeLink('sky','← Live Sky','setup-back');
  const source=(id,label,selected)=>btn(label,'start-'+id,'source-choice',`aria-pressed="${selected}"`);
+ const mix=setupReturnView?QQPresets.MIXES.find(row=>row.id==='restaurant').mix:state.config.customerMix;
+ const restaurantIntro='This studio sells menu updates, table tents and monthly promotions.'+(mix?` It assumes ${mix.food}% of inquiries come from food businesses, ${mix.retail}% from retailers and ${mix.services}% from local services. You can change the mix in Demand.`:'');
  const origin=savedStyle?`<p class="setup-preservation">${scenarioName(draft.name||state.config.name)}</p>`:
    `<div class="entry-source"><span id="source-label">Start with</span><div role="group" aria-labelledby="source-label">${source('business','My own services',!restaurant)}${source('restaurant','Restaurant example',restaurant)}</div>
-    <p>${restaurant?'Three sample offers with example prices, workloads and demand.':'Enter the service you sell, its price and the time it takes.'}</p></div>`;
+    <p>${current?'Continue with your saved offers and assumptions.':restaurant?restaurantIntro:'Enter the service you sell, its price and the time it takes.'}</p></div>`;
  const note=!firstExamplePending()&&!current?'<p class="setup-preservation">Starting this scenario keeps your current work in Runs &amp; backups.</p>':'';
  return `<section class="setup-story setup-entry" data-render-key="setup-entry" aria-labelledby="sim-heading">${back}
   <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">Choose your setup style</h1></div>
@@ -1187,16 +1203,14 @@ function setupView(){
   <h1 class="chapter-title" id="sim-heading" tabindex="-1">${headings[stepIndex]}</h1>${content}<div class="step-footer">${stepIndex?btn('← Back','setup-step','','data-step="'+(stepIndex-1)+'"'):'<span></span>'}${nextAction}</div>
   </div></div></section><aside class="setup-summary" id="draft-summary" tabindex="-1" aria-label="Run estimate">${draftSummary()}${btn('↑ Back to inputs','setup-step','mobile-estimate estimate-return','data-step="'+stepIndex+'"')}</aside></div></div>`;
 }
-function serviceUnit(service){
+function standaloneServiceEstimate(service){
  const config={...QQ.DEFAULT,designerRate:draft.designerRate,ownerTarget:draft.ownerTarget,quoteHours:draft.quoteHours,deliveryHours:draft.deliveryHours,services:[{...service,weight:100}]};
  if(QQ.configIssues(config).length)return null;
- try{return QQ.estimate(config).services[0].perProject;}catch(e){return null;}
+ return QQ.estimate(config).services[0];
 }
+function serviceUnit(service){return standaloneServiceEstimate(service)?.perProject||null;}
 function serviceFulfillment(service,index,routes){
  if(!service.fulfillment)return '';
- if(routes===undefined&&serviceUnit(service)){
-  routes=QQ.estimate({...draft,months:1,services:[{...service,weight:100}]}).services[0].fulfillmentOptions;
- }
  const path=key=>`services.${index}.fulfillment.${key}`;
  const basis=key=>serviceInputBasis(service,'fulfillment.'+key);
  return `<section class="fulfillment-choice"><h3>Client print choices</h3>
@@ -1209,13 +1223,13 @@ function serviceFulfillment(service,index,routes){
 function serviceScope(service,catalogId=null){
  const spec=service.spec;if(!spec)return `<p class="helper">Custom offering · define the deliverable, work and supplier cost below.</p>`;
  const audit=QQServiceCatalog.auditService(service),range=spec.modeledPriceRange;
- return `<div class="service-scope"><h3>Original example scope</h3><div class="service-scope-heading"><b>${esc(spec.scope)}</b><span>${service.fulfillment?'Design with optional print batch':service.print>0?'Design + print batch':'Digital delivery'} · ${service.campaign?(service.campaign.cadenceDays===90?'Seasonal campaign':'Monthly campaign'):service.recurring?'Per paid cycle':'One-off'}</span></div><ul>${spec.deliverables.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${spec.printQuantity?`<p><b>${spec.printQuantity} ${esc(spec.printUnit||'pieces')}</b> · ${esc(spec.printSpec)}</p><p class="helper">${esc(spec.printCostBasis)} Quantity describes this package; changing the batch requires a new supplier estimate.</p>`:''}<p class="helper">${spec.includedRevisions} included feedback round${spec.includedRevisions===1?'':'s'} budgeted in the work estimate. Optional disruption rounds add work; no automatic extra fee is charged.</p><div class="service-scope-footer"><span>${range?'Modeled starting price '+money(range[0])+'–'+money(range[1]):'Custom price'}${audit.compatible===false?' · source version unavailable':''}</span>${btn('Price & scope evidence','service-evidence','small',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:""}`)}</div></div>`;
+ return `<div class="service-scope"><h3>Original example scope</h3><div class="service-scope-heading"><b>${esc(spec.scope)}</b><span>${service.fulfillment?'Design with optional print batch':service.print>0?'Design + print batch':'Digital delivery'} · ${service.campaign?(service.campaign.cadenceDays===90?'Seasonal campaign':'Monthly campaign'):service.recurring?'Per paid cycle':'One-off'}</span></div><ul>${spec.deliverables.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${spec.printQuantity?`<p><b>${spec.printQuantity} ${esc(spec.printUnit||'pieces')}</b> · ${esc(spec.printSpec)}</p><p class="helper">${esc(spec.printCostBasis)} Quantity describes this package; changing the batch requires a new supplier estimate.</p>`:''}<p class="helper">${spec.includedRevisions} included feedback round${spec.includedRevisions===1?'':'s'} budgeted in the work estimate. Optional disruption rounds add work; no automatic extra fee is charged.</p><div class="service-scope-footer"><span>${range?'Modeled starting price '+offerAmount(range[0])+'–'+offerAmount(range[1]):'Custom price'}${audit.compatible===false?' · source version unavailable':''}</span>${btn('Price & scope evidence','service-evidence','small',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:""}`)}</div></div>`;
 }
 function serviceEvidence(service,catalogId=null,pickerKey=null){
  const audit=QQServiceCatalog.auditService(service),spec=service.spec;
  const records=(audit.records||QQServiceCatalog.SOURCES.filter(v=>spec?.evidenceIds?.includes(v.id)));
  const basis=spec?.catalogId===QQServiceCatalog.OPPORTUNITY_CATALOG.id?'Fees and hours are editable planning estimates for the scope below. Linked sources document the workflow or supplier inputs.':'Published prices are comparables for the stated scope. Your customer price, work estimate and supplier allowance remain editable assumptions.';
- modal(`<h2 id="dialog-title">${serviceName(service)}: price and scope</h2><p>${basis}</p><p><b>Current ${service.fulfillment?'managed-print ':''}customer price: ${Number.isFinite(service.price)?money(service.price):'not entered'}</b>${service.fulfillment?` · files only: ${Number.isFinite(service.fulfillment.designOnlyPrice)?money(service.fulfillment.designOnlyPrice):'not entered'} · managed-print share: ${Number.isFinite(service.fulfillment.managedShare)?pct(service.fulfillment.managedShare):'not entered'}`:''}</p><p>${esc(spec?.scope||service.deliverable)}</p><p>${esc(typeof audit.derivation==='string'?audit.derivation:JSON.stringify(audit.derivation||{}))}</p>${audit.edited?.length?`<p class="banner warn">Customized fields: ${esc(audit.edited.join(', '))}. The frozen derivation describes the original package; your edited values drive the preview and run.</p>`:''}${audit.modelRecord?`<details class="source-records"><summary>Documented price derivation</summary><pre>${esc(JSON.stringify(audit.modelRecord,null,2))}</pre></details>`:''}${audit.compatible===false?'<p class="banner warn">This package version is unavailable. Your saved values are preserved; current sources cannot verify its original quote.</p>':''}<div class="source-records">${records.map(record=>`<article><h3>${esc(record.title||record.label||record.id)}</h3><p>${esc(record.caveat||record.scope||record.note||'')}</p>${record.url?`<a href="${esc(record.url)}" target="_blank" rel="noopener">Open published source</a>`:''}<small>Recorded ${esc(record.retrieved||record.retrievedAt||'see source record')}</small><pre>${esc(JSON.stringify(record.snapshot||record.observations||record,null,2))}</pre></article>`).join('')}</div><div class="actions">${pickerKey?btn('Back to selection','picker-details-back','',`data-key="${esc(pickerKey)}"`):catalogId?btn('Back to package','catalog-package','',`data-id="${esc(catalogId)}"`):btn('Close','close')}${btn('Download service evidence','download-service-evidence','soft',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:''} ${pickerKey?`data-picker-evidence="${esc(pickerKey)}"`:''}`)}</div>`);
+ modal(`<h2 id="dialog-title">${serviceName(service)}: price and scope</h2><p>${basis}</p><p><b>Current ${service.fulfillment?'managed-print ':''}customer price: ${Number.isFinite(service.price)?offerAmount(service.price):'not entered'}</b>${service.fulfillment?` · files only: ${Number.isFinite(service.fulfillment.designOnlyPrice)?offerAmount(service.fulfillment.designOnlyPrice):'not entered'} · managed-print share: ${Number.isFinite(service.fulfillment.managedShare)?pct(service.fulfillment.managedShare):'not entered'}`:''}</p><p>${esc(spec?.scope||service.deliverable)}</p><p>${esc(typeof audit.derivation==='string'?audit.derivation:JSON.stringify(audit.derivation||{}))}</p>${audit.edited?.length?`<p class="banner warn">Customized fields: ${esc(audit.edited.join(', '))}. The frozen derivation describes the original package; your edited values drive the preview and run.</p>`:''}${audit.modelRecord?`<details class="source-records"><summary>Documented price derivation</summary><pre>${esc(JSON.stringify(audit.modelRecord,null,2))}</pre></details>`:''}${audit.compatible===false?'<p class="banner warn">This package version is unavailable. Your saved values are preserved; current sources cannot verify its original quote.</p>':''}<div class="source-records">${records.map(record=>`<article><h3>${esc(record.title||record.label||record.id)}</h3><p>${esc(record.caveat||record.scope||record.note||'')}</p>${record.url?`<a href="${esc(record.url)}" target="_blank" rel="noopener">Open published source</a>`:''}<small>Recorded ${esc(record.retrieved||record.retrievedAt||'see source record')}</small><pre>${esc(JSON.stringify(record.snapshot||record.observations||record,null,2))}</pre></article>`).join('')}</div><div class="actions">${pickerKey?btn('Back to selection','picker-details-back','',`data-key="${esc(pickerKey)}"`):catalogId?btn('Back to package','catalog-package','',`data-id="${esc(catalogId)}"`):btn('Close','close')}${btn('Download service evidence','download-service-evidence','soft',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:''} ${pickerKey?`data-picker-evidence="${esc(pickerKey)}"`:''}`)}</div>`);
 }
 const offerGoals=[
  ['offer','Promote an offer'],['menu','Refresh a menu'],['visibility','Improve storefront visibility'],
@@ -1247,7 +1261,7 @@ function openOfferPicker(){
    const audit=saved?QQServiceCatalog.auditService(service):null;
    const goal=offerGoals.find(([id])=>id===entry.category)?.[1];
    const audience=offerAudiences.find(([id])=>id===service.audience)?.[1];
-   const words=[service.name,entry.name,goal,entry.goal,audience,service.deliverable,recommendation.buyer,recommendation.benefit,...entry.spec.deliverables].filter(Boolean);
+   const words=[service.name,entry.name,goal,entry.goal,audience,service.deliverable,service.filesOnlyScope,recommendation.buyer,recommendation.benefit,...entry.spec.deliverables].filter(Boolean);
    const search=normalizePackageSearch(words.flatMap(word=>[word,QQI18n.text(word)]).join(' '));
    rows.push({key,service,entry,recommendation,saved,search,customized:saved&&(!audit.compatible||audit.edited.length>0)});
   }
@@ -1268,6 +1282,23 @@ function offerPickerSummary(){
  const issue=exceedsLimit?'Your menu can hold up to 20 services.':total<1?'Keep at least one service in your menu.':onlyParked?'Keep at least one active offer or choose a replacement.':'';
  return {selectedText,pending,issue,canApply:Boolean(pending)&&!issue};
 }
+function offerDeliveryScope(service,mode){
+ const filesOnly=mode==='design-only'||(mode!=='agency-managed'&&service.fulfillment?.managedShare===0);
+ if(filesOnly){
+  const files=serviceCopy(service,'filesOnlyScope');
+  return files?esc(QQI18n.literal(files)):'Print-ready artwork and agreed digital files. The customer arranges printing.';
+ }
+ return esc(QQI18n.literal(serviceCopy(service,'deliverable')||''));
+}
+function offerPrintFees(service){
+ const {managedShare,designOnlyPrice}=service.fulfillment;
+ if(!Number.isFinite(managedShare)||managedShare<0||managedShare>1)return '<span>—</span>';
+ const row=(fee,label)=>`<span><strong>${Number.isFinite(fee)?offerAmount(QQ.round(fee)):'—'}</strong> <small>${label}</small></span>`;
+ const fees=[];
+ if(managedShare>0)fees.push(row(service.price,service.recurring?'Managed print per cycle':'With managed print'));
+ if(managedShare<1)fees.push(row(designOnlyPrice,service.recurring?'Files only per cycle':'Files only'));
+ return fees.join(' ');
+}
 function pickerPackageDetails(row){
  const {service,recommendation,key}=row;
  const scope=(title,body)=>`<div><dt>${title}</dt><dd>${body}</dd></div>`;
@@ -1275,11 +1306,12 @@ function pickerPackageDetails(row){
  return `<details class="offer-pick-more" id="details-${esc(key)}"><summary>Package details<span class="picker-sr"> · ${serviceName(service)}</span></summary>
  <div class="offer-pick-detail"><dl>
  ${scope('Who buys it',esc(recommendation.buyer))}${scope('What the client supplies',esc(recommendation.inputs))}
- ${row.customized?scope('Your deliverable',esc(QQI18n.literal(serviceCopy(service,'deliverable')))):''}
+ ${row.customized?scope('Your deliverable',offerDeliveryScope(service)):''}
  ${scope(row.customized?'Original package deliverables':'Included in the package',included)}${scope('Outside this scope',esc(recommendation.boundary))}
- ${scope('Work and costs',`<span>Production hours</span> · ${effortHours(service.hours)}<br><span>Owner review hours</span> · ${effortHours(service.review)}<br><span>Supplier allowance</span> · ${offerAmount(service.print)}`)}
- ${service.campaign?scope('Campaign schedule','Quoted every '+service.campaign.cadenceDays+' days for '+service.campaign.relationshipDays+' days.'):''}
- ${service.fulfillment?scope('Client print choices',`<span>Managed printing</span> · ${offerAmount(service.price)}<br><span>Files only</span> · ${offerAmount(service.fulfillment.designOnlyPrice)}`):''}
+ ${service.fulfillment?.managedShare>0&&service.fulfillment.managedShare<1?scope('Files-only deliverable',offerDeliveryScope(service,'design-only')):''}
+ ${scope('Work and costs',`<span>Production hours</span> · ${clientMenuNumber(service.hours,'hours')}<br><span>Owner review hours</span> · ${clientMenuNumber(service.review,'hours')}<br><span>${service.fulfillment&&service.fulfillment.managedShare>0?'Supplier allowance per managed batch':'Supplier allowance'}</span> · ${offerAmount(service.fulfillment?.managedShare===0?0:service.print)}`)}
+ ${service.campaign?scope('Campaign schedule',QQ.validServiceCampaign(service.campaign,service)?`Up to ${Math.floor(service.campaign.relationshipDays/service.campaign.cadenceDays)} separately quoted cycles over ${service.campaign.relationshipDays} days, planned ${service.campaign.cadenceDays} days apart. Accepted work must be delivered and paid before the next quote.`:'—'):''}
+ ${service.fulfillment?scope('Client print choices',offerPrintFees(service)):''}
  </dl>${btn('Price & scope evidence','picker-evidence','small',`id="evidence-${esc(key)}" data-key="${esc(key)}"`)}</div></details>`;
 }
 function visibleOfferRows(){
@@ -1295,15 +1327,13 @@ function serviceLibraryCards(rows=visibleOfferRows()){
  return rows.map(row=>{
   const {service:s,recommendation,key}=row,id='choose-'+key;
   const status=row.saved?(row.customized?'Customized in your menu':'In your menu')+(s.weight===0?' · Draft only (0% share)':''):'';
-  let priceLabel=s.fulfillment?'Managed-print model price':'Model price';
-  if(s.campaign)priceLabel=s.fulfillment?'Managed-print model price per cycle':'Model price per cycle';
-  if(row.customized)priceLabel=s.campaign?'Your price per cycle':'Your price';
+  const priceLabel=row.customized?(s.recurring?'Your price per cycle':'Your price'):(s.recurring?'Model price per cycle':'Model price');
   return `<article class="offer-pick-row"><div class="offer-pick-line"><label for="${esc(id)}">
   <input type="checkbox" id="${esc(id)}" data-picker-key="${esc(key)}" aria-describedby="fit-${esc(key)}" ${packageIsSelected(row)?'checked':''}>
   <span><strong>${serviceName(s)}</strong>${status?`<small class="offer-pick-status">${status}</small>`:''}</span></label>
-  <div class="offer-pick-rate"><strong>${offerAmount(s.price)}</strong><small>${priceLabel}</small></div>
+  <div class="offer-pick-rate">${s.fulfillment?offerPrintFees(s):`<strong>${offerAmount(s.price)}</strong><small>${priceLabel}</small>`}</div>
   <p id="fit-${esc(key)}">${esc(recommendation.benefit)}</p>
-  <small class="offer-pick-effort"><span>Production hours</span> · ${effortHours(s.hours)}</small>
+  <small class="offer-pick-effort"><span>Production hours</span> · ${clientMenuNumber(s.hours,'hours')}</small>
   </div>${pickerPackageDetails(row)}</article>`;
  }).join('');
 }
@@ -1356,7 +1386,7 @@ function restorePickerDetails(key){
 }
 function catalogEconomics(service){
  const unit=serviceUnit(service);if(!unit)return '<p class="banner warn">Enter a complete price and valid work assumptions to preview costs.</p>';
- return `<div class="service-economics"><div><span>Expected customer revenue</span><b>${money(unit.price)}</b></div><div><span>Designer labor</span><b>${money(unit.designerCost)}</b><small>${num(service.hours)} h × ${money(draft.designerRate)}/h</small></div><div><span>Expected supplier cost</span><b>${money(unit.printCost)}</b></div><div><span>After valuing owner time</span><b>${money(unit.afterOwnerTime)}</b></div></div>${service.fulfillment?`<p class="helper">Customer choice: ${money(service.price)} managed printing (${money(service.print)} supplier batch) or ${money(service.fulfillment.designOnlyPrice)} for files only. Preview assumes ${pct(service.fulfillment.managedShare)} choose managed printing; this is an unmeasured assumption you can change.</p>`:''}`;
+ return `<div class="service-economics"><div><span>Expected customer revenue</span><b>${offerAmount(unit.price)}</b></div><div><span>Designer labor</span><b>${offerAmount(unit.designerCost)}</b><small>${num(service.hours)} h × ${offerAmount(draft.designerRate)}/h</small></div><div><span>Expected supplier cost</span><b>${offerAmount(unit.printCost)}</b></div><div><span>After valuing owner time</span><b>${offerAmount(unit.afterOwnerTime)}</b></div></div>${service.fulfillment?`<p class="helper">Customer choice: ${offerAmount(service.price)} managed printing (${offerAmount(service.print)} supplier batch) or ${offerAmount(service.fulfillment.designOnlyPrice)} for files only. Preview assumes ${pct(service.fulfillment.managedShare)} choose managed printing; this is an unmeasured assumption you can change.</p>`:''}`;
 }
 function catalogCandidate(id){
  const s=QQServiceCatalog.createService(id),raw=catalogPrices.get(id);if(raw!==undefined)s.price=raw.trim()===''?null:Number(raw);return s;
@@ -1365,8 +1395,12 @@ function evidenceService(id,catalogId){
  const service=catalogId?catalogCandidate(catalogId):draft.services.find(s=>s.id===id);if(!service)throw Error('Service not found.');return service;
 }
 function catalogPackage(id){
- pendingCatalogId=id;const s=catalogCandidate(id),unit=serviceUnit(s),capacity=unit?Math.min(unit.designerHours?draft.designers*draft.designerHours/unit.designerHours:Infinity,unit.ownerHours?Math.max(0,draft.ownerHours-(draft.acquisition==='sales'?draft.outreachHours:0))/unit.ownerHours:Infinity):null;
- modal(`<h2 id="dialog-title">${serviceName(s)}</h2>${serviceScope(s,id)}<label class="input-field" for="catalog-price">Your proposed ${s.fulfillment?'managed-print ':''}customer price ($)<input id="catalog-price"${QQI18n.moneyField('$')} type="number" min="${s.fulfillment?.designOnlyPrice||0}" max="1000000" step="5" value="${esc(catalogPrices.get(id)??String(s.price))}"></label><div id="catalog-economics">${catalogEconomics(s)}</div><p class="helper">${Number.isFinite(capacity)?num(capacity)+' projects/week maximum if this were your only offering. ':''}Before overhead, queue delays, unsuccessful quoting and extra revisions.</p><p class="helper">Adds at 0% inquiry share so it does not change your workload until you assign a share.</p><div class="actions">${btn('Back to library','service-library')}${btn('Add to my draft','confirm-catalog-service','primary')}</div>`);
+ pendingCatalogId=id;const s=catalogCandidate(id),unit=serviceUnit(s);
+ const neededHours=[];
+ if(unit?.designerHours)neededHours.push('designers','designerHours');
+ if(unit?.ownerHours){neededHours.push('ownerHours','acquisition');if(draft.acquisition==='sales')neededHours.push('outreachHours');}
+ const capacity=unit&&!draftValidationIssues().some(issue=>neededHours.includes(issue.path))?Math.min(unit.designerHours?draft.designers*draft.designerHours/unit.designerHours:Infinity,unit.ownerHours?Math.max(0,draft.ownerHours-(draft.acquisition==='sales'?draft.outreachHours:0))/unit.ownerHours:Infinity):null;
+ modal(`<h2 id="dialog-title">${serviceName(s)}</h2>${serviceScope(s,id)}<label class="input-field" for="catalog-price">Your proposed ${s.fulfillment?'managed-print ':''}customer price ($)<input id="catalog-price"${QQI18n.moneyField('$')} type="number" min="${s.fulfillment?.designOnlyPrice||0}" max="1000000" step="0.01" value="${esc(catalogPrices.get(id)??String(s.price))}"></label><div id="catalog-economics">${catalogEconomics(s)}</div><p class="helper">${Number.isFinite(capacity)?num(capacity)+' projects/week maximum if this were your only offering. ':''}Before overhead, queue delays, unsuccessful quoting and extra revisions.</p><p class="helper">Adds at 0% inquiry share so it does not change your workload until you assign a share.</p><div class="actions">${btn('Back to library','service-library')}${btn('Add to my draft','confirm-catalog-service','primary')}</div>`);
 }
 function clearServiceRecords(id){
  if(!draft.assumptionRecords)return;
@@ -1390,6 +1424,9 @@ function originalOfferPackage(service){
  return spec&&QQServiceCatalog.SERVICES.find(row=>row.id===spec.packageId&&row.spec.catalogId===spec.catalogId&&row.spec.version===spec.version);
 }
 function catalogPackageId(service){return originalOfferPackage(service)?.id||null;}
+function fitsClientMenu(service,profile){
+ return !service.audience||service.audience==='all'||service.audience===profile.audience;
+}
 function currentClientMenu(config=draft,allowPartial=false){
  const savedMenu=config.clientMenu;
  if(!savedMenu||!Array.isArray(savedMenu.serviceIds))return null;
@@ -1397,7 +1434,7 @@ function currentClientMenu(config=draft,allowPartial=false){
  const serviceIds=savedMenu.serviceIds;
  if(!profile||serviceIds.length!==profile.slots.length||new Set(serviceIds).size!==serviceIds.length)return null;
  const packageIds=serviceIds.map((id,i)=>{
-  const offer=config.services.find(s=>s.id===id&&s.weight>0);
+  const offer=config.services.find(s=>s.id===id&&s.weight>0&&fitsClientMenu(s,profile));
   const packageId=catalogPackageId(offer);
   return profile.slots[i].options.some(o=>o.id===packageId)?packageId:null;
  });
@@ -1415,7 +1452,7 @@ function draftWithClientMenu(config,source){
  // when the recorded offers identify one unambiguous service in every role.
  const profile=QQServiceCatalog.CLIENT_MENUS.find(menu=>menu.id===config.clientDemand?.profileId);
  if(profile){
-  const roles=profile.slots.map(slot=>restored.services.filter(s=>s.weight>0&&slot.options.some(o=>o.id===catalogPackageId(s))));
+  const roles=profile.slots.map(slot=>restored.services.filter(s=>s.weight>0&&fitsClientMenu(s,profile)&&slot.options.some(o=>o.id===catalogPackageId(s))));
   if(roles.every(matches=>matches.length===1)){
    const clientMenu={profileId:profile.id,serviceIds:roles.map(([s])=>s.id)};
    if(currentClientMenu({...restored,clientMenu}))restored.clientMenu=clientMenu;
@@ -1444,10 +1481,10 @@ function clientMenuCandidate(profile,packageIds,retainOtherOffers=true){
     !menu.slots.every((slot,i)=>slot.options.some(option=>option.id===packageIds[i]))||new Set(packageIds).size!==packageIds.length){
   result.error='Choose one different offer for each role.';return result;
  }
- const linked=currentClientMenu(config),sameProfile=linked?.profile.id===menu.id;
+ const linked=currentClientMenu(config,true),sameProfile=linked?.profile.id===menu.id;
  const reserved=new Set(),include=new Set();
  const selected=packageIds.map(packageId=>{
-  const matches=previous.filter(s=>catalogPackageId(s)===packageId);
+  const matches=previous.filter(s=>catalogPackageId(s)===packageId&&fitsClientMenu(s,menu));
   const linkedId=sameProfile?linked.serviceIds[linked.packageIds.indexOf(packageId)]:null;
   const active=matches.filter(s=>s.weight>0);
   // In particular, keep the user's named/edited copy when an unedited copy
@@ -1465,7 +1502,7 @@ function clientMenuCandidate(profile,packageIds,retainOtherOffers=true){
  const selectedIds=new Set(selected.map(s=>s.id));
  const starter=pristineOfferStarter(config),retired=new Set();
  if(sameProfile)linked.serviceIds.forEach((id,index)=>{
-  if(selectedIds.has(id))return;
+  if(!id||selectedIds.has(id))return;
   retired.add(id);
   // Preserve the inquiries previously assigned to this role. If its
   // successor was already active elsewhere, consolidate both shares.
@@ -1496,6 +1533,7 @@ function clientMenuProjection(source){
  const config=draftRunConfig(source),issues=issuesForDraft(source,config);
  const estimate=issues.length?null:QQ.estimate(config);
  return {valid:!issues.length,issues,days:validRunLength(config.months)?config.months*30:null,
+  capacity:estimate?QQ.deliveryCapacity(config,estimate):null,overhead:estimate?QQ.round(config.overhead)*config.months:null,
   profit:estimate?.profit??null,orders:estimate?.orders??null,productionHours:estimate?.hours??null,ownerHours:estimate?.owner??null,
   surplus:estimate?.surplus??null,revenue:estimate?.revenue??null,unserved:estimate?.unserved??null,unservedShare:estimate?.unservedShare??null,
   productionCapacity:estimate?.designCapacity??null,ownerCapacity:estimate?.ownerCapacity??null};
@@ -1647,10 +1685,31 @@ function addCatalogService(id,price){
  appendCatalogService(id,price);closeModal();render();document.querySelector('#input-services-'+expandedService+'-name')?.focus();
 }
 function priceExperiment(index){
- const s=draft.services[index],unit=serviceUnit(s);if(!unit)throw Error('Complete the service work and cost inputs first.');
- const audit=QQServiceCatalog.auditService(s),typical=audit.compatible?audit.catalogService.price:s.price,range=s.spec?.modeledPriceRange||[QQ.round(s.price*.85),QQ.round(s.price*1.15)];
- const rows=[['Current',s.price],['Lower starting price',Math.max(range[0],s.fulfillment?.designOnlyPrice||0)],[audit.compatible?'Catalog starting price':'Current custom price',Math.max(typical,s.fulfillment?.designOnlyPrice||0)],['Higher starting price',Math.max(range[1],s.fulfillment?.designOnlyPrice||0)]];
- modal(`<h2 id="dialog-title">Experiment with ${serviceName(s)}</h2><p>Keep the same scope and workload while comparing prices. Changing price does not automatically change inquiry volume or acceptance; test those assumptions separately.</p><div class="tablewrap"><table><thead><tr><th>Price case</th><th>Managed / offered price</th><th>Expected direct cost</th><th>Contribution</th><th>After owner time</th><th></th></tr></thead><tbody>${rows.map(([label,price],n)=>{const candidate=serviceUnit({...s,price});return `<tr><th>${label}</th><td>${money(price)}</td><td>${candidate?money(candidate.directCost):'—'}</td><td>${candidate?money(candidate.contribution):'—'}</td><td class="${candidate&&candidate.afterOwnerTime<0?'negative':''}">${candidate?money(candidate.afterOwnerTime):'—'}</td><td>${n&&candidate?btn('Use '+money(price),'use-service-price','small',`data-index="${index}" data-price="${price}"`):n?'Outside valid range':'Current draft'}</td></tr>`;}).join('')}</tbody></table></div><p class="helper">With customer print choice, results are weighted across both routes; the design-only fee stays fixed. Direct cost = designer labor + the supplier batch allowance. Owner time includes one quote, review and delivery; shared overhead and additional work are excluded.</p><div class="actions">${btn('Keep current price','close')}</div>`);
+ const service=draft.services[index],unit=serviceUnit(service);
+ if(!unit)throw Error('Complete the service work and cost inputs first.');
+ const filesOnly=service.fulfillment?.managedShare===0;
+ const current=filesOnly?service.fulfillment.designOnlyPrice:service.price;
+ const catalog=QQServiceCatalog.auditService(service);
+ const base=filesOnly?catalog.catalogService?.fulfillment?.designOnlyPrice:catalog.catalogService?.price;
+ const range=!filesOnly&&service.spec?.modeledPriceRange||[QQ.round(current*.85),QQ.round(current*1.15)];
+ const minimum=filesOnly?0:(service.fulfillment?.designOnlyPrice||0),maximum=filesOnly?service.price:1e6;
+ const candidates=[[catalog.compatible?'Current':'Current custom price',current],[filesOnly||!service.spec?'15% below current fee':'Low end of catalog range',range[0]],
+  ['Catalog starting price',catalog.compatible?base:null],[filesOnly||!service.spec?'15% above current fee':'High end of catalog range',range[1]]];
+ const seen=new Set();
+ const rows=candidates.map(([label,price])=>{
+  if(!Number.isFinite(price)||seen.has(price))return '';
+  if(price<minimum||price>maximum)return `<tr><th>${label}</th><td>${offerAmount(price)}</td><td colspan="4">Outside valid range</td></tr>`;
+  seen.add(price);
+  const offer=filesOnly?{...service,fulfillment:{...service.fulfillment,designOnlyPrice:price}}:{...service,price};
+  const candidate=serviceUnit(offer);
+  if(!candidate)return '';
+  const action=price===current?'Current draft':btn('Use '+offerAmount(price),'use-service-price','small',`data-index="${index}" data-price="${price}" data-route="${filesOnly?'files':'offered'}"`);
+  return `<tr><th>${label}</th><td>${offerAmount(price)}</td><td>${offerAmount(candidate.directCost)}</td><td>${offerAmount(candidate.contribution)}</td><td class="${candidate.afterOwnerTime<0?'negative':''}">${offerAmount(candidate.afterOwnerTime)}</td><td>${action}</td></tr>`;
+ }).join('');
+ const rate=draft.conversion;
+ const acceptance=Number.isFinite(rate)&&rate>=0&&rate<=1?`<p><span>Assumed share of first quotes accepted</span> <strong>${inquiryShare(rate)}</strong></p>`:'';
+ const printNote=filesOnly?'Customers arrange all printing. These alternatives change the files-only fee.':service.fulfillment?'With customer print choice, results are weighted across both routes; the design-only fee stays fixed.':'';
+ modal(`<h2 id="dialog-title">Experiment with ${serviceName(service)}</h2><p>Keep the same scope and workload while comparing prices. Changing price does not automatically change inquiry volume or acceptance; test those assumptions separately.</p>${acceptance}<div class="tablewrap"><table><thead><tr><th>Price case</th><th>${filesOnly?'Files-only fee':'Managed / offered price'}</th><th>Expected direct cost</th><th>Contribution</th><th>After owner time</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><p class="helper">${printNote?`<span>${printNote}</span> `:''}<span>Direct costs include designer labor and printing. Owner time includes one quote, review and delivery.</span></p><div class="actions">${btn('Keep current price','close')}</div>`);
 }
 let clientMenuBuilder=null;
 function openClientMenuBuilder(){
@@ -1692,7 +1751,10 @@ function clientMenuNumber(value,unit){
  if(!Number.isFinite(value))return '—';
  if(unit==='money')return offerAmount(value);
  if(unit==='matched')return inquiryShare(1-value);
- const figure=new Intl.NumberFormat(QQI18n.language,{maximumFractionDigits:1}).format(value);
+ const precision=unit==='hours'?2:1;
+ const format=new Intl.NumberFormat(QQI18n.language,{maximumFractionDigits:precision});
+ const rounded=format.format(value);
+ const figure=value>0&&rounded===format.format(0)?'&lt;'+format.format(10**-precision):rounded;
  return unit==='hours'?figure+(QQI18n.language==='zh-CN'?' 小时':' h'):figure;
 }
 function clientMenuDifference(value){
@@ -1705,8 +1767,9 @@ function clientMenuOffer(candidate,index,id){
  return candidate.config?.services.find(s=>s.id===serviceId)||QQServiceCatalog.SERVICES.find(s=>s.id===id);
 }
 function clientMenuFee(service){
+ if(service.fulfillment)return offerPrintFees(service);
  if(service.price==null)return '<span>Price needed</span>';
- const label=service.fulfillment?(service.campaign?'Managed print per cycle':'With managed print'):(service.campaign?'Per cycle':'Per project');
+ const label=service.recurring?'Per cycle':'Per project';
  return `<span>${offerAmount(service.price)}</span> <small>${label}</small>`;
 }
 function clientMenuAlternatives(profile,ids,index,shown){
@@ -1722,7 +1785,7 @@ function clientMenuAlternatives(profile,ids,index,shown){
   return `<button class="cm-alternative" type="button" data-action="swap-menu-offer" data-slot="${index}" data-id="${option.id}" aria-pressed="${checked}"${checked?' aria-current="true"':''}>
    <span class="cm-radio" aria-hidden="true"></span><span class="cm-option-content"><strong>${serviceName(service)}</strong>
    <span>${esc(option.why)}</span><span class="cm-option-facts">${clientMenuFee(service)} <i>·</i> ${clientMenuNumber(service.hours,'hours')}${draft.customerMix&&service.audience==='all'?' <i>·</i> <span>All client groups</span>':''}</span>
-   ${checked?'<small>Selected</small>':effect!=null?`<small><span>Run result change</span> ${clientMenuDifference(effect)}</small>${coverage}`:n===0?'<small>Recommended offer</small>':''}</span></button>`;
+   ${checked?'<small>Selected</small>':effect!=null?`<small><span>Change if all expected new orders ship</span> ${clientMenuDifference(effect)}</small>${coverage}`:n===0?'<small>Recommended offer</small>':''}</span></button>`;
  }).join('')}</div>`;
 }
 function clientMenuSlots(profile,ids,candidate,proposed){
@@ -1740,7 +1803,7 @@ function clientMenuReview(candidate){
  const slotIds=new Set(candidate.config?.clientMenu?.serviceIds||[]);
  const retained=candidate.retained.filter(s=>!slotIds.has(s.id));
  const removed=candidate.removed.filter(s=>!(candidate.pristineRemoved&&s.id===pristineOfferStarter(draft)?.id));
- const bound=currentClientMenu(draft);
+ const bound=currentClientMenu(draft,true);
  const boundIds=new Set(bound?.profile.id===clientMenuBuilder.profile.id?bound.serviceIds:[]);
  const others=retained.length||removed.some(s=>!boundIds.has(s.id));
  if(!others&&!removed.length)return '';
@@ -1751,14 +1814,22 @@ function clientMenuReview(candidate){
   ${removed.length?`<div class="cm-removals"><strong>Leaves your menu on Apply</strong><ul>${names(removed)}</ul></div>`:''}
  </section>`;
 }
+function menuCapacityNotice(capacity){
+ const heading=DELIVERY_CAPACITY_HEADINGS[capacity?.status];
+ if(!heading)return '';
+ return `<p class="cm-capacity"><strong>${heading}</strong> ${deliveryCapacityReasons(capacity).map(reason=>`<span>${reason}</span>`).join(' ')}</p>`;
+}
 function clientMenuEstimate(projection,reference,referenceLabel,current,comparePossible,baseline,config){
  const profile=clientMenuBuilder.profile;
  const title=projection.days?projection.days+'-day estimate':'Run estimate';
  const difference=reference?.valid&&projection.valid?QQ.round(projection.profit-reference.profit):null;
- const metrics=[['Inquiries matched','unservedShare','matched'],['Expected first orders','orders','count'],['Production hours','productionHours','hours'],['Owner hours','ownerHours','hours'],['After owner time','surplus','money']];
+ const metrics=[['Inquiries matched','unservedShare','matched'],['Expected first orders','orders','count'],['Production hours','productionHours','hours'],['Owner hours','ownerHours','hours'],['After owner time if all orders ship','surplus','money']];
  const tabs=[['current','Current menu',current.valid],['recommended','Recommended menu',baseline.valid]];
  const customerGroup={food:'Food businesses',retail:'Retail businesses',services:'Local services'}[profile.audience];
  const groupShare=config.customerMix||config.clientDemand?.share>0?QQ.effectiveCustomerMix(config)?.[profile.audience]:null;
+ const targetedShare=config.clientDemand?.profileId===profile.id?config.clientDemand.share:0;
+ const status=projection.capacity?.status;
+ const noDeliveries=status==='blocked'||status==='no-orders';
  const labor=[];
  if(projection.valid&&projection.productionHours>projection.productionCapacity+.01)labor.push('<span>Production capacity exceeded by</span> '+clientMenuNumber(projection.productionHours-projection.productionCapacity,'hours'));
  if(projection.valid&&projection.ownerHours>projection.ownerCapacity+.01)labor.push('<span>Owner capacity exceeded by</span> '+clientMenuNumber(projection.ownerHours-projection.ownerCapacity,'hours'));
@@ -1766,15 +1837,17 @@ function clientMenuEstimate(projection,reference,referenceLabel,current,compareP
  const startingMenu=!current.valid&&reference===projection;
  const reads=startingMenu?`<dl class="cm-starting-metrics">${metrics.map(([label,key,unit])=>`<div><dt>${label}</dt><dd>${clientMenuNumber(projection[key],unit)}</dd></div>`).join('')}</dl>`:
   `<table><thead><tr><th><span class="picker-sr">Estimate measure</span></th><th scope="col">${referenceLabel}</th><th scope="col">Proposed menu</th></tr></thead>
-   <tbody>${[['Operating result','profit','money'],...metrics].map(([label,key,unit])=>`<tr><th scope="row">${label}</th><td>${clientMenuNumber(reference?.valid?reference[key]:null,unit)}</td><td>${clientMenuNumber(projection[key],unit)}</td></tr>`).join('')}</tbody></table>`;
+   <tbody>${[['Operating result if all expected new orders ship','profit','money'],...metrics].map(([label,key,unit])=>`<tr><th scope="row">${label}</th><td>${clientMenuNumber(reference?.valid?reference[key]:null,unit)}</td><td>${clientMenuNumber(projection[key],unit)}</td></tr>`).join('')}</tbody></table>`;
  return `<aside class="cm-estimate" id="client-menu-estimate" tabindex="-1"><h3>${title}</h3>
-  ${projection.valid?`<div class="cm-result"><span>Operating result</span><strong>${offerAmount(projection.profit)}</strong>
-  ${difference!==null&&!startingMenu?`<small class="cm-difference"><b>${clientMenuDifference(difference)}</b> <span>${referenceLabel==='Current menu'?'vs. current menu':'vs. recommended menu'}</span></small>`:''}</div>
+  ${projection.valid?`${menuCapacityNotice(projection.capacity)}<div class="cm-result">${noDeliveries?`<span>Revenue from new deliveries</span><strong>${offerAmount(0)}</strong><small><span>Scheduled overhead</span> · ${offerAmount(projection.overhead)}</small>`:
+    `<span>Operating result if all expected new orders ship</span><strong>${offerAmount(projection.profit)}</strong>`}
+  ${!noDeliveries&&difference!==null&&!startingMenu?`<small class="cm-difference"><b>${clientMenuDifference(difference)}</b> <span>${referenceLabel==='Current menu'?'vs. current menu':'vs. recommended menu'}</span></small>`:''}</div>
   ${controls}
   ${reads}
   ${!current.valid?`<p class="cm-note">${startingMenu?'Swap an offer to compare it with this starting estimate.':'Your current setup is incomplete. The recommended menu is the starting comparison.'}</p>`:''}
   ${labor.length?`<p class="cm-capacity">${labor.join('<br>')}</p>`:''}
   <p class="cm-note">${Number.isFinite(groupShare)?`<span>${customerGroup}</span> · <span>${groupShare}% of incoming inquiries</span>`:'Your setup uses a single pool of inquiries.'}</p>
+  <p class="cm-note"><span>Targeted outreach to this client</span> · ${targetedShare}%</p>
   <details class="cm-method"><summary>Estimate assumptions</summary>
   <p>Each offer is quoted separately. This estimate uses first orders over the run period, before repeat campaigns or delivery delays.</p></details>`:
   `<div class="cm-incomplete"><b>Estimate needs more inputs</b><p>${esc(issueText(projection.issues?.[0])||'Complete the missing setup inputs to see the run estimate.')}</p><p>You can apply this menu and finish your inputs in setup.</p></div>`}
@@ -1793,7 +1866,8 @@ function clientMenuWorkspace(){
  const reference=useCurrent?current:recommended,referenceLabel=useCurrent?'Current menu':'Recommended menu';
  const changed=b.lastSwap;
  const focusChange=changed?.profile===profile.id&&Number.isFinite(changed.from)&&proposed.valid?clientMenuDifference(proposed.profit-changed.from):null;
- const result=proposed.valid?offerAmount(proposed.profit):'—';
+ const noDeliveries=proposed.capacity?.status==='blocked'||proposed.capacity?.status==='no-orders';
+ const result=proposed.valid?offerAmount(noDeliveries?0:proposed.profit):'—';
  const departures=candidate.removed.length-(candidate.pristineRemoved?1:0);
  const reviewLabel=departures?(departures===1?'Review 1 removal':'Review '+departures+' removals'):candidate.error?'Review existing offers':'';
  const reviewLink=reviewLabel?btn(reviewLabel,'menu-review-existing','cm-review-link','aria-controls="cm-existing-title"'):'';
@@ -1805,8 +1879,8 @@ function clientMenuWorkspace(){
    ${candidate.error?`<aside class="cm-estimate" id="client-menu-estimate" tabindex="-1"><h3>Run estimate</h3><p class="cm-incomplete">${esc(candidate.error)}</p></aside>`:clientMenuEstimate(proposed,reference,referenceLabel,current,current.valid&&recommended.valid,recommended,candidate.config)}
   </div></div>
   <footer class="cm-footer"><div class="cm-feedback" aria-live="polite" aria-atomic="true">
-   ${candidate.error?`<span>${esc(candidate.error)}</span>`:focusChange!==null?`<span>Last swap</span> <b>${focusChange}</b> <span>in operating result</span>`:candidate.changed?'<span>Ready to apply to your setup</span>':'<span>This menu matches your setup.</span>'}${reviewLink}</div>
-   <button type="button" class="cm-mobile-estimate" data-action="menu-view-estimate"><span>Run estimate</span><strong>${result}</strong><i aria-hidden="true">↗</i></button>
+   ${candidate.error?`<span>${esc(candidate.error)}</span>`:focusChange!==null?`<span>Last swap</span> <b>${focusChange}</b> <span>if all expected new orders ship</span>`:candidate.changed?'<span>Ready to apply to your setup</span>':'<span>This menu matches your setup.</span>'}${reviewLink}</div>
+   <button type="button" class="cm-mobile-estimate" data-action="menu-view-estimate"><span>${noDeliveries?'Revenue from new deliveries':'If all expected new orders ship'}</span><strong>${result}</strong><i aria-hidden="true">↗</i></button>
    <div class="cm-actions">${btn('Cancel','close')}${btn('Apply menu','apply-client-menu','primary',`id="apply-client-menu" ${candidate.error||!candidate.changed?'disabled':''}`)}</div></footer>`;
 }
 function renderClientMenu(focusId,keepPosition=false){
@@ -1822,22 +1896,33 @@ function renderClientMenu(focusId,keepPosition=false){
  if(target){target.focus({preventScroll:true});if(focusId.startsWith('cm-client-')||focusId.startsWith('cm-swap-'))target.scrollIntoView({block:'nearest',inline:'nearest'});}
 }
 
-function starterDialog(){
- modal(`<h2 id="dialog-title">Start with a focused service mix</h2><p>Each starter set has complementary services and explicit inquiry shares. Adding keeps your current mix; replacing requires review.</p><div class="starter-grid">${QQServiceCatalog.BUNDLES.map(b=>`<article class="catalog-card"><h3>${esc(b.name)}</h3><p>${esc(b.note||b.description||'')}</p><ul>${QQServiceCatalog.starterServices(b.id).map(s=>`<li>${serviceName(s)} · ${money(s.price)} · ${s.weight}%</li>`).join('')}</ul><div class="actions">${btn('Add services','add-starter','soft',`data-id="${esc(b.id)}"`)}${btn('Replace offerings…','review-starter','small',`data-id="${esc(b.id)}"`)}</div></article>`).join('')}</div><div class="actions">${btn('Close','close')}</div>`);
+function starterOffers(id,missingOnly=false){
+ const present=new Set(missingOnly?draft.services.map(catalogPackageId):[]);
+ const offers=QQServiceCatalog.starterServices(id).filter(s=>!present.has(catalogPackageId(s)));
+ if(!draft.customerMix)for(const service of offers)service.audience='all';
+ return offers;
 }
-const serviceDollars=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',trailingZeroDisplay:'stripIfInteger'});
-const offerAmount=value=>Number.isFinite(value)?(QQI18n.language==='zh-CN'?QQI18n.yuan(value):serviceDollars.format(value)):'—';
+function starterDialog(){
+ const cards=QQServiceCatalog.BUNDLES.map(bundle=>{
+  const offers=starterOffers(bundle.id),missing=starterOffers(bundle.id,true).length;
+  const add=btn(missing?'Add missing offers':'All offers already in menu','add-starter','soft',`data-id="${esc(bundle.id)}"${missing?'':' disabled'}`);
+  const replace=btn('Replace offerings…','review-starter','small',`data-id="${esc(bundle.id)}"`);
+  return `<article class="catalog-card"><h3>${esc(bundle.name)}</h3><p>${esc(bundle.note||bundle.description||'')}</p><ul>${offers.map(s=>`<li>${serviceName(s)} · ${clientMenuFee(s)} · ${s.weight}%</li>`).join('')}</ul><div class="actions">${add}${replace}</div></article>`;
+ });
+ modal(`<h2 id="dialog-title">Start with a focused service mix</h2><p>Replace your mix to use the suggested weights, or add missing offers at 0% and set their weights later.</p><div class="starter-grid">${cards.join('')}</div><div class="actions">${btn('Close','close')}</div>`);
+}
 const inquiryShare=value=>QQ.round(value*100)+'%';
 
 function serviceEditor(s,i,row,standalone){
  const path=key=>'services.'+i+'.'+key;
  const input=(label,key,options={})=>field(label,key,options.text?serviceCopy(s,key):s[key],{...options,path:path(key)});
- const unit=row?.perProject||serviceUnit(s);
- const routes=row?.fulfillmentOptions;
+ const estimate=row||standaloneServiceEstimate(s);
+ const unit=estimate?.perProject;
+ const routes=estimate?.fulfillmentOptions;
  const basis=key=>serviceInputBasis(s,key);
  const priceLabel=s.fulfillment?'Managed-print price':'Client price';
  const title=s.name.trim()?serviceName(s):'New service';
- const summary=`<summary id="offer-edit-${s.id}"><span class="offer-heading"><strong>${title}</strong>${s.deliverable?`<span>${esc(QQI18n.literal(serviceCopy(s,'deliverable')))}</span>`:''}</span><span class="offer-rate">${s.price==null?'Set price':offerAmount(s.price)}${s.fulfillment?' managed':''}</span><span class="offer-edit-label"><span class="when-closed">Edit</span><span class="when-open">Close</span></span><span class="disclosure-chevron" aria-hidden="true"></span></summary>`;
+ const summary=`<summary id="offer-edit-${s.id}"><span class="offer-heading"><strong>${title}</strong>${s.deliverable||s.fulfillment?.managedShare===0?`<span>${offerDeliveryScope(s)}</span>`:''}</span><span class="offer-rate">${s.fulfillment?offerPrintFees(s):s.price==null?'Set price':offerAmount(s.price)}</span><span class="offer-edit-label"><span class="when-closed">Edit</span><span class="when-open">Close</span></span><span class="disclosure-chevron" aria-hidden="true"></span></summary>`;
  const supplierMode=s.supplierMode||(s.print>0?'print':'none');
  const supplier=s.fulfillment?'':field('Print supplier','supplierMode',supplierMode,{path:path('supplierMode'),options:[...(s.supplierMode==='choose'?[['choose','Choose a route…']]:[]),['none','No supplier purchase'],['print','We arrange printing']]});
  const costField=s.fulfillment||supplierMode==='print'?input('Printing + shipping cost','print',{step:0.01,suffix:'$ / batch',help:basis('print')+' · total for one project, including any freight.'}):'';
@@ -1863,7 +1948,7 @@ function serviceEditor(s,i,row,standalone){
   <p class="helper">Before shared overhead, outreach, unsuccessful quotes and extra disruption work.</p></details>`:'';
  const totals=row?`<details class="guided-options" data-disclosure="offer-month-${s.id}"><summary>Expected over ${draft.months*30} days</summary><div class="advanced-body service-economics">
   <div><span>Orders</span><b>${num(row.orders)}</b></div><div><span>Potential revenue</span><b>${offerAmount(row.revenue)}</b></div><div><span>Direct cost</span><b>${offerAmount(row.directCost)}</b></div><div><span>Contribution</span><b>${offerAmount(row.contribution)}</b></div>
-  <div><span>Design capacity</span><b>${pct(row.designCapacityShare)}</b></div><div><span>Your service capacity</span><b>${pct(row.ownerCapacityShare)}</b></div></div></details>`:'';
+  <div><span>Design capacity</span><b>${Number.isFinite(row.designCapacityShare)?pct(row.designCapacityShare):'No design time is available.'}</b></div><div><span>Your service capacity</span><b>${Number.isFinite(row.ownerCapacityShare)?pct(row.ownerCapacityShare):'No owner time remains for project work.'}</b></div></div></details>`:'';
  const more=`${advanced}${economics}${totals}${evidenceControls('service',s.id)}
   <div class="service-actions">${btn('Compare prices','price-experiment','soft',`data-index="${i}" ${unit?'':'disabled'}`)}${btn('Duplicate','duplicate','small',`data-index="${i}"`)}</div>`;
  if(standalone){
@@ -1882,6 +1967,16 @@ function serviceEditor(s,i,row,standalone){
   </div></details>${tools}</article>`;
 }
 
+let editedMixOffer=null;
+function weightsAround(offer){
+ if(!offer||!draft.services.includes(offer)||!Number.isFinite(offer.weight)||offer.weight<0||offer.weight>100)return null;
+ const others=draft.services.filter(s=>s!==offer);
+ if(others.some(s=>!Number.isFinite(s.weight)||s.weight<0||s.weight>100))return null;
+ const remaining=QQ.round(100-offer.weight);
+ const active=others.filter(s=>s.weight>0).length;
+ if(!active||(remaining>0&&Math.round(remaining*100)<active))return null;
+ return allocatedOfferWeights(others,new Set(),remaining);
+}
 function inquiryMix(rows,estimate){
  const total=QQ.round(draft.services.reduce((a,s)=>a+(s.weight||0),0)),gap=QQ.round(100-total);
  const included=draft.services.filter(s=>s.weight!==0);
@@ -1893,7 +1988,8 @@ function inquiryMix(rows,estimate){
   const share=row?inquiryShare(row.effectiveShare):s.weight===0?'0%':null;
   const canFill=gap!==0&&(s.weight??0)+gap>=0&&(s.weight??0)+gap<=100;
   if(canFill)recipients.push(`<option value="${i}">${title}</option>`);
-  return `<div class="inquiry-row" role="group" aria-labelledby="mix-label-${s.id}" data-render-key="mix-${s.id}"><div><strong id="mix-label-${s.id}">${title}</strong><small>${groups[s.audience||'all']}${share?' · '+share+' of all new inquiries':''}</small></div>
+  const rebalance=gap&&s===editedMixOffer&&weightsAround(s)?btn('Keep this weight and rebalance the others','rebalance-other-weights','small',`data-id="${s.id}"`):'';
+  return `<div class="inquiry-row" role="group" aria-labelledby="mix-label-${s.id}" data-render-key="mix-${s.id}"><div><strong id="mix-label-${s.id}">${title}</strong><small>${groups[s.audience||'all']}${share?' · '+share+' of all new inquiries':''}</small>${rebalance}</div>
    ${field('Inquiry weight','weight',s.weight,{path:'services.'+i+'.weight',max:100,step:.01,suffix:'%'})}
    </div>`;
  }).join('');
@@ -1986,7 +2082,7 @@ function demandRatioCalculator(profileId){
  const calc=demandCalculation(profileId);
  const field=(key,label,min)=>`<label for="client-demand-count-${key}"><span>${label}</span><input id="client-demand-count-${key}" type="number" inputmode="numeric" step="1" min="${min}" value="${esc(calc[key])}" aria-describedby="client-demand-count-feedback"></label>`;
  return `<details class="demand-ratio" data-disclosure="demand-ratio-${esc(profileId)}"><summary>Calculate from my inquiry counts</summary><div><p>Use qualified inquiries recorded over the same period.</p>
-  <div class="demand-ratio-fields">${field('target','From this client',0)}${field('total','Total inquiries',1)}${btn('Use these counts','apply-client-demand-counts','small')}</div>
+  <div class="demand-ratio-fields">${field('target','From targeted outreach to this client',0)}${field('total','Total inquiries',1)}${btn('Use these counts','apply-client-demand-counts','small')}</div>
   <p id="client-demand-count-feedback" role="status" class="${calc.error?'demand-error':''}">${esc(calc.error||calc.applied)}</p></div></details>`;
 }
 function demandMixEffect(config,counts,issues,share,quantity){
@@ -2002,7 +2098,7 @@ function demandMixEffect(config,counts,issues,share,quantity){
  if(!base)return {estimate,delta,note:'Complete the setup inputs to see the operating result.'};
  if(!delta)return {estimate,delta,note:'At this share, the total matching inquiries and operating result stay the same.'};
  const designer=e=>e.hours*config.designerRate;
- const supplier=e=>e.expense-designer(e)-config.overhead*config.months;
+ const supplier=e=>e.expense-designer(e)-QQ.round(config.overhead)*config.months;
  const costs=[
   {label:'Potential revenue',before:base.revenue,after:estimate.revenue},
   {label:'Designer labor',before:designer(base),after:designer(estimate)},
@@ -2016,10 +2112,14 @@ function clientDemandPanel(config,counts,issues,days,quantity){
  const {menu,profile,saved}=demandAudience();
  if(!profile)return `<section id="client-demand-panel" class="demand-prompt"><div><h2>Who do you want to reach?</h2><p>Choose a client menu to plan outreach and estimate how many inquiries it could bring.</p></div>${demandMenuLink(false)}</section>`;
  const forecast=QQ.clientDemandForecast(config,issues),share=forecast.share??0;
+ const shareInvalid=forecast.share===null;
+ const enteredShare=shareInvalid?(config.clientDemand?.share??''):share;
  const original=rerunFieldOrigin('clientDemand.share');
  const originalHelp=original?' client-demand-origin':'';
  const switchTarget=menu&&saved&&saved.id!==menu.profile.id;
  const effect=demandMixEffect(config,counts,issues,share,quantity);
+ const capacity=effect.estimate&&QQ.deliveryCapacity(config,effect.estimate);
+ const noDeliveries=capacity?.status==='blocked'||capacity?.status==='no-orders';
  const metric=(key,label,value)=>`<div><dt>${label}</dt><dd data-client-demand-metric="${key}">${value}</dd></div>`;
  const figure=value=>Number.isFinite(value)?quantity(value):'—';
  return `<section id="client-demand-panel" class="demand-audience" aria-labelledby="demand-audience-title">
@@ -2028,12 +2128,14 @@ function clientDemandPanel(config,counts,issues,days,quantity){
  <div class="demand-audience-body">
  <section class="demand-share" aria-labelledby="demand-share-title"><h3 id="demand-share-title">How much demand will you target?</h3><p id="client-demand-help">Set the share of all new inquiries you expect from outreach to this client. The rest follow your usual customer mix.</p>
  <div class="demand-share-controls"><div class="demand-range"><input type="range" id="client-demand-range" min="0" max="100" step="1" value="${share}" aria-label="Target share of new inquiries" aria-valuetext="${share}%" aria-describedby="client-demand-help${originalHelp}"><div aria-hidden="true"><span>0%</span><span>100%</span></div></div>
- <label for="client-demand-share" class="demand-share-value"><span class="sr-only">Target share of new inquiries</span><input type="number" inputmode="numeric" id="client-demand-share" data-input="clientDemand.share" min="0" max="100" step="1" value="${share}" aria-describedby="client-demand-help client-demand-error${originalHelp}"><span aria-hidden="true">%</span></label></div>
- ${original?`<small class="rerun-origin" id="client-demand-origin"><span>Original value</span> <b>${esc(original)}</b></small>`:''}<p id="client-demand-error" class="demand-error" role="status"></p>${demandRatioCalculator(profile.id)}</section>
+ <label for="client-demand-share" class="demand-share-value"><span class="sr-only">Target share of new inquiries</span><input type="number" inputmode="numeric" id="client-demand-share" data-input="clientDemand.share" min="0" max="100" step="1" value="${esc(enteredShare)}"${shareInvalid?' aria-invalid="true"':''} aria-describedby="client-demand-help client-demand-error${originalHelp}"><span aria-hidden="true">%</span></label></div>
+ ${original?`<small class="rerun-origin" id="client-demand-origin"><span>Original value</span> <b>${esc(original)}</b></small>`:''}<p id="client-demand-error" class="demand-error" role="status">${shareInvalid?'Enter a whole percentage from 0 to 100.':''}</p>${demandRatioCalculator(profile.id)}</section>
  <section class="demand-client-estimate" aria-labelledby="demand-forecast-title"><h3 id="demand-forecast-title">${days?'Expected over '+days+' days':'Expected over the run'}</h3>
  <dl class="demand-split">${metric('targeted','From targeted outreach',figure(forecast.targeted))}${metric('other','Other inquiries',figure(forecast.other))}${metric('matched','Target inquiries with an offer',figure(forecast.matched))}${metric('orders','First orders from outreach',figure(forecast.orders))}</dl>
- <dl class="demand-result">${metric('result','Operating result',effect.estimate?setupResultAmount(effect.estimate.profit):'—')}${metric('delta','Change from 0% targeted',clientMenuDifference(effect.delta))}</dl>
- <p data-client-demand-driver>${effect.note}</p>
+ ${menuCapacityNotice(capacity)}
+ <dl class="demand-result">${noDeliveries?metric('result','Revenue from new deliveries',offerAmount(0))+metric('overhead','Scheduled overhead',offerAmount(QQ.round(config.overhead)*config.months)):
+  metric('result','Operating result if all expected new orders ship',effect.estimate?setupResultAmount(effect.estimate.profit):'—')+metric('delta','Change from 0% targeted',clientMenuDifference(effect.delta))}</dl>
+ ${noDeliveries?'':`<p data-client-demand-driver>${effect.note}</p>`}
  ${saved&&share>0?btn('Reset targeted share','clear-client-demand','demand-reset'):''}</section>
  ${demandReach(profile,menu)}</div></section>`;
 }
@@ -2044,7 +2146,7 @@ function customerInputs(){
  const quantity=value=>value===null?'—':value>0&&value<.01?'&lt;0.01':QQ.round(value).toLocaleString(QQI18n.language);
  const readout=(label,value)=>decisionMetric(label,quantity(value));
  const source=field('How do inquiries arrive?','acquisition',c.acquisition,{options:[['sales','Estimate from outreach'],['preset','Enter monthly inquiries']]});
- // A saved invalid value can need repair even while its mode is inactive.
+ // An explicit result link can point to the other demand method in a revised draft.
  const show=(path,active)=>active||setupRepairPath===path;
  const observed=show('inquiries',fixed)?field('New inquiries each month','inquiries',c.inquiries,{max:500,suffix:'requests',step:0.01,help:fixed?'Use your typical number of qualified inquiries per 30 days.':'Used only in fixed-volume mode.'}):'';
  const outreach=show('outreachHours',!fixed)?field('Your weekly outreach time','outreachHours',c.outreachHours,{max:120,step:0.5,suffix:'hours / week',help:fixed?'Used only in outreach mode.':'Uses part of your total weekly availability.'}):'';
@@ -2085,64 +2187,64 @@ function teamInputs(){
  const c=draft,issues=draftValidationIssues();
  const valid=(...paths)=>paths.every(path=>Number.isFinite(c[path])&&!issues.some(issue=>issue.path===path));
  const capacity=QQ.workCapacity(c),fixed=c.acquisition==='preset';
- const ownerKnown=valid('ownerHours')&&(fixed||c.acquisition==='sales'&&valid('outreachHours'));
- const clientWeek=ownerKnown?capacity.owner*5:null;
+ const ownerKnown=valid('ownerHours')&&(fixed||c.acquisition==='sales'&&(c.ownerHours===0||valid('outreachHours')));
+ const clientWeek=ownerKnown?(c.ownerHours===0?0:capacity.owner*5):null;
  const outreachWeek=fixed?0:ownerKnown?Math.max(0,c.ownerHours-clientWeek):null;
- const designWeek=valid('designers','designerHours')?capacity.design*5:null;
+ const noDesignTime=(valid('designers')&&c.designers===0)||(valid('designerHours')&&c.designerHours===0);
+ const designWeek=noDesignTime?0:valid('designers','designerHours')?capacity.design*5:null;
  const estimate=issues.length?QQ.estimateWorkload(draftRunConfig()):getDraftEstimate();
  const weeks=estimate.workdays/5;
  const clientNeed=estimate.owner===null?null:(estimate.owner-estimate.outreach)/weeks;
  const designNeed=estimate.hours===null?null:estimate.hours/weeks;
- const designCost=estimate.hours!==null&&valid('designerRate')?estimate.hours*c.designerRate:null;
+ const designCost=estimate.hours===0?0:estimate.hours!==null&&valid('designerRate')?estimate.hours*c.designerRate:null;
  const hours=value=>Number.isFinite(value)?effortHours(value)+' h':'—';
  const ownerHelp=fixed?'With fixed inquiry volume, the simulator assigns your full working week to client work.':'The simulator reserves outreach time from Demand first. The remaining hours cover quotes, reviews and delivery.';
  const outreachMeter=ownerKnown&&c.ownerHours>0&&!fixed?`<meter class="decision-meter" aria-label="Weekly owner time reserved for outreach" min="0" max="${c.ownerHours}" value="${outreachWeek}"></meter>`:'';
  const ownerNotes=[];
  if(clientNeed!==null){
-  if(valid('ownerTarget'))ownerNotes.push(`<span>Value of your expected time over the run</span> <strong>${offerAmount(estimate.owner*c.ownerTarget)}</strong>`);
-  if(clientWeek!==null&&clientNeed>clientWeek+1e-8)ownerNotes.push('Average client work exceeds your available hours.');
+  if(valid('ownerTarget'))ownerNotes.push(`<span>Value of owner time for the expected workload</span> <strong>${offerAmount(estimate.owner*c.ownerTarget)}</strong>`);
+  if(clientWeek>0&&clientNeed>clientWeek+1e-8)ownerNotes.push('Average client work exceeds your available hours.');
  }
+ if(clientWeek===0&&(clientNeed===null||clientNeed>0))ownerNotes.push('Jobs that need your time for a quote, review or handoff must wait.');
  const designNotes=[];
  if(designNeed!==null){
   if(designWeek!==null){
    const gap=designNeed-designWeek,short=gap>1e-8;
    designNotes.push(`<span>${short?'Additional design time needed / week':'Spare design time / week'}</span> <strong>${hours(Math.abs(gap)<1e-8?0:Math.abs(gap))}</strong>`);
-   if(short)designNotes.push('Expected design work exceeds team capacity. Some work can remain unfinished.');
+   if(short&&designWeek>0)designNotes.push('Expected design work exceeds team capacity. Some work can remain unfinished.');
   }
-  designNotes.push('Estimated labor assumes delivery of all expected new orders. The run charges for hours worked.');
+  if(designWeek!==0)designNotes.push('Designers are paid for hours worked, including work on unfinished jobs.');
  }else{
-  if(designWeek!==null&&valid('designerRate'))designNotes.push(`<span>One week at full design capacity would cost</span> <strong>${offerAmount(designWeek*c.designerRate)}</strong>.`);
+  if(designWeek>0&&valid('designerRate'))designNotes.push(`<span>One week at full design capacity would cost</span> <strong>${offerAmount(designWeek*c.designerRate)}</strong>.`);
   designNotes.push('The workload and labor estimate appear when the remaining inputs are ready.');
  }
+ if(designWeek===0&&(designNeed===null||designNeed>0))designNotes.push('Jobs that require design hours must wait for a designer.');
  const owner=`<section class="assumption-section"><h2>Set your working week</h2><p class="decision-note">${ownerHelp}</p>
   <div class="formgrid essentials-grid">${field('Your available time','ownerHours',c.ownerHours,{max:120,step:.5,suffix:'hours / week'})}
-  ${field('Value of your time','ownerTarget',c.ownerTarget,{max:1000,suffix:'$ / hour',help:'Used to calculate the result after owner time.'})}</div>
+  ${field('Value of your time','ownerTarget',c.ownerTarget,{max:1000,step:.01,suffix:'$ / hour',help:'Used to calculate the result after owner time.'})}</div>
   <div class="decision-readout"><dl>${decisionMetric('Outreach / week',hours(outreachWeek))}${decisionMetric('Available for clients / week',hours(clientWeek))}${decisionMetric('Average client work / week',hours(clientNeed))}</dl>${outreachMeter}${ownerNotes.map(n=>`<p>${n}</p>`).join('')}</div></section>`;
  const design=`<section class="assumption-section"><h2>Staff the design work</h2><p class="decision-note">Each project can use one designer’s hours per day. Additional designers can work on other projects in parallel.</p>
   <div class="formgrid essentials-grid">${field('Number of designers','designers',c.designers,{max:50,suffix:'people'})}
   ${field('Availability of each designer','designerHours',c.designerHours,{max:120,step:.5,suffix:'hours / week'})}
-  ${field('Designer labor cost','designerRate',c.designerRate,{max:1000,step:.5,suffix:'$ / hour',help:inputBasis('designerRate')})}</div>
+  ${field('Designer labor cost','designerRate',c.designerRate,{max:1000,step:.01,suffix:'$ / hour',help:inputBasis('designerRate')})}</div>
   <div class="decision-readout"><dl>${decisionMetric('Design capacity / week',hours(designWeek))}${decisionMetric('Average design work / week',hours(designNeed))}
-  ${decisionMetric('Design labor over the run',offerAmount(designCost))}</dl>${designNotes.map(n=>`<p>${n}</p>`).join('')}</div></section>`;
+  ${designWeek===0?decisionMetric('Design labor charged at zero capacity',offerAmount(0)):''}
+  ${decisionMetric('Design cost if all expected orders ship',offerAmount(designCost))}</dl>${designNotes.map(n=>`<p>${n}</p>`).join('')}</div></section>`;
  const advanced=`<div class="formgrid">${field('Your work to prepare a quote','quoteHours',c.quoteHours,{max:24,step:.1,suffix:'hours / inquiry'})}
   ${field('Your work to deliver a project','deliveryHours',c.deliveryHours,{max:24,step:.1,suffix:'hours / delivery'})}
   ${field('When work is waiting, handle…','priority',c.priority,{options:[['deadline','Earliest deadline first'],['fifo','Oldest project first']],help:'Sets the order in which waiting projects receive time during the run.'})}</div>`;
  return owner+design+advancedBlock('team','Owner-time and queue assumptions',advanced)+evidenceControls('people');
 }
 // Keep partial cash previews usable while unrelated offers or inputs are unfinished.
-function cashQuoteExample(issues){
- for(const [index,service] of draft.services.entries()){
-  const path='services.'+index;
-  if(!(service.weight>0)||!Number.isFinite(service.price)||issues.some(i=>i.path===path+'.weight'||i.path===path+'.price'||i.path.startsWith(path+'.fulfillment')))continue;
-  let price=service.price,route='';
-  if(service.fulfillment){
-   const filesOnly=service.fulfillment.managedShare<.5;
-   price=filesOnly?service.fulfillment.designOnlyPrice:service.price;
-   route=filesOnly?'Files only':'Managed printing';
-  }
-  return {name:typeof service.name==='string'&&service.name.trim()?serviceName(service):'Your service',price:QQ.round(price),route};
- }
- return null;
+function cashOfferRoutes(service){
+ const printed=QQ.round(service.print)>0;
+ const price=Number.isFinite(service.price)?QQ.round(service.price):null;
+ if(!service.fulfillment)return [{printed,price}];
+ const {managedShare,designOnlyPrice}=service.fulfillment;
+ const routes=[];
+ if(managedShare>0)routes.push({printed,price,label:'Managed printing'});
+ if(managedShare<1)routes.push({printed:false,price:Number.isFinite(designOnlyPrice)?QQ.round(designOnlyPrice):null,label:'Files only'});
+ return routes;
 }
 function cashInputs(){
  const c=draft,issues=draftValidationIssues();
@@ -2154,18 +2256,31 @@ function cashInputs(){
  const total=charge!==null&&validRunLength(c.months)?QQ.round(charge*c.months):null;
  const leadDays=c.leadDays===undefined?QQ.DEFAULT.leadDays:c.leadDays;
  const validLead=Number.isInteger(leadDays)&&!issues.some(issue=>issue.path==='leadDays');
- const example=cashQuoteExample(issues),depositValid=valid('deposit');
- const paid=example&&depositValid?QQ.round(example.price*c.deposit):null;
- const balance=paid!==null?QQ.round(example.price-paid):null;
+ const mix=QQ.effectiveCustomerMix(c);
+ const eligible=c.services.filter(service=>service.weight>0&&mix&&(!service.audience||service.audience==='all'||mix.unsegmented>0||mix[service.audience]>0));
+ const example=eligible.find(service=>{
+  const path='services.'+c.services.indexOf(service);
+  return Number.isFinite(service.price)&&!issues.some(i=>i.path===path+'.price'||i.path===path+'.weight'||i.path.startsWith(path+'.fulfillment'));
+ });
+ const depositValid=valid('deposit');
+ const legacyDeposit=editingRerun&&(state.depositRoundingFromDay??state.day+1)>1;
+ const quoteDeposit=price=>QQ.depositAmount(price,c.deposit,legacyDeposit);
  const paymentShare=f=>QQ.round(f*100)+'%';
- const upfrontValue=example?offerAmount(paid):depositValid?paymentShare(c.deposit):'—';
- const finalValue=example?offerAmount(balance):depositValid?paymentShare(1-c.deposit):'—';
- const prepaid=balance===0||c.deposit===1;
- const dueLabel=prepaid||!valid('paymentDays')?'Final balance':c.paymentDays===0?'Due on delivery':c.paymentDays===1?'Due 1 day after delivery':'Due '+c.paymentDays+' days after delivery';
+ const routes=example?cashOfferRoutes(example):[];
+ const paymentsFor=(price,label)=>{
+  const priced=Number.isFinite(price),paid=priced&&depositValid?quoteDeposit(price):null;
+  const balance=paid===null?null:QQ.round(price-paid);
+  const dueLabel=balance===0||c.deposit===1||!valid('paymentDays')?'Final balance':c.paymentDays===0?'Due on delivery':c.paymentDays===1?'Due 1 day after delivery':'Due '+c.paymentDays+' days after delivery';
+  const upfrontValue=priced?offerAmount(paid):depositValid?paymentShare(c.deposit):'—';
+  const finalValue=priced?offerAmount(balance):depositValid?paymentShare(1-c.deposit):'—';
+  const name=example?.name?.trim()?serviceName(example):'Your service';
+  const basis=priced?`<span>One accepted quote</span> · <strong>${name}</strong>${label?' · <span>'+label+'</span>':''} · ${offerAmount(price)}`:
+   !mix?'Complete the customer mix to see an example quote.':eligible.length?'Add an offer price to see the payment amounts.':'No active offer matches these buyers.';
+  return `<p>${basis}</p><dl>${decisionMetric('At acceptance',upfrontValue)}${decisionMetric(dueLabel,finalValue)}</dl>`;
+ };
  const splitMeter=depositValid?`<meter class="decision-meter" aria-label="Deposit share" min="0" max="100" value="${QQ.round(c.deposit*100)}">${paymentShare(c.deposit)}</meter>`:'';
- const priceBasis=example?`<span>One accepted quote</span> · <strong>${example.name}</strong>${example.route?' · <span>'+example.route+'</span>':''} · ${offerAmount(example.price)}`:'Add an offer price to see the payment amounts.';
  let dueNote='';
- if(prepaid)dueNote='No balance remains after acceptance.';
+ if(c.deposit===1||depositValid&&routes.length&&routes.every(route=>Number.isFinite(route.price)&&route.price===quoteDeposit(route.price)))dueNote='No balance remains after acceptance.';
  else if(!depositValid||!validLead||!valid('paymentDays'))dueNote='Enter the deposit, delivery target and payment terms to see the collection schedule.';
  else{
   const days=leadDays+c.paymentDays;
@@ -2174,20 +2289,24 @@ function cashInputs(){
  const baseWait=validLead&&valid('approvalDays')?leadDays-c.approvalDays:null;
  const printWindow=baseWait!==null&&valid('printDays')?baseWait-c.printDays:null;
  const windowText=value=>value===null?'—':value<0?dayCount(-value)+' short':dayCount(value);
+ const activeRoutes=eligible.filter(service=>Number.isFinite(service.print)).flatMap(cashOfferRoutes);
+ const windows=[];
+ if(activeRoutes.some(route=>!route.printed))windows.push(decisionMetric('Files-only work window',windowText(baseWait)));
+ if(activeRoutes.some(route=>route.printed))windows.push(decisionMetric('Printed work window',windowText(printWindow)));
  const reserve=`<section class="assumption-section"><h2>Opening cash and overhead</h2><div class="formgrid essentials-grid">
-  ${field('Starting cash','startingCash',c.startingCash,{max:1e8,suffix:'$',help:state.day&&!editingRerun?'Requires a new run. Use Add funding for current cash.':'Cash available on day 0.'})}
-  ${field('Software and other overhead','overhead',c.overhead,{max:1e7,suffix:'$ / month'})}</div>
+  ${field('Starting cash','startingCash',c.startingCash,{max:1e8,step:.01,suffix:'$',help:state.day&&!editingRerun?'Requires a new run. Use Add funding for current cash.':'Cash available on day 0.'})}
+  ${field('Software and other overhead','overhead',c.overhead,{max:1e7,step:.01,suffix:'$ / month'})}</div>
   <div class="decision-readout"><dl>${decisionMetric(shortfall?'Needed for the first charge':'Cash after the first charge',offerAmount(remaining===null?null:Math.abs(remaining)))}${decisionMetric('Overhead over the run',offerAmount(total))}</dl>
   <p>${shortfall?'A new run pauses on day 1 until this shortfall is funded.':'In a new run, overhead is charged on day 1 and every 30 days thereafter, before new work starts.'}</p></div></section>`;
  const payments=`<section class="assumption-section"><h2>Client payment terms</h2><p class="decision-note">Choose how much to collect at acceptance and when the rest falls due. The run records revenue on delivery.</p><div class="formgrid essentials-grid">
   ${field('Client deposit','deposit',c.deposit,{percent:true,max:100,suffix:'%'})}
   ${field('Final balance due after delivery','paymentDays',c.paymentDays,{max:90,suffix:'calendar days'})}</div>
-  <div class="decision-readout"><p>${priceBasis}</p><dl>${decisionMetric('At acceptance',upfrontValue)}${decisionMetric(dueLabel,finalValue)}</dl>${splitMeter}</div></section>`;
+  <div class="decision-readout">${routes.length?routes.map(route=>paymentsFor(route.price,route.label)).join(''):paymentsFor(null,'')}${splitMeter}</div></section>`;
  const delivery=`<section class="assumption-section"><h2>Delivery promise</h2><div class="formgrid essentials-grid">
   ${field('Promise delivery within','leadDays',leadDays,{min:1,max:180,suffix:'calendar days',help:'Measured from acceptance of the quote.'})}
   ${field('Client approval time','approvalDays',c.approvalDays,{max:30,suffix:'calendar days'})}
   ${field('Print supplier turnaround','printDays',c.printDays,{max:90,suffix:'calendar days'})}</div>
-  <div class="decision-readout"><p>Time left for design, review and delivery after the base waits.</p><dl>${decisionMetric('Files-only work window',windowText(baseWait))}${decisionMetric('Printed work window',windowText(printWindow))}</dl><p><span>${dueNote}</span> <span>Queues and delays can shift the actual dates.</span></p></div></section>`;
+  <div class="decision-readout">${windows.length?`<p>Time left for design, review and delivery after the base waits.</p><dl>${windows.join('')}</dl>`:''}<p><span>${dueNote}</span> <span>Queues and delays can shift the actual dates.</span></p></div></section>`;
  const uncertainty={...QQ.DEFAULT.uncertainty,...c.uncertainty};
  const variability=`<p class="decision-note">${c.realism?Object.values(uncertainty).filter(Boolean).length+' routine uncertainties and '+Object.values(c.disruptions||{}).filter(Boolean).length+' disruption types enabled.':'Project uncertainty is off.'}</p>
   ${checkbox('Enable uncertain project outcomes','realism',c.realism)}<div class="uncertainty-grid">${[['complexity','Different design complexity'],['revisions','Extra client revision'],['approval','Slower client approval'],['supplier','Print supplier delays'],['payment','Late final payments']].map(([k,l])=>checkbox(l,'uncertainty.'+k,uncertainty[k])).join('')}</div>
@@ -2315,7 +2434,7 @@ function editResultAssumption(path,serviceId,fromComparison=false,resultsMonth){
 }
 function simulateRevisedRun(){
  if(!canSimulateRerun())return;
- const nextRun=QQ.fresh(draftRunConfig()),source=currentWorkspace(),nextArchives=[...archives];
+ const nextRun=QQ.freshComparison(draftRunConfig(),state),source=currentWorkspace(),nextArchives=[...archives];
  // Build and size-check the entire change before replacing any live state.
  // The source workspace retains its ordinary unfinished draft and former pair.
  delete source.rerunDraft;
@@ -2400,24 +2519,39 @@ function offerReadiness(issues){
  return `<p class="estimate-intro">Complete these details to calculate the result for your service.</p>
  <ol class="offer-readiness">${rows.map(({label,missing},i)=>`<li class="${missing?'pending':'ready'}"><span class="readiness-mark" aria-hidden="true">${missing?i+1:'✓'}</span><div><strong>${label}</strong>${missing?btn('<span>'+actions[missing.path.split('.').at(-1)]+'</span> <i aria-hidden="true">→</i>','fix-setup-issue','readiness-link',`data-path="${esc(missing.path)}"`):'<small>Ready</small>'}</div></li>`).join('')}</ol>`;
 }
+const DELIVERY_CAPACITY_HEADINGS={
+ blocked:'No new jobs can ship.',partial:'Some offers cannot ship within this run.',
+ overloaded:'Expected work exceeds available hours.','no-orders':'No new orders are expected.'
+};
+function deliveryCapacityReasons(capacity){
+ const reasons=[];
+ if(capacity.blockedBy.design)reasons.push('No design time is available.');
+ if(capacity.blockedBy.owner)reasons.push('No owner time remains for project work.');
+ if(capacity.ownerTimeOffers.length)reasons.push('Even one of the affected jobs needs more owner time than is available during the run.');
+ if(capacity.timingOffers.length)reasons.push('Even starting on day one, the required work and waiting time extend past the end of the run.');
+ if(capacity.overlongOffers.length)reasons.push('An individual job can use only one designer at a time. Even starting on day one, the affected offers need more design time than the run allows.');
+ return reasons;
+}
 function draftSummary(){
  const issues=draftValidationIssues();
  const issue=issues.find(item=>setupIssueTarget(item)?.step===stepIndex)||issues[0];
  const runDays=validRunLength(draft.months)?draft.months*30:null;
  const heading=`<h2>${runDays?runDays+'-day estimate':'Run estimate'}</h2>`;
  const row=(label,value)=>`<div class="minirow"><span>${label}</span><b>${value}</b></div>`;
+ const monthlyOverhead=Number.isFinite(draft.overhead)&&!issues.some(item=>item.path==='overhead')?QQ.round(draft.overhead):null;
+ const overheadRow=runDays&&monthlyOverhead!==null?row('Scheduled overhead for the full run',offerAmount(monthlyOverhead*draft.months)):'';
  if(issue){
   const target=setupIssueTarget(issue),readiness=offerReadiness(issues);
   const fix=target?btn('Fix '+esc(target.label),'fix-setup-issue','soft small',`data-path="${esc(issue.path)}"`):'';
   const location=target&&target.step!==stepIndex?`<strong>${steps[target.step]}</strong>`:'';
-  return `<section class="panel summary-card estimate-pending">${heading}${readiness||`<div class="estimate-issue">${location}<p>${esc(issueText(issue))}</p>${fix}</div>`}</section>`;
+  return `<section class="panel summary-card estimate-pending">${heading}${readiness||`<div class="estimate-issue">${location}<p>${esc(issueText(issue))}</p>${fix}</div>`}${overheadRow}</section>`;
  }
- const e=getDraftEstimate(),changed=dirty();
- let blocker='';
- if(e.owner>e.outreach&&e.ownerCapacity<=e.outreach)blocker='No owner time remains for project work. Reduce outreach or add owner hours.';
- else if(e.hours>0&&e.designCapacity===0)blocker='No design capacity. Add designer hours to deliver this workload.';
+ const config=draftRunConfig(),e=getDraftEstimate(),changed=dirty();
+ const capacity=QQ.deliveryCapacity(config,e),limited=capacity.status!=='fits';
+ const cashGap=QQ.round(monthlyOverhead-QQ.round(config.startingCash));
+ const cashNotice=cashGap>0?`<p class="banner warn" role="status"><span>A new run pauses before the first overhead charge.</span> <span>Funding needed</span> <strong>${offerAmount(cashGap)}</strong></p>`:'';
  const detail=`<p class="preview-basis">Days 1–${e.days} · ${e.workdays} working days. Assumes delivery of all expected new orders and excludes queues, disruptions and returning work.</p>
-  ${row('Expected new inquiries',num(e.leads))}${row('Expected new orders',num(e.orders))}${e.unserved>0?`<p class="preview-unserved">${num(e.unserved)} inquiries have no matching offer.</p>`:''}<p class="preview-basis">Owner time valued at ${money(draft.ownerTarget)}/hour</p>${workloadRow('Your time',e.owner,e.ownerCapacity)}${workloadRow('Design team',e.hours,e.designCapacity)}${row('Potential revenue',money(e.revenue))}`;
+  ${row('Expected new inquiries',num(e.leads))}${row('Expected new orders',num(e.orders))}${e.unserved>0?`<p class="preview-unserved">${num(e.unserved)} inquiries have no matching offer.</p>`:''}<p class="preview-basis">Owner time valued at ${offerAmount(draft.ownerTarget)}/hour</p>${workloadRow('Your time',e.owner,e.ownerCapacity)}${workloadRow('Design team',e.hours,e.designCapacity)}${row('Potential revenue',offerAmount(e.revenue))}`;
  const runAction=state.day===0?btn('Simulate '+runDays+' days','simulate','primary full'):changed?btn('Review & apply changes','review','primary full'):state.day>=runDays?btn('View results','review-latest-results','primary full'):btn('Resume run','finish-run','primary full');
  // A step compares like periods. Keep the first complete estimate while its
  // inputs are edited, including when a field is temporarily empty.
@@ -2431,12 +2565,29 @@ function draftSummary(){
  const metric=(label,key)=>{
   const change=comparison?.[key];
   const delta=comparison?`<span class="estimate-delta${change>0?' gain':change<0?' loss':''}">${change>0?'+':''}${offerAmount(change)}</span>`:'';
-  return `<div><small>${label}</small><strong class="${e[key]<0?'negative':''}"${key==='profit'?' data-run-estimate="profit"':''}>${setupResultAmount(e[key])}</strong>${delta}</div>`;
+  return `<div><small>${label}</small><strong class="${e[key]<0?'negative':''}"${key==='profit'&&!limited?' data-run-estimate="profit"':''}>${setupResultAmount(e[key])}</strong>${delta}</div>`;
  };
- return `<section class="panel summary-card estimate-ready">${heading}${blocker?`<p class="banner warn" role="status">${blocker}</p>`:''}
- <div class="summary-numbers step-estimate">${metric('Operating result','profit')}${metric('After owner time','surplus')}</div>
- ${comparison?'<p class="comparison-basis">Changes from the first estimate on this step.</p>':''}
- <details class="estimate-detail" data-disclosure="setup-advanced-estimate-${stepIndex}" ${setupMode==='analyst'?'open':''}><summary>What goes into this estimate?</summary>${detail}</details>
+ const fullDelivery=`<p class="estimate-intro">If all expected new orders ship</p><div class="summary-numbers step-estimate">${metric('Operating result','profit')}${metric('After owner time','surplus')}</div>
+ ${comparison?'<p class="comparison-basis">Changes from the first estimate on this step.</p>':''}`;
+ let delivery='';
+ if(limited){
+  const lines=deliveryCapacityReasons(capacity);
+  if(capacity.status==='no-orders')lines.push(!e.leads?'No inquiries are expected from this setup.':!config.conversion?'Quote acceptance is set to 0%.':'Incoming inquiries have no matching offer.');
+  delivery=`<p class="banner warn" role="status"><strong>${DELIVERY_CAPACITY_HEADINGS[capacity.status]}</strong> ${lines.map(line=>`<span>${line}</span>`).join(' ')}</p>`;
+  if(capacity.overlongOffers.length)delivery+=row('Maximum design hours for one job in this run',effortHours(capacity.perJobDesignHours)+' h');
+  if(capacity.status==='partial'){
+   const names=e.services.filter(service=>capacity.blockedOffers.includes(service.id)).map(service=>esc(service.name));
+   delivery+=row('Offers that cannot ship',names.join(', '));
+  }
+  if(capacity.status==='blocked'||capacity.status==='no-orders')delivery+=row('Revenue from new deliveries',offerAmount(0));
+  else{
+   if(capacity.designShortfall>0.00001)delivery+=row('Additional design hours needed',effortHours(capacity.designShortfall)+' h');
+   if(capacity.ownerShortfall>0.00001)delivery+=row('Additional owner hours needed',effortHours(capacity.ownerShortfall)+' h');
+  }
+ }
+ return `<section class="panel summary-card estimate-ready">${heading}${delivery}${cashNotice}
+ ${limited?'':fullDelivery}${overheadRow}
+ <details class="estimate-detail" data-disclosure="setup-advanced-estimate-${stepIndex}" ${setupMode==='analyst'?'open':''}><summary>What goes into this estimate?</summary>${limited?fullDelivery:''}${detail}</details>
  ${editingRerun?'':`<div class="estimate-actions">${runAction}${changed&&state.day===0?btn('Review setup only','review','ghost full'):''}</div>`}</section>`;
 }
 function updatePreview(){scheduleSave();}
@@ -2480,9 +2631,13 @@ function leaveInspector(){
  else focusViewHeading();
 }
 function activityView(){
- const recent=state.events[0],done=state.day>=state.config.months*30;
- const project=recent?.project&&state.projects.find(p=>p.id===recent.project);
- const latest=recent?`Day ${recent.day} · ${esc(recent.text)}`:'';
+ const done=state.day>=state.config.months*30;
+ let latest='',project;
+ for(const event of state.events){
+  project=event.project&&state.projects.find(p=>p.id===event.project);
+  const text=project?QQ.projectEventText(project,event.text,receivedDeposit(project)):event.text;
+  if(text!==null){latest=`Day ${event.day} · ${esc(text)}`;break;}
+ }
  const status=done?'Run complete':state.day?'Latest activity':'Ready to run';
  const endNote=done&&state.projects.some(p=>p.stage!=='lost'&&p.stage!=='complete')?
   state.config.months<12?'Open jobs keep their place. Extend the run length in Controls to continue.':'Open jobs are shown as of the final day.':'';
@@ -2521,7 +2676,8 @@ function jobWait(p,diagnostic){
  const phase={quote:'Preparing quote',design:'In design',review:'In review',delivery:'Ready for handoff'};
  let reason='',next='',status=phase[stage]||shortLabels[stage];
  if(stage==='complete'||stage==='lost'){
-  return {status,actor:'',reason:stage==='complete'?'The work was delivered and fully paid.':'The client declined this quote.',next:'',urgent:false};
+  const completed=p.price===0?'The work was delivered. No payment was required.':'The work was delivered and fully paid.';
+  return {status,actor:'',reason:stage==='complete'?completed:'The client declined this quote.',next:'',urgent:false};
  }
  if(state.blocked?.project===p.id){
   return {status:'Funding needed',actor:'You',reason:state.blocked.note+' could not be paid on day '+(state.day+1)+'.',next:'Resolve the '+offerAmount(state.blocked.gap)+' cash shortfall to retry that day.',urgent:true};
@@ -2584,6 +2740,12 @@ function jobsToWatch(ordered){
 function setupResultAmount(value){
  return (value>0?'+':'')+offerAmount(QQ.round(value));
 }
+function launchCapacityNote(status){
+ if(status==='blocked')return 'Under the opening assumptions, none of the eligible first orders could finish within the run.';
+ if(status==='partial')return 'Under the opening assumptions, some types of work could not finish within the run.';
+ if(status==='overloaded')return 'The expected first orders needed more hours than the opening team had available.';
+ return '';
+}
 function runPassageView(m){
  const end=state.config.months*30,estimate=runPassage.estimate;
  const original=rerunLink?.run===state?rerunLink.original:null;
@@ -2591,7 +2753,8 @@ function runPassageView(m){
  const status=state.blocked?'Cash decision needed':running?'Running':'Paused';
  const accepted=state.projects.reduce((count,p)=>count+(p.accepted!==undefined?1:0),0);
  const field=(label,value)=>`<div><dt>${label}</dt><dd>${value}</dd></div>`;
- const estimateLabel=estimate?.basis==='reconstructed'?'Reconstructed estimate':'Setup estimate';
+ const capacityNote=launchCapacityNote(estimate?.deliveryStatus);
+ const estimateLabel=estimate?.basis==='reconstructed'?'Reconstructed estimate':'If all expected new orders ship';
  const toggleLabel=state.blocked?'Resolve shortfall':running?'Pause simulation':'Continue simulation';
  return `<section class="run-passage" aria-labelledby="sim-heading" data-render-key="run-passage">
   <header class="passage-heading"><p>${scenarioName(state.config.name)}</p><h1 id="sim-heading" tabindex="-1">${original?'Revised '+end+'-day run':'Your '+end+'-day run'}</h1></header>
@@ -2602,10 +2765,10 @@ function runPassageView(m){
    ${state.blocked?`<p class="passage-shortfall"><span>Funding needed</span> <strong>${offerAmount(state.blocked.gap)}</strong> · <span>${esc(state.blocked.note)}</span></p>`:''}
    <div class="passage-actions">${btn(icon(running?'pause':'play')+toggleLabel,'toggle-passage','primary','id="passage-toggle"')}${btn('Inspect run','inspect-run','ghost')}</div>
   </section><section class="passage-estimate" aria-labelledby="passage-result"><h2 id="passage-result">Operating result</h2><dl>
-   ${estimate?`<div><dt><span>${estimateLabel}</span>${estimate.days!==end?' · <span>'+estimate.days+' days</span>':''}</dt><dd data-run-estimate="profit">${setupResultAmount(estimate.profit)}</dd></div>`:''}
+   ${estimate?.deliveryStatus==='blocked'?field('Overhead in the opening plan',offerAmount(estimate.overhead)):estimate?`<div><dt><span>${estimateLabel}</span>${estimate.days!==end?' · <span>'+estimate.days+' days</span>':''}</dt><dd data-run-estimate="profit">${setupResultAmount(estimate.profit)}</dd></div>`:''}
    <div><dt>Result so far</dt><dd${m.profit<0?' class="negative"':''}>${setupResultAmount(m.profit)}</dd></div>
    ${originalClose?field('Original on day '+originalClose.day,setupResultAmount(originalClose.profit)):''}
-  </dl></section></div></section>`;
+  </dl>${capacityNote?`<p class="helper">${capacityNote}</p>`:''}</section></div></section>`;
 }
 function mapView(m){
  const ordered=QQ.orderedProjects(state);
@@ -2630,6 +2793,9 @@ function inspector(ordered){
  }
  return `<div class="panelhead"><h2>Project details</h2>${btn('Close','unselect','small')}</div><p class="empty">This project is no longer in the current run.</p>`;
 }
+function receivedDeposit(project){
+ return state.ledger.find(entry=>entry.project===project.id&&entry.type==='receipt'&&entry.note==='Client deposit')?.amount??0;
+}
 function projectPanel(p,ordered){
  const done=['complete','lost'].includes(p.stage);
  const cycle=p.orderKind==='paid-cycle-renewal'?'Paid-cycle renewal':p.orderKind==='confirmed-repeat'?'Confirmed repeat order':p.orderKind==='campaign-reoffer'?'New campaign quote':'New business';
@@ -2642,7 +2808,11 @@ function projectPanel(p,ordered){
  if(diagnostic.disruptions.reprintCount)diagnosticRows.push(['Supplier reprints',diagnostic.disruptions.reprintCount]);
  if(diagnostic.disruptions.extendedPaymentDays)diagnosticRows.push(['Collection delay',diagnostic.disruptions.extendedPaymentDays+' days after due']);
  if(p.terms?.fulfillment){
-  diagnosticRows.push(['Customer print choice',p.terms.fulfillment.mode==='agency-managed'?'We manage printing':'Customer arranges printing'],['Agreed supplier allowance',offerAmount(p.printCost)],['Quoted print options',offerAmount(p.terms.fulfillment.managedPrice)+' managed / '+offerAmount(p.terms.fulfillment.designOnlyPrice)+' files only']);
+  const terms=p.terms.fulfillment;
+  const routes=[];
+  if(terms.managedShare>0)routes.push(offerAmount(terms.managedPrice)+' managed');
+  if(terms.managedShare<1)routes.push(offerAmount(terms.designOnlyPrice)+' files only');
+  diagnosticRows.push(['Customer print choice',terms.mode==='agency-managed'?'We manage printing':'Customer arranges printing'],['Agreed supplier allowance',offerAmount(p.printCost)],['Quoted print options',routes.join(' / ')]);
  }
  if(p.service?.campaign)diagnosticRows.push(['Campaign rhythm',p.service.campaign.cadenceDays===90?'Seasonal · separately quoted':'Monthly · separately quoted']);
  if(workResource(p.stage)){
@@ -2651,7 +2821,11 @@ function projectPanel(p,ordered){
   if(diagnostic.queueAheadCount)diagnosticRows.push(['Work ahead',diagnostic.queueAheadCount+' jobs · '+effortHours(diagnostic.queueAheadHours)+' h']);
   if(diagnostic.estimatedWorkdays!==null)diagnosticRows.push(['Estimated time for this stage',diagnostic.estimatedWorkdays+' working days at current capacity']);
  }
- const terms=[['Agreed price',p.accepted!==undefined?offerAmount(p.price):'Set at acceptance'],['Direct costs',offerAmount(p.cost)],['Cash received',offerAmount(p.paid)],['Balance owed',p.accepted!==undefined?offerAmount(p.price-p.paid):'—'],['Your hours',num(p.ownerHours)],['Designer hours',num(p.designHours)],['Delivery due',p.accepted!==undefined?'Day '+p.due:'Set at acceptance'],['Fulfillment',p.fulfillmentStatus==='delivered'?'Delivered':p.stage==='lost'?'Declined':'Open'],['Payment',p.paymentStatus],['Renewal',p.renewalStatus],['Model demand ID',p.demandId]];
+ const accepted=p.accepted!==undefined,pending=p.stage==='lost'?'—':'Set at acceptance';
+ const paymentLabels={paid:p.delivered?'Paid in full':'Paid in advance',partial:'Deposit received',unpaid:p.delivered?'Awaiting payment':'No deposit collected'};
+ const payment=!accepted?'—':p.price===0?'No payment required':paymentLabels[p.paymentStatus];
+ const balanceLabel=p.delivered?'Balance owed':p.terms?.paymentDays===0?'Balance on delivery':'Balance after delivery';
+ const terms=[['Agreed price',accepted?offerAmount(p.price):pending],['Direct costs',offerAmount(p.cost)],['Cash received',offerAmount(p.paid)],[balanceLabel,accepted?offerAmount(QQ.round(p.price-p.paid)):'—'],['Your hours',num(p.ownerHours)],['Designer hours',num(p.designHours)],['Delivery due',accepted?'Day '+p.due:pending],['Fulfillment',p.fulfillmentStatus==='delivered'?'Delivered':p.stage==='lost'?'Declined':'Open'],['Payment',payment],['Renewal',p.renewalStatus],['Model demand ID',p.demandId]];
  const attr=`data-id="${esc(p.id)}"`,priority=btn(p.priority?'Remove priority':'Prioritize work','priority','small',attr);
  const priorityHere=workResource(p.stage)&&diagnostic.dailyCapacity>0&&(diagnostic.queueAheadCount||p.priority)&&!state.blocked;
  const approvalHere=p.stage==='approval'&&!p.approvalConfirmed&&!state.blocked;
@@ -2667,17 +2841,25 @@ function projectPanel(p,ordered){
  ].filter(Boolean).join('');
  const nextDayNote=!done&&state.day>=state.config.months*30?
   (state.config.months<12?'The run ends here. Extend its length in Controls to simulate later days.':'This is the final day of the 12-month run.'):'';
- const scope=p.terms?.fulfillment?.mode==='design-only'?(p.service.filesOnlyScope||'Print-ready artwork and agreed digital files. The customer arranges printing.'):p.service.deliverable;
+ const share=p.service.fulfillment?.managedShare;
+ const scope=!accepted&&share>0&&share<1?
+  `<dl><dt>Managed printing</dt><dd>${offerDeliveryScope(p.service,'agency-managed')}</dd><dt>Files only</dt><dd>${offerDeliveryScope(p.service,'design-only')}</dd></dl>`:
+  `<p>${offerDeliveryScope(p.service,p.terms?.fulfillment?.mode)}</p>`;
+ const deposit=receivedDeposit(p);
+ const timeline=p.log.slice().reverse().map(e=>{
+  const text=QQ.projectEventText(p,e.text,deposit);
+  return text===null?'':`<div class="event"><small>DAY ${e.day}</small><span>${esc(text)}</span></div>`;
+ }).join('');
  return `<div class="panelhead"><div><div class="eyebrow">${esc(p.id)} · ${esc(shortLabels[p.stage])}</div><h2>${esc(p.client)}</h2><small>${serviceName(p.service)}</small></div>${btn(icon('close'),'unselect','ghost small','aria-label="Close details"')}</div><div class="inspectbody">
  <section class="project-next"><h3>${done?'Outcome':'What happens next'}</h3><strong class="attention-status${wait.urgent?' needs-attention':''}">${esc(wait.status)}${wait.actor?' · '+esc(wait.actor):''}</strong><p>${esc(wait.reason)}</p>${wait.next?`<p>${esc(wait.next)}</p>`:''}${nextDayNote?`<p class="helper">${nextDayNote}</p>`:''}${primary}</section>
  ${!state.blocked&&workResource(p.stage)&&p.work[p.stage]>0?replayPromptView(p):''}
- <h3>${p.accepted===undefined?'Requested deliverable':'Agreed deliverable'}</h3><p>${esc(scope)}</p>
+ <h3>${accepted?'Agreed deliverable':'Requested deliverable'}</h3>${scope}
  ${controls?`<details class="project-disclosure" data-disclosure="controls-${p.id}"><summary>Project controls</summary><div class="actions">${controls}</div></details>`:''}
  <details class="project-disclosure" data-disclosure="terms-${p.id}"><summary>Scope, timing and costs</summary>${p.clientType?`<p class="client-context"><b>${esc(businessType(p.clientType))}</b> · ${esc(p.brief)} · ${cycle}${p.cycle>1?' · Cycle '+p.cycle:''}</p>`:''}<div class="diagnostic-grid">${diagnosticRows.map(([l,v])=>`<div><span>${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div><div class="kvs">${terms.map(([l,v])=>`<div><label>${l}</label><strong>${esc(v)}</strong></div>`).join('')}</div><p class="helper">Direct costs exclude overhead and your time. Quote effort locks at intake. Delivery effort and commercial terms lock at acceptance.</p></details>
- <details class="project-disclosure" data-disclosure="timeline-${p.id}"><summary>Project timeline</summary><div class="timeline">${[...p.log].reverse().map(e=>`<div class="event"><small>DAY ${e.day}</small><span>${esc(e.text)}</span></div>`).join('')}</div></details></div>`;
+ <details class="project-disclosure" data-disclosure="timeline-${p.id}"><summary>Project timeline</summary><div class="timeline">${timeline}</div></details></div>`;
 }
 function projectsView(){return `<div class="project-tools"><label class="search-label">Search client or project<input id="project-search" value="${esc(search)}" placeholder="e.g. Maple or P003"></label><label class="search-label">Show<select id="project-filter">${[['active','Active work'],['all','All projects'],['late','Late deliveries'],['payment','Awaiting payment'],['complete','Completed'],['lost','Declined']].map(([v,n])=>`<option value="${v}" ${filter===v?'selected':''}>${n}</option>`).join('')}</select></label></div><section class="panel" id="project-table">${projectTable()}</section>`;}
-function projectTable(){const needle=search.trim().toLowerCase();const ps=state.projects.filter(p=>(!needle||[p.client,p.id,p.service.name,serviceCopy(p.service,'name')].some(x=>x.toLowerCase().includes(needle)))&&(filter==='all'||filter==='active'&&!['lost','complete'].includes(p.stage)||filter==='late'&&p.accepted!==undefined&&!p.delivered&&p.stage!=='lost'&&state.day>p.due||p.stage===filter));return `<div class="tablewrap"><table><thead><tr><th>Client / project</th><th>Business type</th><th>Service</th><th>Stage</th><th>Responsible</th><th>Agreed price</th><th>Delivery due</th></tr></thead><tbody>${ps.map(p=>`<tr><td>${btn(esc(p.client),'project','table-link','data-id="'+p.id+'"')}<small>${p.id}</small></td><td>${p.clientType?esc(businessType(p.clientType)):'Generic'}</td><td>${serviceName(p.service)}</td><td>${shortLabels[p.stage]}</td><td>${stageOwner[p.stage]}</td><td>${p.accepted!==undefined?money(p.price):'—'}</td><td>${p.accepted!==undefined?'Day '+p.due:'—'}</td></tr>`).join('')||'<tr><td colspan="7"><div class="empty">No matching projects. Advance the clock or change your filter.</div></td></tr>'}</tbody></table></div>`;}
+function projectTable(){const needle=search.trim().toLowerCase();const ps=state.projects.filter(p=>(!needle||[p.client,p.id,p.service.name,serviceCopy(p.service,'name')].some(x=>x.toLowerCase().includes(needle)))&&(filter==='all'||filter==='active'&&!['lost','complete'].includes(p.stage)||filter==='late'&&p.accepted!==undefined&&!p.delivered&&p.stage!=='lost'&&state.day>p.due||p.stage===filter));return `<div class="tablewrap"><table><thead><tr><th>Client / project</th><th>Business type</th><th>Service</th><th>Stage</th><th>Responsible</th><th>Agreed price</th><th>Delivery due</th></tr></thead><tbody>${ps.map(p=>`<tr><td>${btn(esc(p.client),'project','table-link','data-id="'+p.id+'"')}<small>${p.id}</small></td><td>${p.clientType?esc(businessType(p.clientType)):'Generic'}</td><td>${serviceName(p.service)}</td><td>${shortLabels[p.stage]}</td><td>${stageOwner[p.stage]}</td><td>${p.accepted!==undefined?offerAmount(p.price):'—'}</td><td>${p.accepted!==undefined?'Day '+p.due:'—'}</td></tr>`).join('')||'<tr><td colspan="7"><div class="empty">No matching projects. Advance the clock or change your filter.</div></td></tr>'}</tbody></table></div>`;}
 function daySpan(first,last){return first===last?'Day '+first:'Days '+first+'–'+last;}
 function cashFinanceView(m){
  const lastMonth=Math.max(1,Math.ceil(state.day/30));
@@ -2715,7 +2897,7 @@ function cashChart(firstDay=0,endDay=state.day){
  const points=QQ.cashSeries(state).filter(v=>v.day>=firstDay&&v.day<=endDay);
  const lo=Math.min(0,...points.map(v=>v.cash)),hi=Math.max(1,...points.map(v=>v.cash))*1.05;
  const x=day=>65+(day-firstDay)/Math.max(1,endDay-firstDay)*565,y=cash=>140-(cash-lo)/(hi-lo)*120;
- return `<svg class="chart" viewBox="0 0 650 170" role="img" aria-label="Cash balance from day ${firstDay} to day ${endDay}"><path d="M65 20H630 M65 80H630 M65 140H630" stroke="var(--line)"/><polyline points="${points.map(v=>x(v.day)+','+y(v.cash)).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${points.length===1?`<circle cx="${x(firstDay)}" cy="${y(points[0].cash)}" r="3" fill="var(--accent)"/>`:''}<text x="0" y="24" class="axislabel">${money(hi)}</text><text x="0" y="144" class="axislabel">${money(lo)}</text><text x="65" y="165" class="axislabel">Day ${firstDay}</text>${endDay!==firstDay?`<text x="575" y="165" class="axislabel">Day ${endDay}</text>`:''}</svg>`;
+ return `<svg class="chart" viewBox="0 0 650 170" role="img" aria-label="Cash balance from day ${firstDay} to day ${endDay}"><path d="M65 20H630 M65 80H630 M65 140H630" stroke="var(--line)"/><polyline points="${points.map(v=>x(v.day)+','+y(v.cash)).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${points.length===1?`<circle cx="${x(firstDay)}" cy="${y(points[0].cash)}" r="3" fill="var(--accent)"/>`:''}<text x="0" y="24" class="axislabel">${offerAmount(hi)}</text><text x="0" y="144" class="axislabel">${offerAmount(lo)}</text><text x="65" y="165" class="axislabel">Day ${firstDay}</text>${endDay!==firstDay?`<text x="575" y="165" class="axislabel">Day ${endDay}</text>`:''}</svg>`;
 }
 function baselineIndex(){return checkpointInfo.findIndex(v=>v.baseline);}
 function recipeOrigin(config){
@@ -2911,7 +3093,7 @@ function recoverableDraft(file){
  return null;
 }
 function preservationView(){return `<section class="panel padded" style="margin-top:18px"><div class="section-heading"><h2>Preserved workspaces</h2>${btn('Open worked example','example','small')}</div><p class="helper">Opening a backup or example keeps the previous workspace here.</p>${archives.map((a,i)=>`<div class="archive-row"><div><b>${esc(a.label)}</b><p class="helper">Day ${a.workspace.state.day} · ${a.workspace.saved.length} checkpoints · ${a.workspace.state.projects.length} projects · unfinished draft included</p></div><div class="actions">${btn('Open','open-archive','small',`data-index="${i}"`)}${btn('Export','export-archive','small',`data-index="${i}"`)}${btn('Delete','delete-archive','small ghost',`data-index="${i}"`)}</div></div>`).join('')||'<p class="helper">No preserved workspaces yet.</p>'}${recoveryFiles.length?`<details class="original-files" data-disclosure="original-files"><summary>Original files (${recoveryFiles.length})</summary><p class="helper">Copies kept when an older save was updated or an invalid draft was recovered. Download an original, or restore its valid unfinished setup inputs without replacing the active run.</p>${recoveryFiles.map((f,i)=>{const candidate=recoverableDraft(f);return `<div class="archive-row"><span>${esc(f.name==='Original save before migration'?'Save before update':f.name)}</span><div class="actions">${candidate&&JSON.stringify(candidate)!==JSON.stringify(draft)?btn('Restore draft','restore-original-draft','small',`data-index="${i}"`):''}${btn('Download','recovery-file','small',`data-index="${i}"`)}</div></div>`;}).join('')}</details>`:''}</section>`;}
-function aboutView(){return `<div class="two-col"><section class="panel padded"><div class="eyebrow">SIMULATION MODEL ${state.modelVersion||1}</div><h2>Start with one experiment</h2><ol><li>Set service prices, hours, inquiry shares and available capacity.</li><li>Review the draft preview, then apply the setup.</li><li>Step a day, finish a month or simulate the selected horizon.</li><li>Inspect a waiting project and select Test one change to replay its month.</li><li>Compare the remaining backlog and earnings, then save the comparison if you want to keep it.</li></ol><h2>What the numbers mean</h2><p>Inquiries are stable external-demand identities derived from the workload seed, arrival day and arrival index. Capacity can change delivery and renewal timing, but it does not reroll unrelated leads.</p><p>Conversion is the share of new-business quotes that accept. Confirmed repeats and paid-cycle renewals bypass new-sales conversion. A deposit is received on acceptance; revenue is recognized on delivery.</p><p>The setup preview counts calendar days and working days across your selected run length. It assumes all expected new orders are delivered. It excludes queue timing, returning clients and uncertainty.</p><p>Operating result is delivered revenue less incurred costs, including unfinished work. Historical results value each month’s owner hours at its closing hourly target. Run-to-date detail also values every hour at today’s target. Both measures leave cash unchanged.</p></section><section class="panel padded"><h2>Model 2 daily order</h2><p>Each day processes due client collections, monthly overhead, confirmed repeat cycles, new external demand, outreach, then scheduled work. A failed payment rolls back the proposed day atomically.</p><p>Zero-duration transitions may continue on the same day under a bounded loop. Real work still consumes weekday capacity; genuine client and supplier waits remain calendar delays.</p><p>Owner capacity is shared across quotes, review and delivery. Design capacity is pooled across projects, but one project can use at most one designer’s daily availability. Multiple projects can proceed in parallel when multiple designers are available.</p><p>Quote effort locks when an inquiry arrives. Price, service scope, delivery effort, payment terms, approval time, print time and delivery promise lock when the quote is accepted. Agreed deadlines cannot be changed before acceptance.</p><p>Monthly and seasonal campaign relationships last one year, with every campaign quoted and paid separately. A declined campaign skips one cycle; another quote follows at the next cadence within the relationship. Future revenue is not guaranteed. Older paid-cycle services keep their confirmed-renewal behavior after delivery and payment. Customer print choice locks at acceptance: managed printing includes the supplier batch; files-only delivery skips production and printer costs. Client, contract, fulfillment, payment and renewal states are stored separately.</p><h2>Business profiles</h2><p>New workspaces draw from illustrative food, retail and local-service business types. Customer mix, niche focus and workflow variation affect work, approval and repeat behavior; targeted offerings serve only matching groups.</p><h2>Prototype limits</h2><p>Published design and print prices are frozen comparables. Package prices, work estimates, demand, customer printing preferences and disruption rates are modeled assumptions with documented derivations, not measured results for your business. Named staff, supplier comparisons, borrowing and native Windows/Mac installers remain future work. Backups include model and workload identities.</p></section></div>`;}
+function aboutView(){return `<div class="two-col"><section class="panel padded"><div class="eyebrow">SIMULATION MODEL ${state.modelVersion||1}</div><h2>Start with one experiment</h2><ol><li>Set service prices, hours, inquiry shares and available capacity.</li><li>Review the draft preview, then apply the setup.</li><li>Step a day, finish a month or simulate the selected horizon.</li><li>Inspect a waiting project and select Test one change to replay its month.</li><li>Compare the remaining backlog and earnings, then save the comparison if you want to keep it.</li></ol><h2>What the numbers mean</h2><p>Inquiries are stable external-demand identities derived from the workload seed, arrival day and arrival index. Capacity can change delivery and renewal timing, but it does not reroll unrelated leads.</p><p>The quote acceptance setting controls how often a new buyer says yes. When a buyer accepts, the studio collects the agreed deposit, which can be zero. The job earns its fee on delivery. Any remaining balance follows the payment terms.</p><p>Setup shows what first orders could earn if they all ship. It checks available working hours and the time needed for approval and print. Run the simulation to see which jobs actually finish and when customers pay.</p><p>Operating result is delivered revenue less incurred costs, including unfinished work. Historical results value each month’s owner hours at its closing hourly target. Run-to-date detail also values every hour at today’s target. Both measures leave cash unchanged.</p></section><section class="panel padded"><h2>Model 2 daily order</h2><p>Each day processes due client collections, monthly overhead, confirmed repeat cycles, new external demand, outreach, then scheduled work. A failed payment rolls back the proposed day atomically.</p><p>Zero-duration transitions may continue on the same day under a bounded loop. Real work still consumes weekday capacity; genuine client and supplier waits remain calendar delays.</p><p>Owner capacity is shared across quotes, review and delivery. Design capacity is pooled across projects, but one project can use at most one designer’s daily availability. Multiple projects can proceed in parallel when multiple designers are available.</p><p>Quote effort locks when an inquiry arrives. Price, service scope, delivery effort, payment terms, approval time, print time and delivery promise lock when the quote is accepted. Agreed deadlines cannot be changed before acceptance.</p><p>Monthly and seasonal campaigns each need a new quote. The customer can decline each one. A campaign that is still in production or awaiting payment can miss its next scheduled date. Existing paid-cycle subscriptions can renew after delivery and payment. For offers with a print choice, the accepted quote records who handles printing. When the customer arranges printing, the studio delivers the files and incurs no supplier charge.</p><h2>Business profiles</h2><p>New workspaces draw from illustrative food, retail and local-service business types. Customer mix, niche focus and workflow variation affect work, approval and repeat behavior; targeted offerings serve only matching groups.</p><h2>Prototype limits</h2><p>Published design and print prices are frozen comparables. Package prices, work estimates, demand, customer printing preferences and disruption rates are modeled assumptions with documented derivations, not measured results for your business. Named staff, supplier comparisons, borrowing and native Windows/Mac installers remain future work. Backups include model and workload identities.</p></section></div>`;}
 function clock(){
  const end=state.day>=state.config.months*30, disabled=end?'disabled':'';
  const runLabel=running?'Pause':firstExamplePending()?'Run restaurant example':'Run';
@@ -3399,6 +3581,10 @@ const DIFF_LABELS={name:'Scenario name',seed:'Workload seed',months:'Run length'
 const percentPaths=new Set(['conversion','deposit','retention','repeat']);
 function formatDiffValue(path,value){
  if(value===undefined||value===null)return 'not set';
+ if(typeof value==='string'&&(path==='name'||/^services\.[^.]+\.(?:name|deliverable|filesOnlyScope)$/.test(path))){
+  if(path==='name'&&(value===RESTAURANT_EXAMPLE||value===QQ.DEFAULT.name))return QQI18n.text(value);
+  return QQI18n.literal(value);
+ }
  if(path==='months'&&Number.isInteger(value))return runLengthLabel(value);
  if(typeof value==='boolean')return value?'On':'Off';
  if(path==='acquisition')return value==='sales'?'Estimate from outreach':'Enter monthly inquiries';
@@ -3411,15 +3597,15 @@ function formatDiffValue(path,value){
  return String(value);
 }
 function serviceChangeSummary(service){
- const terms=[money(service.price)+' per project',num(service.hours)+' designer h',num(service.review)+' review h',money(service.print)+' print allowance',service.weight+'% inquiry share'];
- if(service.fulfillment)terms.push(pct(service.fulfillment.managedShare)+' managed print',money(service.fulfillment.designOnlyPrice)+' files-only');
+ const terms=[offerAmount(service.price)+' per project',num(service.hours)+' designer h',num(service.review)+' review h',offerAmount(service.print)+' print allowance',service.weight+'% inquiry share'];
+ if(service.fulfillment)terms.push(pct(service.fulfillment.managedShare)+' managed print',offerAmount(service.fulfillment.designOnlyPrice)+' files-only');
  if(service.campaign)terms.push('quoted every '+service.campaign.cadenceDays+' days for '+service.campaign.relationshipDays+' days');
  else if(service.recurring)terms.push('repeat service');
- return 'Included · '+terms.join(' · ')+(service.deliverable?' · '+service.deliverable:'');
+ return 'Included · '+terms.join(' · ')+(service.deliverable?' · '+QQI18n.literal(serviceCopy(service,'deliverable')):'');
 }
 function scopeDiffValue(key,value){
  if(value===undefined||value===null)return 'not set';
- if(key==='modeledPriceRange'||key==='modeledPrintCostRange')return value.map(money).join('–');
+ if(key==='modeledPriceRange'||key==='modeledPrintCostRange')return value.map(offerAmount).join('–');
  return Array.isArray(value)?value.join('; '):String(value);
 }
 function configDiff(before,after){
@@ -3436,9 +3622,14 @@ function configDiff(before,after){
  for(const [k,label] of Object.entries(DISRUPTION_LABELS))push('disruptions.'+k,label,before.disruptions?.[k]??false,after.disruptions?.[k]??false);
  for(const [k,label] of Object.entries(DISRUPTION_LABELS))push('disruptionRates.'+k,'Share affected · '+label,before.disruptionRates?.[k]??QQ.DEFAULT.disruptionRates?.[k],after.disruptionRates?.[k]??QQ.DEFAULT.disruptionRates?.[k]);
  const a=new Map((before.services||[]).map(s=>[s.id,s])),b=new Map((after.services||[]).map(s=>[s.id,s]));
+ const order=QQ.changedOfferOrder(before,after);
+ if(order){
+  const names=(ids,offers)=>ids.map(id=>QQI18n.literal(serviceCopy(offers.get(id),'name')||id)).join(' → ');
+  out.push({path:'offerOrder',label:'Offer order',before:names(order.before,a),after:names(order.after,b)});
+ }
  const scopeLabels={catalogId:'catalog',packageId:'source package',version:'scope version',scope:'scope',deliverables:'included deliverables',includedRevisions:'included feedback rounds',printQuantity:'print quantity',printSpec:'print specification',printCostBasis:'print cost basis',evidenceIds:'frozen source records',modeledPriceRange:'planning price range',modeledPrintCostRange:'planning print-cost range'};
  for(const id of new Set([...a.keys(),...b.keys()])){
-  const old=a.get(id),next=b.get(id),name=next?.name||old?.name||id;
+  const old=a.get(id),next=b.get(id),name=QQI18n.literal(serviceCopy(next||old,'name')||id);
   if(!old||!next){out.push({path:'services.'+id,label:name,before:old?serviceChangeSummary(old):'Not included',after:next?serviceChangeSummary(next):'Removed'});continue;}
   for(const [k,label] of Object.entries({name:'name',deliverable:'deliverable',filesOnlyScope:'files-only deliverable',supplierMode:'print supplier',audience:'audience',price:'price',weight:'inquiry share',hours:'designer work',review:'review work',print:'print cost',recurring:'purchase pattern'}))push('services.'+id+'.'+k,name+' · '+label,old[k],next[k]);
   for(const [k,label] of Object.entries({managedShare:'managed-print choice',designOnlyPrice:'design-only price'}))push('services.'+id+'.fulfillment.'+k,name+' · '+label,old.fulfillment?.[k],next.fulfillment?.[k]);
@@ -3446,7 +3637,7 @@ function configDiff(before,after){
   for(const [k,label] of Object.entries(scopeLabels))if(JSON.stringify(old.spec?.[k])!==JSON.stringify(next.spec?.[k]))out.push({path:'services.'+id+'.spec.'+k,label:name+' · '+label,before:scopeDiffValue(k,old.spec?.[k]),after:scopeDiffValue(k,next.spec?.[k])});
  }
  for(const key of new Set([...Object.keys(before.assumptionRecords||{}),...Object.keys(after.assumptionRecords||{})])){
-  const describe=record=>record?`${record.source} · ${record.date} · ${record.sample}`:'No source';
+  const describe=record=>record?`${QQI18n.literal(record.source)} · ${record.date} · ${QQI18n.literal(record.sample)}`:'No source';
   const a=before.assumptionRecords?.[key],b=after.assumptionRecords?.[key];
   if(JSON.stringify(a)!==JSON.stringify(b))out.push({path:'assumptionRecords.'+key,label:'Source for '+(DIFF_LABELS[key]||key),before:describe(a),after:describe(b)});
  }
@@ -3578,16 +3769,18 @@ function changeClientDemand(el,commit){
  const {profile}=demandAudience();
  if(!profile)return;
  const value=Number(el.value),error=document.querySelector('#client-demand-error');
+ const savedShare=draft.clientDemand?draft.clientDemand.share:0;
  if(!el.value.trim()||!Number.isInteger(value)||value<0||value>100){
-  if(commit){el.value=String(draft.clientDemand?.share??0);el.removeAttribute?.('aria-invalid');}
+  const restore=commit&&Number.isInteger(savedShare)&&savedShare>=0&&savedShare<=100;
+  if(restore){el.value=String(savedShare);el.removeAttribute?.('aria-invalid');}
   else el.setAttribute?.('aria-invalid','true');
-  if(error)error.textContent=QQI18n.text(commit?'Restored the last valid share.':'Enter a whole percentage from 0 to 100.');
+  if(error)error.textContent=QQI18n.text(restore?'Restored the last valid share.':'Enter a whole percentage from 0 to 100.');
   return;
  }
  el.removeAttribute?.('aria-invalid');
  if(error)error.textContent='';
  const calc=demandCalculation(profile.id);
- if(value!==(draft.clientDemand?.share??0)){calc.applied='';recordClientDemand(profile,value);}
+ if(value!==savedShare){calc.applied='';recordClientDemand(profile,value);}
  if(commit)announceClientDemand();
 }
 function updateClientDemandCount(el){
@@ -3632,6 +3825,7 @@ function handleInput(el){
   if(!Object.keys(draft.assumptionRecords).length)delete draft.assumptionRecords;
  }
  target[key]=value;
+ if(parts[0]==='services'&&key==='weight')editedMixOffer=target;
  if(key==='supplierMode')target.print=value==='none'?0:(target.print>0?target.print:null);
  if(key==='recurring'&&value===false)delete target.campaign;
  if(key==='recurring'&&value===true&&!target.campaign)target.campaign={cadenceDays:30,relationshipDays:365};
@@ -3900,9 +4094,16 @@ document.addEventListener('click',e=>{
   }
   else if(a==='add-blank-service')addCatalogService(null);
   else if(a==='service-starters')starterDialog();
-  else if(a==='add-starter'){const additions=QQServiceCatalog.starterServices(el.dataset.id);if(draft.services.length+additions.length>20)throw Error('This starter would exceed the 20-service limit.');serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;for(const s of additions){s.id=newServiceId();s.weight=0;draft.services.push(s);}expandedService=draft.services.length-additions.length;closeModal();render();toast('Starter services added at 0% share. Set their inquiry shares when ready.');}
-  else if(a==='review-starter'){pendingStarterId=el.dataset.id;const next=QQServiceCatalog.starterServices(pendingStarterId);modal(`<h2 id="dialog-title">Replace your draft service mix?</h2><p>Remove ${draft.services.length} current offerings from this draft: ${esc(draft.services.map(s=>s.name).join(', '))}.</p><p>Load this mix instead:</p><ul>${next.map(s=>`<li>${serviceName(s)} · ${money(s.price)} · ${s.weight}% inquiry share</li>`).join('')}</ul><p>Your active run and accepted projects stay in place. Undo is available until your next draft edit.</p><div class="actions">${btn('Keep current offerings','close')}${btn('Replace draft offerings','confirm-starter','primary')}</div>`);}
-  else if(a==='confirm-starter'){if(!pendingStarterId)throw Error('Choose a starter mix.');serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;clearServiceRecords();draft.services=QQServiceCatalog.starterServices(pendingStarterId);pendingStarterId=null;expandedService=0;closeModal();render();toast('Starter mix loaded into the draft. Review & apply when ready.');}
+  else if(a==='add-starter'){
+   const additions=starterOffers(el.dataset.id,true);
+   if(!additions.length)return;
+   if(draft.services.length+additions.length>20)throw Error('This starter would exceed the 20-service limit.');
+   serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;
+   for(const s of additions){s.id=newServiceId();s.weight=0;draft.services.push(s);}
+   expandedService=draft.services.length-additions.length;closeModal();render();toast('Starter services added at 0% share. Set their inquiry shares when ready.');
+  }
+  else if(a==='review-starter'){pendingStarterId=el.dataset.id;const next=QQServiceCatalog.starterServices(pendingStarterId);modal(`<h2 id="dialog-title">Replace your draft service mix?</h2><p>Remove ${draft.services.length} current offerings from this draft: ${esc(draft.services.map(s=>s.name).join(', '))}.</p><p>Load this mix instead:</p><ul>${next.map(s=>`<li>${serviceName(s)} · ${offerAmount(s.price)} · ${s.weight}% inquiry share</li>`).join('')}</ul><p>Your active run and accepted projects stay in place. Undo is available until your next draft edit.</p><div class="actions">${btn('Keep current offerings','close')}${btn('Replace draft offerings','confirm-starter','primary')}</div>`);}
+  else if(a==='confirm-starter'){if(!pendingStarterId)throw Error('Choose a starter mix.');serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;clearServiceRecords();draft.services=starterOffers(pendingStarterId);delete draft.clientMenu;pendingStarterId=null;expandedService=0;closeModal();render();toast('Starter mix loaded into the draft. Review & apply when ready.');}
   else if(a==='undo-services'){if(!serviceUndoDraft)throw Error('No previous service mix is available.');draft=QQ.clone(serviceUndoDraft);serviceUndoDraft=null;closeModal();render();}
   else if(a==='inspect-service'){
    expandedService=Number(el.dataset.index);
@@ -3911,7 +4112,15 @@ document.addEventListener('click',e=>{
    if(editor){editor.open=true;editor.querySelector('summary')?.focus();}else{disclosureState.set(key,true);render();}
   }
   else if(a==='price-experiment')priceExperiment(Number(el.dataset.index));
-  else if(a==='use-service-price'){const index=Number(el.dataset.index),price=Number(el.dataset.price),s=draft.services[index];if(!s||!Number.isFinite(price)||price<0||price>1e6||s.fulfillment&&price<s.fulfillment.designOnlyPrice)throw Error('Choose a valid price for this scope.');s.price=price;serviceUndoDraft=null;presetUndoDraft=null;closeModal();render();}
+  else if(a==='use-service-price'){
+   const index=Number(el.dataset.index),price=Number(el.dataset.price),service=draft.services[index];
+   const filesOnly=el.dataset.route==='files';
+   if(!service||!Number.isFinite(price)||price<0||price>1e6||
+    (filesOnly?service.fulfillment?.managedShare!==0||price>service.price:service.fulfillment&&price<service.fulfillment.designOnlyPrice))throw Error('Choose a valid price for this scope.');
+   if(filesOnly)service.fulfillment.designOnlyPrice=price;
+   else service.price=price;
+   draft=QQ.withCurrentAssumptionRecords(draft);serviceUndoDraft=null;presetUndoDraft=null;closeModal();render();
+  }
   else if(a==='service-evidence'){const service=evidenceService(el.dataset.id,el.dataset.catalog);serviceEvidence(service,el.dataset.catalog);}
   else if(a==='download-service-evidence'){const service=el.dataset.pickerEvidence?offerPicker?.rows.find(row=>row.key===el.dataset.pickerEvidence)?.service:evidenceService(el.dataset.id,el.dataset.catalog);if(!service)throw Error('Service not found.');download('MEIQQ-Service-Evidence.json',{service,audit:QQServiceCatalog.auditService(service)});}
   else if(a==='recipe-evidence')recipeEvidenceDialog();
@@ -3933,6 +4142,15 @@ document.addEventListener('click',e=>{
   else if(a==='duplicate'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id=newServiceId();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
   else if(a==='remove-service')removeDraftService(el.dataset.id?draft.services.findIndex(s=>s.id===el.dataset.id):Number(el.dataset.index));
   else if(a==='restore-service')restoreDraftService();
+  else if(a==='rebalance-other-weights'){
+   if(editedMixOffer?.id!==el.dataset.id)return;
+   const shares=weightsAround(editedMixOffer);
+   if(!shares)return;
+   serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;
+   for(const offer of draft.services)if(shares.has(offer.id))offer.weight=shares.get(offer.id);
+   const index=draft.services.indexOf(editedMixOffer);
+   save();render();document.querySelector('#input-services-'+index+'-weight')?.focus();
+  }
   else if(a==='assign-remainder'){
    const service=draft.services[Number(el.dataset.index??$('#mix-recipient').value)],total=draft.services.reduce((sum,s)=>sum+(s.weight||0),0),weight=QQ.round((service?.weight||0)+100-total);
    if(!service||weight<0||weight>100)throw Error('Choose an offer that can take the remaining weight.');
@@ -4042,8 +4260,7 @@ const studioReady=studioSession.open().then(()=>{if(['studio','planner','jobs'].
 const jobsReady=jobsSession.open().then(()=>{if(view==='jobs'||view==='planner')render();});
 const plannerReady=plannerSession.open().then(()=>{plannerController.initialize();if(view==='planner')render();});
 
-const dollarFormat=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2});
-function dollars(value){if(QQI18n.language==='zh-CN')return QQI18n.yuan(value);const rounded=QQ.round(value);return Number.isInteger(rounded)?money(rounded):dollarFormat.format(rounded);}
+function dollars(value){return offerAmount(value);}
 function analyticsRate(v){return v===null?'—':(v*100).toFixed(1)+'%';}
 function analyticsMoney(v){return v===null?'—':dollars(v);}
 function analyticsRows(rows){return rows.map(([label,value])=>`<div class="minirow"><span>${label}</span><b>${value}</b></div>`).join('');}
@@ -4168,6 +4385,10 @@ function monthlyOverview(links){
  <p class="month-owner">After valuing owner time at ${dollars(r.ownerTime)} (${r.rateHistoryAvailable?'day '+r.endDay+' target':'rate history unavailable, current target'} ${dollars(r.ownerRate)}/h), the result was <strong class="${r.afterOwner<0?'negative':''}">${dollars(r.afterOwner)}</strong>.</p></section>
  <div class="two-col month-explanation">${monthDrivers(r,costs,links)}${monthCash(r,links)}</div>`;
 }
+function deliveryExplainsRevenueGap({actual,estimate}){
+ return actual.newBacklog>0&&actual.returnRevenue===0&&actual.newBooked===estimate.revenue&&
+  QQ.round(estimate.revenue-actual.revenue)===actual.newBacklog;
+}
 function resultAssumptionLinks(comparison,targets=new Map()){
  const config=rerunStartingConfig(state),{actual,days}=comparison;
  const revision=rerunDraft?.run===state?rerunDraft.draft:config;
@@ -4238,8 +4459,9 @@ function resultAssumptionLinks(comparison,targets=new Map()){
  const prints=s=>s.fulfillment?s.fulfillment.managedShare>0:s.supplierMode==='print'||s.print>0;
  for(const {service,index,revised,plan,managed,files,supplier} of offers){
   const split=service.fulfillment,share=split?.managedShare??1,revisedShare=revised.fulfillment?.managedShare??1;
-  const expectedUnit=share*service.price+(1-share)*(split?.designOnlyPrice??0);
-  const managedPlan=expectedUnit?plan.revenue*share*service.price/expectedUnit:0;
+  const managedFee=QQ.round(service.price),filesFee=QQ.round(split?.designOnlyPrice??0);
+  const expectedUnit=share*managedFee+(1-share)*filesFee;
+  const managedPlan=expectedUnit?plan.revenue*share*managedFee/expectedUnit:0;
   const prefix='services.'+index+'.';
   if(share>0&&revisedShare>0)prices.push({planned:managedPlan,recorded:managed,path:prefix+'price',label:split?'Test managed-print price':'Test client price',value:service.price,service});
   if(share<1&&revisedShare<1)prices.push({planned:plan.revenue-managedPlan,recorded:files,path:prefix+'fulfillment.designOnlyPrice',label:'Test files-only price',value:split.designOnlyPrice,service});
@@ -4258,7 +4480,10 @@ function resultAssumptionLinks(comparison,targets=new Map()){
   const value=wait==='designers'?config.designers:wait==='approvalDays'||wait==='printDays'?countDays(config[wait]):effortHours(config[wait])+' h';
   waiting=jump(wait,waitLabels[wait],value);
  }
- return {volume,monthly,targetShare,conversion:jump('conversion','Test quote acceptance',inquiryShare(config.conversion)),revenue:contributingLink(prices,'revenue'),
+ const quoting=actual.awaitingQuote>0&&wait!=='ownerHours'?jump('ownerHours','Test weekly owner hours',effortHours(config.ownerHours)+' h'):'';
+ const deliveryGap=deliveryExplainsRevenueGap(comparison);
+ const conversion=actual.declinedQuotes===null||actual.declinedQuotes>0||(actual.orders>0&&(!deliveryGap||actual.orders!==comparison.estimate.orders))?jump('conversion','Test quote acceptance',inquiryShare(config.conversion)):'';
+ return {volume,monthly,targetShare,conversion,quoting,revenue:deliveryGap||actual.delivered===0?'':contributingLink(prices,'revenue'),
   designLabor:jump('designerRate','Test designer hourly cost',offerAmount(config.designerRate)),
   supplierCost:contributingLink(suppliers,'supplierCost'),
   overhead:jump('overhead','Test monthly overhead',offerAmount(config.overhead)),
@@ -4310,9 +4535,11 @@ function completedRunOverview(comparison,links=resultAssumptionLinks(comparison)
    <p class="run-test-note">Choose an assumption to change and compare the two runs.</p>${links.volume}${links.targetShare||''}</header></section>`;
  }
  const gap=QQ.round(actual.profit-estimate.profit);
- const verdict=gap===0?'On estimate':dollars(Math.abs(gap))+(gap>0?' above estimate':' below estimate');
- const label=basis==='reconstructed'?'Reconstructed estimate':'Setup estimate';
- const notes=[];
+ const capacityNote=launchCapacityNote(estimate.deliveryStatus);
+ const deliveries=actual.delivered===1?'1 job delivered':actual.delivered+' jobs delivered';
+ const verdict=capacityNote?deliveries:gap===0?'On estimate':dollars(Math.abs(gap))+(gap>0?' above estimate':' below estimate');
+ const label=basis==='reconstructed'?'Reconstructed estimate':'If all expected new orders ship';
+ const notes=capacityNote?[capacityNote]:[];
  if(basis==='reconstructed')notes.push('The estimate uses the recorded starting assumptions for this period.');
  if(days<state.day)notes.push('The run continued to day '+state.day+'. This comparison ends at the original horizon.');
  if(comparison.changes)notes.push('Setup changed during the run. The estimate uses the starting assumptions.');
@@ -4321,10 +4548,17 @@ function completedRunOverview(comparison,links=resultAssumptionLinks(comparison)
  const demandLinks=(hasDrivers&&(!actual.leads||actual.leads!==estimate.leads)?links.volume:'')+(estimate.leads||actual.leads?links.conversion:'');
  const pipeline=`<dl class="run-order-flow"><div><dt>Expected first orders</dt><dd>${n(estimate.orders)}</dd></div><div><dt>Accepted first orders</dt><dd>${n(actual.orders)}</dd></div><div><dt>Delivered first orders</dt><dd>${n(actual.newDelivered)}</dd></div></dl>`;
  const workNotes=[];
+ if(actual.unservedInquiries>0)workNotes.push(`<p><span>Inquiries with no matching offer</span> <b>${n(actual.unservedInquiries)}</b></p>`);
+ if(actual.awaitingQuote>0)workNotes.push(`<p><span>Inquiries still awaiting a first quote</span> <b>${n(actual.awaitingQuote)}</b></p>${links.quoting}`);
+ if(actual.declinedQuotes>0)workNotes.push(`<p><span>First quotes declined by buyers</span> <b>${n(actual.declinedQuotes)}</b></p>`);
  if(actual.newBooked!==estimate.revenue)workNotes.push(`<p>First orders booked for ${dollars(actual.newBooked)} against ${dollars(estimate.revenue)} expected.</p>`);
- if(actual.newBacklog>0)workNotes.push(`<p>Accepted first orders worth ${dollars(actual.newBacklog)} were still awaiting delivery.</p>${links.waiting}`);
+ if(actual.orders>actual.newDelivered)workNotes.push(`<p>Accepted first orders worth ${dollars(actual.newBacklog)} were still awaiting delivery.</p>${links.waiting}`);
+ if(deliveryExplainsRevenueGap(comparison))workNotes.push('<p>The undelivered first orders account for the entire gap in delivery revenue.</p>');
  if(actual.returnRevenue>0)workNotes.push(`<p>Returning work added ${dollars(actual.returnRevenue)} in delivered revenue.</p>${links.returning}`);
  if(!workNotes.length)workNotes.push('<p>The estimate assumes each expected first order earns its price by the end of the period.</p>');
+ if(actual.delivered||actual.receipts>0)workNotes.push(`<p><span>Client payments collected</span> <b>${dollars(actual.receipts)}</b></p>`);
+ if(actual.receivable>0)workNotes.push(`<p><span>Delivered balances to collect</span> <b>${dollars(actual.receivable)}</b></p>`);
+ if(actual.depositsHeld>0)workNotes.push(`<p><span>Deposits received for undelivered work</span> <b>${dollars(actual.depositsHeld)}</b></p>`);
  const row=(metric,projected,recorded)=>`<tr><th scope="row">${metric}</th><td>${projected}</td><td>${recorded}</td></tr>`;
  const amountPair=(metric,key)=>row(metric,dollars(estimate[key]),dollars(actual[key]));
  const hours=value=>Number.isFinite(value)?n(value)+' h':'—';
@@ -4334,11 +4568,11 @@ function completedRunOverview(comparison,links=resultAssumptionLinks(comparison)
   ${amountPair('Delivered revenue','revenue')}${amountPair('Incurred costs','cost')}${amountPair('Operating result','profit')}${amountPair('After owner time','afterOwner')}</tbody></table>`;
  return `<section class="run-comparison" aria-labelledby="run-comparison-title"><header class="run-comparison-head"><div>${range}
   <h2 id="run-comparison-title" tabindex="-1" aria-describedby="run-comparison-period">${verdict}</h2></div>
-  <dl class="run-comparison-totals"><div><dt>${label}</dt><dd data-run-estimate="profit">${setupResultAmount(estimate.profit)}</dd></div><div><dt>Actual result</dt><dd>${setupResultAmount(actual.profit)}</dd></div></dl></header>
+  <dl class="run-comparison-totals">${estimate.deliveryStatus==='blocked'?`<div><dt>Overhead incurred</dt><dd>${offerAmount(actual.overhead)}</dd></div>`:`<div><dt>${label}</dt><dd data-run-estimate="profit">${setupResultAmount(estimate.profit)}</dd></div>`}<div><dt>Simulated operating result</dt><dd>${setupResultAmount(actual.profit)}</dd></div></dl></header>
   ${notes.length?`<div class="run-basis">${notes.map(line=>`<p>${line}</p>`).join('')}</div>`:''}
   <p class="run-test-note">Choose an assumption to change and compare the two runs.</p>
   <div class="run-comparison-body"><section><h3>What moved the operating result?</h3>${estimateDriverList(comparison,links)}</section>
-  <section><h3>From quote to delivery</h3>${pipeline}<div class="run-assumption-list">${demandLinks}</div><div class="run-work-notes">${workNotes.join('')}</div>
+  <section><h3>From inquiry to payment</h3>${pipeline}<div class="run-assumption-list">${demandLinks}</div><div class="run-work-notes">${workNotes.join('')}</div>
   <div class="run-owner-line"><h4>After owner time</h4><p>${dollars(actual.afterOwner)} actual against ${dollars(estimate.afterOwner)} estimated.</p>
   <small>Owner hours estimated ${n(estimate.ownerHours)} · recorded ${n(actual.ownerHours)}</small>
   ${actual.rateHistoryAvailable===false?'<small>The actual figure values recorded hours at the current owner rate.</small>':''}${links.owner}</div></section></div>
@@ -4398,6 +4632,7 @@ function variantResultsOverview(pair,{comparison,targets,readOnly=false,kept=pai
  const more=changes.length>2?`<details class="variant-extra-edits" data-disclosure="${disclosure}-input-changes"><summary>More setup changes (${changes.length-2})</summary>${list(changes.slice(2))}</details>`:'';
  const conditions=QQ.workloadComparison(revised,original,days);
  const notes=[];
+ if(conditions.sameOrderRules===false)notes.push('Campaign scheduling or deposit rounding used different rules during the compared days.');
  if(original.day!==revised.day)notes.push('The original ran for '+original.day+' days and the revised run for '+revised.day+'. Both columns stop at day '+days+'.');
  if(conditions.sameWorkloadIdentity&&conditions.sameRealizedInquiries===true)notes.push(original.day===revised.day?'Both runs used the same seed and received the same new inquiries.':'Both runs used the same seed and received the same new inquiries through day '+days+'.');
  else{
@@ -4502,9 +4737,9 @@ function contractAnalyticsView(a){
  const filtered=filteredContracts(a),pages=Math.max(1,Math.ceil(filtered.length/20));contractPage=Math.min(contractPage,pages-1);
  const visible=filtered.slice(contractPage*20,contractPage*20+20);
  const options=(list,value)=>list.map(([v,l])=>`<option value="${v}" ${value===v?'selected':''}>${l}</option>`).join('');
- return `<div class="metrics">${metric('Contracts',a.contracts.length,'All accepted client relationships')}${metric('Booked value',money(a.contracts.reduce((n,c)=>n+c.booked,0)),'All accepted cycles, including delivered')}${metric('Delivered receivables',money(a.contracts.reduce((n,c)=>n+c.receivable,0)),'Positive balances still to collect')}${metric('Below owner-time target',a.contracts.filter(c=>c.afterOwner<0).length,'To date; excludes shared overhead')}</div>
+ return `<div class="metrics">${metric('Contracts',a.contracts.length,'All accepted client relationships')}${metric('Booked value',offerAmount(a.contracts.reduce((n,c)=>n+c.booked,0)),'All accepted cycles, including delivered')}${metric('Delivered receivables',offerAmount(a.contracts.reduce((n,c)=>n+c.receivable,0)),'Positive balances still to collect')}${metric('Below owner-time target',a.contracts.filter(c=>c.afterOwner<0).length,'To date; excludes shared overhead')}</div>
  <section class="panel"><div class="panelhead"><div><h2>Contract economics</h2><p class="helper">One row per contract · expand a client for cycle details</p></div></div><div class="analytics-tools"><label class="search-label">Find client or contract<input id="contract-search" type="search" value="${esc(contractSearch)}" placeholder="Client name or contract ID" /></label><label class="search-label">Show<select id="contract-filter">${options([['all','All contracts'],['open','Awaiting delivery'],['receivable','Balance to collect'],['negative','Below owner-time target']],contractFilter)}</select></label><label class="search-label">Rank by<select id="contract-sort">${options([['contribution','Contribution · high to low'],['margin','Margin · high to low'],['revenue','Revenue · high to low'],['receivable','Receivable · high to low'],['afterOwner','After owner time · high to low']],contractSort)}</select></label></div>
- ${analyticsTable(['Client / contract','Delivered / accepted','Revenue','Contribution','Margin','Receivable','After owner time*'],visible.map(c=>`<tr data-render-key="contract-row-${esc(c.id)}"><td><details data-disclosure="contract-${esc(c.id)}"><summary id="contract-summary-${esc(c.id)}">${esc(c.client)}</summary><div class="contract-detail"><small>${esc(c.id)} · ${c.kind==='campaign-relationship'?'Yearly campaign relationship':c.kind==='paid-cycle'?'Paid-cycle subscription':'Repeat-purchase contract'}</small>${analyticsRows([...(c.kind==='campaign-relationship'?[['Campaign interval',c.cadenceDays+' days'],['Relationship ends','Day '+c.relationshipEndDay],['Next quote',c.nextQuoteDay===null?'Not scheduled':'Day '+c.nextQuoteDay],['Skipped campaigns',c.skippedCampaigns||0]]:[]),['Booked value',money(c.booked)],['Collected, including deposits',money(c.collected)],['Costs on unfinished work',money(c.unfinishedCost)],['Open delivery cycles',c.open],['Owner / design hours',num(c.ownerHours)+' / '+num(c.designHours)]])}<div class="actions">${c.projects.map(id=>btn(esc(id),'project','table-link',`data-id="${esc(id)}"`)).join('')}</div></div></details></td><td>${c.delivered} / ${c.cycles}</td><td>${money(c.revenue)}</td>${resultCell(c.contribution)}<td>${analyticsRate(c.margin)}</td><td>${money(c.receivable)}</td>${resultCell(c.afterOwner)}</tr>`),'No contracts match. Contracts appear after quotes are accepted.')}
+ ${analyticsTable(['Client / contract','Delivered / accepted','Revenue','Contribution','Margin','Receivable','After owner time*'],visible.map(c=>`<tr data-render-key="contract-row-${esc(c.id)}"><td><details data-disclosure="contract-${esc(c.id)}"><summary id="contract-summary-${esc(c.id)}">${esc(c.client)}</summary><div class="contract-detail"><small>${esc(c.id)} · ${c.kind==='campaign-relationship'?'Yearly campaign relationship':c.kind==='paid-cycle'?'Paid-cycle subscription':'Repeat-purchase contract'}</small>${analyticsRows([...(c.kind==='campaign-relationship'?[['Campaign interval',c.cadenceDays+' days'],['Relationship ends','Day '+c.relationshipEndDay],['Next quote',c.nextQuoteDay===null?'Not scheduled':'Day '+c.nextQuoteDay],['Skipped campaigns',c.skippedCampaigns||0],...(c.missedCadences>0?[['Campaign periods missed while prior work was open',c.missedCadences]]:[])]:[]),['Booked value',offerAmount(c.booked)],['Collected, including deposits',offerAmount(c.collected)],['Costs on unfinished work',offerAmount(c.unfinishedCost)],['Open delivery cycles',c.open],['Owner / design hours',num(c.ownerHours)+' / '+num(c.designHours)]])}<div class="actions">${c.projects.map(id=>btn(esc(id),'project','table-link',`data-id="${esc(id)}"`)).join('')}</div></div></details></td><td>${c.delivered} / ${c.cycles}</td><td>${offerAmount(c.revenue)}</td>${resultCell(c.contribution)}<td>${analyticsRate(c.margin)}</td><td>${offerAmount(c.receivable)}</td>${resultCell(c.afterOwner)}</tr>`),'No contracts match. Contracts appear after quotes are accepted.')}
  <div class="analytics-pagination"><span>${filtered.length?contractPage*20+1:0}–${Math.min((contractPage+1)*20,filtered.length)} of ${filtered.length} contracts · totals above cover all contracts</span><div class="actions">${btn('Previous','contract-page','small',`data-delta="-1" ${contractPage===0?'disabled':''}`)}${btn('Next','contract-page','small',`data-delta="1" ${contractPage===pages-1?'disabled':''}`)}</div></div></section>
  <p class="helper">Contribution = delivered revenue − direct costs on delivered cycles. *After owner time = revenue − all incurred contract costs − recorded contract hours × current owner target. It excludes shared overhead, outreach and time on declined new quotes. Open cycles can make this interim result negative. Contract totals will not equal the whole-business result.</p>`;
 }
@@ -4581,7 +4816,7 @@ function monthSampleView(){
 function simulationAnalyticsView(a,m){
  const max=Math.max(1,...a.monthly.map(r=>Math.max(r.revenue,Math.abs(r.profit))));
  return `<div class="metrics">${metric('New quote conversion',analyticsRate(a.conversion),a.won+' accepted / '+(a.won+a.lost)+' decided')}${metric('Returning cycle share',analyticsRate(a.repeatShare),a.repeatCycles+' accepted returning cycles')}${metric('On-time delivery',analyticsRate(m.onTimeRate),m.lateCompleted+' delivered late')}${metric('Average delivery lead time',m.averageAcceptedLeadDays===null?'—':num(m.averageAcceptedLeadDays)+' d','Acceptance to delivery')}</div>
- <div class="two-col"><section class="panel padded"><h2>Monthly revenue & operating result</h2><div class="trend-legend"><span>▰ Revenue</span><span>━ Operating result (signed)</span></div>${a.monthly.map(r=>`<div class="trend-row"><b>M${r.month}${r.days<30?' · partial':''}</b><div><div class="trend-line"><span class="trend-bar" style="width:${r.revenue/max*100}%"></span><span>${money(r.revenue)}</span></div><div class="trend-line"><span class="trend-bar result ${r.profit<0?'loss':''}" style="width:${Math.abs(r.profit)/max*100}%"></span><span>${money(r.profit)}</span></div></div></div>`).join('')}<p class="helper">Common dollar scale; negative results are labeled with a minus sign. Partial months are not directly comparable with full 30-day months.</p></section><section class="panel padded"><h2>Pipeline & delivery health</h2>${analyticsRows([['Served / unserved external inquiries',a.external+' / '+m.unserved],['New quotes still undecided',a.pending],['Clients with accepted work',a.uniqueClients],['Late open deliveries',m.late],['Oldest quote',m.oldestQuoteAge+' d'],['Remaining owner / design work',num(m.ownerOpenHours)+' / '+num(m.designerOpenHours)+' h'],['Overdue final payments',m.overduePayments],['Owner / design hours recorded',num(state.ownerHours)+' / '+num(state.designHours)+' h']])}<p class="helper">Conversion excludes undecided quotes and returning orders. Returning share measures orders, not customer retention. Late deliveries and overdue payments are separate.</p></section></div>
- <section class="panel analytics-section"><div class="panelhead"><h2>Monthly detail</h2><span class="tag">30-DAY MODEL MONTHS</span></div>${analyticsTable(['Month','Revenue','Incurred costs','Operating result','Margin','After owner time','Delivered'],a.monthly.map(r=>`<tr><td>${r.month}${r.days<30?'<small>Partial · '+r.days+' days</small>':''}</td><td>${money(r.revenue)}</td><td>${money(r.cost)}</td>${resultCell(r.profit)}<td>${analyticsRate(r.margin)}</td>${resultCell(r.afterOwner)}<td>${r.delivered}</td></tr>`))}</section>
+ <div class="two-col"><section class="panel padded"><h2>Monthly revenue & operating result</h2><div class="trend-legend"><span>▰ Revenue</span><span>━ Operating result (signed)</span></div>${a.monthly.map(r=>`<div class="trend-row"><b>M${r.month}${r.days<30?' · partial':''}</b><div><div class="trend-line"><span class="trend-bar" style="width:${r.revenue/max*100}%"></span><span>${offerAmount(r.revenue)}</span></div><div class="trend-line"><span class="trend-bar result ${r.profit<0?'loss':''}" style="width:${Math.abs(r.profit)/max*100}%"></span><span>${offerAmount(r.profit)}</span></div></div></div>`).join('')}<p class="helper">Common dollar scale; negative results are labeled with a minus sign. Partial months are not directly comparable with full 30-day months.</p></section><section class="panel padded"><h2>Pipeline & delivery health</h2>${analyticsRows([['Served / unserved external inquiries',a.external+' / '+m.unserved],['New quotes still undecided',a.pending],['Clients with accepted work',a.uniqueClients],['Late open deliveries',m.late],['Oldest quote',m.oldestQuoteAge+' d'],['Remaining owner / design work',num(m.ownerOpenHours)+' / '+num(m.designerOpenHours)+' h'],['Overdue final payments',m.overduePayments],['Owner / design hours recorded',num(state.ownerHours)+' / '+num(state.designHours)+' h']])}<p class="helper">Conversion excludes undecided quotes and returning orders. Returning share measures orders, not customer retention. Late deliveries and overdue payments are separate.</p></section></div>
+ <section class="panel analytics-section"><div class="panelhead"><h2>Monthly detail</h2><span class="tag">30-DAY MODEL MONTHS</span></div>${analyticsTable(['Month','Revenue','Incurred costs','Operating result','Margin','After owner time','Delivered'],a.monthly.map(r=>`<tr><td>${r.month}${r.days<30?'<small>Partial · '+r.days+' days</small>':''}</td><td>${offerAmount(r.revenue)}</td><td>${offerAmount(r.cost)}</td>${resultCell(r.profit)}<td>${analyticsRate(r.margin)}</td>${resultCell(r.afterOwner)}<td>${r.delivered}</td></tr>`))}</section>
  ${monthSampleView()}<div class="actions">${btn('Compare runs','compare-runs','soft')}</div>`;
 }
