@@ -106,10 +106,11 @@
     out vec4 color;
     // View-space slices resolve the front, core and back of each moist column.
     // The same wind that carries the metal parcels carries the fine cloud grain.
-    float material(vec2 uv,float z){
+    float material(vec2 uv,float z,out vec3 parcel){
       vec2 bend=(texture(uWater,uv).ba-vec2(128./255.))*.5;
       vec2 travel=vec2(.005+.004*uAir.z,-.002*uAir.y)*uTime+bend;
-      vec3 p=vec3((uv-travel)*vec2(1.23-.47*uAir.z,.86+.44*uAir.z),z*.24)+uSeed*.073;
+      parcel=vec3((uv-travel)*vec2(1.23-.47*uAir.z,.86+.44*uAir.z),z*.24);
+      vec3 p=parcel+uSeed*.073;
       vec4 grains=texture(uGrain,p);
       vec3 finer=texture(uGrain,p*2.73+grains.g*.17).rgb;
       vec2 displacement=(grains.rg-.47)*vec2(.142,.122)+(finer.rg-.47)*.042;
@@ -131,14 +132,15 @@
       for(int k=0;k<16;k++){
         float z=1.-(float(k)+.5)/8.;
         vec2 uv=vUV+vec2(.051,-.040)*z;
-        float rho=material(uv,z);
+        vec3 parcel,shadowParcel;
+        float rho=material(uv,z,parcel);
         if(rho<.003)continue;
-        float nearSun=material(uv+vec2(-.023,-.038),z+.16);
-        float middleSun=material(uv+vec2(-.057,-.082),z+.34);
+        float nearSun=material(uv+vec2(-.023,-.038),z+.16,shadowParcel);
+        float middleSun=material(uv+vec2(-.057,-.082),z+.34,shadowParcel);
         float farSun=texture(uWater,uv+vec2(-.093,-.127)).r;
         float slope=clamp(.49+(rho-nearSun)*1.66,0.,1.);
         float sunlight=exp(-(nearSun*1.30+middleSun*1.27+farSun*.65)*depthScale);
-        vec4 grain=texture(uGrain,vec3((uv-vec2(.008,-.003)*uTime)*4.3,z*.34)+uSeed*.073);
+        vec4 grain=texture(uGrain,parcel*vec3(4.3,4.3,1.42)+uSeed*.073);
         float silver=(grain.r-.46)*.26+(grain.g-.46)*.17;
         float rim=smoothstep(.18,.66,grain.r)*(1.-smoothstep(.08,.40,rho));
         float light=clamp(.55*slope+.54*sunlight+.11*z+silver+rim*.12,0.,1.);
@@ -310,11 +312,15 @@
     let out=0;faceOrder.length=0;
     const pixelRatio=width/Math.max(1,host.clientWidth);
     for(const s of flights.shards){
+      if(s.attached)continue;
       const flightMesh=flightMeshes[s.lane+1];
       const p=s.ticket.parcel, cr=Math.cos(s.roll), sr=Math.sin(s.roll);
       const cp=Math.cos(s.pitch), sp=Math.sin(s.pitch), ca=Math.cos(s.angle), sa=Math.sin(s.angle);
-      const radius=clamp(Math.min(width,height)*.019,5*pixelRatio,15*pixelRatio)
-        *(.86+.20*p.seed)*(.26+.74*s.focus)/(1-.81*s.near);
+      const bank=s.landed?s.to:s.from,space=state[banks[bank.index].id].spacing/100;
+      const bankRadius=Math.min(bank.sx*width,bank.sy*height*1.85)*mix(.86,.42,space)*p.extent;
+      const closeRadius=clamp(Math.min(width,height)*.019,5*pixelRatio,15*pixelRatio)*(.86+.20*p.seed);
+      const exposure=s.focus*(1-smooth((s.age/s.duration-.56)/.42));
+      const radius=mix(bankRadius,closeRadius,exposure)/(1-.81*s.near);
       const parallax=height*.031*s.near;
       const centerX=(s.x+(s.x-.50)*s.near*.09)*width+look[0]*parallax;
       const centerY=(s.y+(s.y-.46)*s.near*.09)*height+look[1]*parallax;

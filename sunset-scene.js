@@ -124,6 +124,9 @@
     const size=COLS*ROWS, rand=random(bank.seed);
     let water=new Float32Array(size), nextWater=new Float32Array(size);
     let vapor=new Float32Array(size), nextVapor=new Float32Array(size);
+    // Condensate torn off the rim outlives the narrow neck that supplied it.
+    let wisp=new Float32Array(size),nextWisp=new Float32Array(size);
+    const condensed=new Float32Array(size),gustField=new Float32Array(size);
     const vx=new Float32Array(size), vy=new Float32Array(size), light=new Float32Array(size);
     const curl=new Float32Array(size);
     let flowX=new Float32Array(size), flowY=new Float32Array(size);
@@ -142,6 +145,17 @@
     // elapsed weather time, then each bank keeps the same fixed period.
     let interval=STEP*({west:1,east:2/3,low:1/3}[bank.id]??1);
     let profile=types[bank.cycle[0]];
+    let gust=null;
+    function startGust(x,y,dx,dy){
+      const rx=.15+.035*profile.shear,ry=.18+.055*profile.lift;
+      const length=Math.hypot(dx/rx,dy/ry)||1;
+      const localCurl=sample(curl,x,y);
+      const strength=.82+.25*profile.lift+.15*Math.min(1,Math.abs(localCurl));
+      gust={x,y,rx,ry,tx:dx/rx/length,ty:dy/ry/length,start:time,
+        sign:Math.abs(localCurl)>.12?Math.sign(localCurl):(Math.sin(bank.seed+time*.37)>0?1:-1),
+        strength,build:1.45+.65*(1-profile.lift),rise:1.9+.45*profile.shear};
+      return gust;
+    }
     for(let j=0;j<rows;j++)for(let i=0;i<columns;i++){
       const x=(i+rand())/columns, y=(j+rand())/rows;
       const seed=rand(),depth=rand(),angle=rand()*TAU;
@@ -198,6 +212,14 @@
           turn:(n===1?-1:1)*(.41+.47*lift)*(.79+.21*Math.cos(t))});
       }
       const memory=Math.exp(-dt/3.2);
+      const ageOfGust=gust?time-gust.start:0;
+      if(gust&&ageOfGust>gust.build+gust.rise+5)gust=null;
+      const sweep=gust?smooth((ageOfGust-gust.build)/gust.rise):0;
+      const fade=gust?1-smooth((ageOfGust-gust.build-gust.rise)/4.8):0;
+      const winding=gust?smooth(ageOfGust/gust.build)*fade:0;
+      const stripping=sweep*fade;
+      const head=.92*sweep+.13*Math.max(0,ageOfGust-3);
+      const bend=gust?gust.sign*.36*Math.sin(sweep*2.5):0;
       if(!initialize)gatherParcels();
       for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
         const x=i/(COLS-1), y=j/(ROWS-1), k=j*COLS+i;
@@ -206,14 +228,16 @@
         // Dry air cuts a winding channel. Air curls along its downwind lip
         // into a fresh thermal that can condense outside the original outline.
         const offset=x-frontX-.075*Math.sin((y-curlY)*7+wave)-.062*grain[k]-.012*Math.sin(y*25+phase);
-        const dry=split*smooth((.146-Math.abs(offset))/.083);
+        const seam=offset-.045*split*Math.sin(10*(y-curlY)+wave+.8*eddy);
+        const tongue=.85+.15*Math.cos((y-curlY)*6+phase*.37);
+        const dry=split*smooth((.15*tongue-Math.abs(seam))/.083);
         const dx=x-updraftX, dy=y-updraftY;
         const vortex=clamp(1-(dx/.31)**2-(dy/.36)**2)*gather;
         const nx=dx/rx+.25*grain[k], ny=dy/ry+.35*grain[k];
         const cell=clamp(Math.max(1-nx*nx-ny*ny,
           .91-(nx-.72)**2*1.8-(ny+.28)**2*1.6, .87-(nx+.54)**2*2-(ny-.41)**2*1.9)+.46*grain[k]);
-        const sourceX=x+.045*Math.sin(phase*.57+4*y)+.021*eddy-dy*vortex*.58;
-        const sourceY=y+.046*lift*Math.sin(phase+7*x)+.019*roll+dx*vortex*.82;
+        const sourceX=x+.045*Math.sin(phase*.57+4*y)+.021*eddy-dy*vortex*.58-.30*flowX[k];
+        const sourceY=y+.046*lift*Math.sin(phase+7*x)+.019*roll+dx*vortex*.82-.30*flowY[k];
         const parent=mix(sample(a,sourceX,sourceY),sample(b,sourceX,sourceY),blend);
         const source=Math.max(parent,cell*gather*(1.16-.20*shear))*(1-dry);
         const w=.011+.010*profile.height+.014*profile.shear*(1-y)+.006*eddy;
@@ -227,27 +251,52 @@
           const spin=cell.turn*inside*inside;
           vx[k]-=uy*cell.rx*spin;vy[k]+=ux*cell.ry*spin;
         }
+        let neck=0,peel=0,slipX=0,slipY=0;
+        gustField[k]=0;
+        if(gust&&winding>0){
+          const gx=(x-gust.x)/gust.rx,gy=(y-gust.y)/gust.ry;
+          const along=gx*gust.tx+gy*gust.ty,across=gy*gust.tx-gx*gust.ty;
+          const a=along-head,b=across-bend;
+          const core=Math.max(0,1-a*a*.48-b*b*.68);
+          const spin=gust.sign*gust.strength*winding*core*core;
+          // Wind up a shared roll, then stretch the leading lobe through its rim.
+          const jet=.94*gust.strength*stripping*core;
+          const draw=.25*winding*(1-sweep)*core;
+          const forward=jet-b*spin-a*draw,side=a*spin-b*draw;
+          vx[k]+=gust.rx*(gust.tx*forward-gust.ty*side);
+          vy[k]+=gust.ry*(gust.ty*forward+gust.tx*side);
+          neck=stripping*Math.max(0,1-((a+.70)/.57)**2-((b+.11*gust.sign)/.83)**2);
+          peel=stripping*core*core;
+          slipX=.29*gust.rx*gust.tx*peel;slipY=.29*gust.ry*gust.ty*peel;
+          gustField[k]=winding*core;
+        }
         const upstreamX=x-vx[k]*dt, upstreamY=y-vy[k]*dt;
         nextFlowX[k]=initialize?0:memory*(sample(flowX,upstreamX,upstreamY)+vx[k]*dt);
         nextFlowY[k]=initialize?0:memory*(sample(flowY,upstreamX,upstreamY)+vy[k]*dt);
-        const supply=moisture*(.27+source*.91+.055*eddy)*(1-.85*dry);
+        const supply=moisture*(.27+source*.91+.055*eddy)*(1-.85*dry)*(1-.78*neck);
         const saturation=.43+.13*y-.10*profile.lift*source;
         if(initialize){
-          nextVapor[k]=saturation;nextWater[k]=clamp((supply-saturation)*1.15);
+          nextVapor[k]=saturation;nextWater[k]=clamp((supply-saturation)*1.15);nextWisp[k]=0;
         }else{
           const transported=sample(water,upstreamX,upstreamY);
           let v=mix(sample(vapor,upstreamX,upstreamY),supply,1-Math.exp(-dt*1.2));
           const exchange=(v-saturation)*(1-Math.exp(-dt*(v>saturation?2.4:1.7)));
           const transfer=clamp(exchange,-transported,v);
-          nextWater[k]=clamp(transported*Math.exp(-dt*(.51+1.9*dry))+transfer);
+          const available=clamp(transported*Math.exp(-dt*(.51+1.9*dry+1.1*neck))+transfer);
+          const lifted=available*(1-Math.exp(-1.3*dt*peel));
+          nextWater[k]=available-lifted;
+          nextWisp[k]=sample(wisp,upstreamX-slipX*dt,upstreamY-slipY*dt)*Math.exp(-dt*(.32+.60*dry))+lifted;
           nextVapor[k]=v-transfer;
         }
-        nextWater[k]*=smooth(Math.min(x,1-x)*22)*smooth(Math.min(y,1-y)*22);
+        const edge=smooth(Math.min(x,1-x)*22)*smooth(Math.min(y,1-y)*22);
+        nextWater[k]*=edge;nextWisp[k]*=edge;
+        condensed[k]=clamp(nextWater[k]+nextWisp[k]);
       }
       [water,nextWater]=[nextWater,water];[vapor,nextVapor]=[nextVapor,vapor];
+      [wisp,nextWisp]=[nextWisp,wisp];
       [flowX,nextFlowX]=[nextFlowX,flowX];[flowY,nextFlowY]=[nextFlowY,flowY];
       for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
-        const k=j*COLS+i,x=i/(COLS-1),y=j/(ROWS-1), liquid=water[k];
+        const k=j*COLS+i,x=i/(COLS-1),y=j/(ROWS-1), liquid=condensed[k];
         const gx=x*(binsX-1),gy=y*(binsY-1),ix=Math.min(binsX-2,Math.floor(gx)),iy=Math.min(binsY-2,Math.floor(gy));
         const bin=iy*binsX+ix, coverage=mix(mix(deposit[bin],deposit[bin+1],gx-ix),
           mix(deposit[bin+binsX],deposit[bin+binsX+1],gx-ix),gy-iy);
@@ -262,7 +311,7 @@
         }
         // Compare nearby columns along the sunset light to expose billows
         // and shadow their leeward faces. High thin ice clouds transmit more.
-        const lightSide=sample(water,x-.026,y-.052);
+        const lightSide=sample(condensed,x-.026,y-.052);
         const shade=clamp(.49+(liquid-lightSide)*1.65+.20*(.55-y)+.09*Math.sin(x*9+phase)*liquid);
         light[k]=shade;
         texture[k*4]=Math.round(clamp(q)*255);texture[k*4+1]=Math.round(shade*255);
@@ -290,7 +339,7 @@
           const crossedSide=p.x<0||p.x>=1;
           p.x=fract(p.x);p.y=crossedSide?p.home:fract(p.y);p.mass=0;p.loose=0;
         }
-        const q=sample(water,p.x,p.y), threshold=.024+.21*p.seed;
+        const q=sample(condensed,p.x,p.y), threshold=.024+.21*p.seed;
         const target=smooth((q-threshold)*3.7);
         p.mass=initialize?target:mix(p.mass,target,1-Math.exp(-dt*(target>p.mass?1.9:1.15)));
         // A few bright facets stay visible in dry air. Their identities and
@@ -298,8 +347,9 @@
         p.loose=initialize?p.mass:Math.max(p.mass,p.loose*Math.exp(-dt*.24));
         const free=p.seed>.84?p.loose*(1-p.mass):0;
         const visible=(p.mass+.72*free)*smooth(Math.min(p.x,1-p.x,p.y,1-p.y)*32);
-        if(visible<.016&&!p.settling)continue;
+        if(visible<.016&&!p.settling){p.extent=0;continue;}
         const k=count++*stride, lit=sample(light,p.x,p.y);
+        const lifted=gust?sample(gustField,p.x,p.y):0;
         const shear=clamp(sample(curl,p.x,p.y),-2.6,2.6);
         if(initialize)p.heading=Math.atan2(p.dy,p.dx)+(p.seed-.5)*1.5;
         // A thin flake has no preferred nose. Torque aligns either end to the
@@ -314,8 +364,9 @@
         p.spin+=(turn-p.spin)*settle;
         p.heading+=dt*p.yawRate;p.roll+=dt*p.spin;
         stream[k]=p.x;stream[k+1]=p.y;stream[k+2]=p.depth*.095+.11*q;
-        stream[k+3]=(.0015+.0079*p.seed*p.seed)*Math.sqrt(visible);
-        stream[k+4]=p.heading;stream[k+5]=p.roll;stream[k+6]=clamp(lit+.32*free);stream[k+7]=visible*(p.settling?1-p.flightCover:1);
+        p.extent=(.0015+.0079*p.seed*p.seed)*Math.sqrt(visible)*(1+.32*lifted);
+        stream[k+3]=p.extent;
+        stream[k+4]=p.heading;stream[k+5]=p.roll;stream[k+6]=clamp(lit+.32*free+.11*lifted);stream[k+7]=visible*(p.settling?1-p.flightCover:1);
         stream[k+8]=p.seed;stream[k+9]=p.depth;
       }
     }
@@ -333,15 +384,15 @@
         if(debt>=interval-1e-9){solve(interval,false);debt=0;interval=STEP;}
       }
     }
-    function release(x,y){
+    function reserve(x,y){
       let nearest=.08**2, slot=-1;
       for(let i=0;i<parcels.length;i++){
         const p=parcels[i], distance=(p.x-x)**2+(p.y-y)**2;
-        if(!p.inFlight && !p.settling && p.mass>.10 && distance<nearest){slot=i;nearest=distance;}
+        if(!p.reserved && !p.inFlight && !p.settling && p.mass>.10 && distance<nearest){slot=i;nearest=distance;}
       }
       if(slot<0)return null;
       const parcel=parcels[slot];
-      parcel.inFlight=true;
+      parcel.reserved=true;
       return {parcel,replaceWith(other){parcels[slot]=other;}};
     }
     function receive(ticket,x,y){
@@ -349,19 +400,20 @@
       // keeps its fixed buffer capacity and the airborne shard keeps its seed.
       let slot=-1;
       for(let i=0;i<parcels.length;i++){
-        if(parcels[i].inFlight||parcels[i].settling)continue;
+        if(parcels[i].reserved||parcels[i].inFlight||parcels[i].settling)continue;
         if(slot<0||parcels[i].mass<parcels[slot].mass)slot=i;
         if(parcels[slot].mass===0)break;
       }
       const p=ticket.parcel, other=parcels[slot];
       Object.assign(other,{x:p.x,y:p.y,home:p.home,mass:0,loose:0});
       ticket.replaceWith(other);
-      const mass=smooth((sample(water,x,y)-.024-.21*p.seed)*3.7);
+      const mass=smooth((sample(condensed,x,y)-.024-.21*p.seed)*3.7);
       Object.assign(p,{x,y,home:y,mass,loose:Math.max(.40,mass),inFlight:false});
       parcels[slot]=p;
     }
     solve(0,true);transport(0,true);
-    return {texture,stream,configure,advance,release,receive,densityAt:(x,y)=>sample(water,x,y),
+    return {texture,stream,configure,advance,startGust,reserve,receive,densityAt:(x,y)=>sample(condensed,x,y),
+      gustAt:(x,y)=>sample(gustField,x,y),
       windAt:(x,y)=>[sample(vx,x,y),sample(vy,x,y)],
       get count(){return count;},get version(){return version;},
       get epoch(){return epoch;},get blend(){return debt/STEP;},

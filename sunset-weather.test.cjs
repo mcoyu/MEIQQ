@@ -154,13 +154,75 @@ test('the same three shards leave one bank, cross clear sky and enter a differen
 test('a paused edit moves bound copper with its bank while an airborne shard holds its world position', () => {
   const {createShardFlights,cloudViews,defaults}=sceneWindow.SunsetScene;
   const state=structuredClone(defaults), weather=banks.map(createWeather), flights=createShardFlights(weather);
-  flights.advance(.36,cloudViews(state,weather,1.6),1.6);
-  const s=flights.shards[0],waiting=flights.shards[1], initial=waiting.x, x=s.x, age=s.age, source=state[banks[s.from.index].id];
+  let s,waiting;
+  for(let tick=0;tick<150&&!s;tick++){
+    weather.forEach(w=>w.advance(.04));
+    flights.advance(.04,cloudViews(state,weather,1.6),1.6);
+    s=flights.shards.find(s=>!s.attached);waiting=flights.shards.find(s=>s.attached);
+  }
+  assert.ok(s&&waiting,'a gust releases leaves at different times');
+  const initial=waiting.x, x=s.x, age=s.age, stress=waiting.stress, source=state[banks[s.from.index].id];
   source.x+=8;
   flights.advance(0,cloudViews(state,weather,1.6),1.6);
-  assert.equal(s.x,x);assert.ok(waiting.x>initial+.07);assert.equal(s.age,age);
+  assert.equal(s.x,x);assert.ok(waiting.x>initial+.07);assert.equal(s.age,age);assert.equal(waiting.stress,stress);
   source.visible=false;flights.advance(0,cloudViews(state,weather,1.6),1.6);
   assert.equal(flights.shards.length,0);assert.equal(s.ticket.parcel.inFlight,false);
+  assert.equal(waiting.ticket.parcel.reserved,false);
+});
+
+test('a gust winds neighbouring leaves around a common centre, thins the neck and carries a wisp downwind',()=>{
+  const bank=createWeather(banks[0]),calm=createWeather(banks[0]),dt=.04;
+  const g=bank.startGust(.62,.72,.10,.17);
+  function position(along,across){
+    return [g.x+g.rx*(along*g.tx-across*g.ty),g.y+g.ry*(along*g.ty+across*g.tx)];
+  }
+  function densityChange(lo,hi){
+    let sum=0,count=0;
+    for(let a=lo;a<hi;a+=.1)for(let b=-.45;b<.5;b+=.1){
+      const p=position(a,b);sum+=bank.densityAt(...p)-calm.densityAt(...p);count++;
+    }
+    return sum/count;
+  }
+  function turnAt(along){
+    const p=position(along,0),a=bank.windAt(...p),b=calm.windAt(...p);
+    return ((a[1]-b[1])/g.ry*g.tx-(a[0]-b[0])/g.rx*g.ty)*g.sign;
+  }
+  let oppositeTurns=false,separated=false;
+  for(let tick=0;tick<250;tick++){
+    bank.advance(dt);calm.advance(dt);
+    if(bank.time<=g.build)oppositeTurns||=turnAt(.55)>.08&&turnAt(-.55)<-.08;
+    if(bank.time>g.build)separated||=densityChange(-.25,.38)<-.08&&densityChange(.75,1.5)>.04;
+  }
+  assert.ok(oppositeTurns,'the sides of one billow turn together before the gust strips its rim');
+  assert.ok(separated,'the neck thins while the downwind lobe gains visible density');
+  assert.equal(bank.gustAt(g.x,g.y),0,'the local gust subsides');
+});
+
+test('a leaf remains in the visible cloud until it peels with the velocity and rotation of that same parcel',()=>{
+  const {createShardFlights,cloudViews,defaults}=sceneWindow.SunsetScene;
+  const weather=banks.map(createWeather), flights=createShardFlights(weather),dt=1/30,aspect=1.6;
+  const seen=new Set(),departures=[];
+  for(let tick=0;tick<180&&departures.length<3;tick++){
+    weather.forEach(w=>w.advance(dt));
+    const views=cloudViews(defaults,weather,aspect);flights.advance(dt,views,aspect);
+    for(const s of flights.shards){
+      const p=s.ticket.parcel,bank=weather[s.from.index];
+      if(s.attached && bank.time-s.gust.start<s.gust.build){
+        const visible=bank.stream.subarray(0,bank.count*10).some((n,k)=>k%10===8&&n===Math.fround(p.seed));
+        if(visible&&p.reserved&&!p.inFlight)seen.add(p);
+      }
+      if(s.attached||s.age!==0)continue;
+      assert.ok(seen.has(p)&&!p.reserved&&p.inFlight);
+      const v=views.find(v=>v.index===s.from.index&&v.copy===s.from.copy);
+      assert.equal(s.x,v.cx+(p.x-.5)*v.sx);assert.equal(s.y,v.cy+(p.y-.5)*v.sy);
+      assert.equal(s.vx,banks[v.index].drift+p.dx*v.sx);
+      assert.equal(s.vy,.023*.092*Math.cos(bank.time*.092+banks[v.index].seed*.31)+p.dy*v.sy);
+      assert.equal(s.roll,p.roll);assert.equal(s.spin,p.spin);
+      assert.ok(bank.time-s.gust.start>s.gust.build);
+      departures.push(bank.time);
+    }
+  }
+  assert.equal(departures.length,3);assert.ok(departures[2]-departures[0]>.65);
 });
 
 test('a close shard carries momentum into the gap and returns continuously to cloud depth', () => {
