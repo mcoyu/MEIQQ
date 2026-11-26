@@ -249,7 +249,7 @@ test('the app home and setup chapters have restorable addresses, and browser Bac
  const path=read(ui,'workspaceBreadcrumb()');
  assert.match(path,/Home<\/a>.*Choose your setup style<\/a>.*Offers<\/a>.*aria-current="page">People/);
  assert.doesNotMatch(path,/Demand|Jobs/);
- ui.handlers.click({preventDefault(){},target:{closest:()=>({dataset:{action:'breadcrumb-stop',index:'2'}})}});
+ ui.handlers.click({preventDefault(){},target:{closest:()=>({hash:'#setup/edit/offers',dataset:{action:'breadcrumb-stop',index:'2'}})}});
  assert.equal(url.hash,'#setup/edit/offers');
  assert.deepEqual([...ui.ctx.window.history.state.workspaceTrail],['sky','setup/style','setup/edit/offers']);
  visit('#setup/new/business');ui.click('enter-setup',{mode:'guided'});
@@ -267,17 +267,47 @@ test('return visits shorten the breadcrumb and old history entries restore a cle
  Object.assign(ui.ctx.window,{location:url,history});
  await read(ui,'appReady');
  const trail=()=>Array.from(history.state.workspaceTrail);
+ let camera;
+ ui.ctx.window.StudioFlight={route:(scene,stage)=>{camera={scene,stage};}};
+ const breadcrumb=()=>read(ui,'workspaceBreadcrumb()').replace(/<[^>]*>/g,'').split('/').filter(Boolean);
+ const clickWorkspace=name=>{
+  const link=read(ui,'workspaceBreadcrumb()').match(new RegExp('<a [^>]*href="(#[^"]+)" [^>]*data-index="(\\d+)">'+name+'</a>'));
+  assert.ok(link,name+' has a breadcrumb link');
+  ui.handlers.click({preventDefault(){},target:{closest:()=>({hash:link[1],dataset:{action:'breadcrumb-stop',index:link[2]}})}});
+ };
  const visit=(route,entry=null)=>{history.state=entry;url.hash=route;read(ui,'readWorkspaceRoute()');};
  assert.deepEqual(trail(),['sky']);
  assert.match(read(ui,'workspaceBreadcrumb()'),/aria-current="page">Home/);
- visit('studio');visit('planner');
+ visit('studio');assert.deepEqual(breadcrumb(),['Home','Studio','Ideas']);
+ visit('planner');
  const plannerEntry=history.state;
  assert.deepEqual(trail(),['sky','studio','planner']);
+ assert.deepEqual(breadcrumb(),['Home','Studio','Ideas','Planner']);
+ visit('setup');assert.deepEqual(breadcrumb(),['Home','Studio','Ideas','Planner','Simulator','Business setup']);
+ clickWorkspace('Studio');assert.equal(url.hash,'#sky/studio');
+ assert.deepEqual(camera,{scene:'sky/studio',stage:'home'});
+ assert.match(read(ui,'sceneOptions()'),/View waterfront/);
+ assert.deepEqual(breadcrumb(),['Home','Studio']);
+ const studioHome=history.state;
+ const landing=()=>read(ui,'skyHome()');
+ for(const id of ['studio','planner','jobs'])assert.ok(landing().includes('href="#'+id+'"'));
+ visit('jobs');assert.deepEqual(breadcrumb(),['Home','Studio','Jobs']);
+ visit('sky/studio',studioHome);assert.match(landing(),/id="sim-heading" tabindex="-1">Studio</);
+ visit('planner',plannerEntry);
  visit('studio');assert.deepEqual(trail(),['sky','studio']);
  visit('sky');assert.deepEqual(trail(),['sky']);
  visit('planner',plannerEntry);assert.deepEqual(trail(),['sky','studio','planner']);
+ assert.deepEqual(breadcrumb(),['Home','Studio','Ideas','Planner']);
  visit('sky/view');assert.match(read(ui,'workspaceBreadcrumb()'),/aria-current="page">Sky view/);
- visit('sky');assert.deepEqual(trail(),['sky']);
+ visit('sky');assert.deepEqual(breadcrumb(),['Home']);
+ visit('sky/view');assert.deepEqual(breadcrumb(),['Home','Sky view']);
+ visit('sky');visit('setup');assert.deepEqual(breadcrumb(),['Home','Simulator','Business setup']);
+ clickWorkspace('Simulator');assert.deepEqual(breadcrumb(),['Home','Simulator']);
+ assert.equal(url.hash,'#sky/simulator');
+ assert.deepEqual(camera,{scene:'sky/simulator',stage:'surface'});
+ assert.match(read(ui,'sceneOptions()'),/Edit sky/);
+ for(const id of ['setup','map','finances','projects','scenarios','about'])assert.ok(landing().includes('href="#'+id+'"'));
+ visit('finances');assert.deepEqual(breadcrumb(),['Home','Simulator','Scenario results']);
 });
 
 test('every workspace uses the shared navigator, identifies its location and offers its own backup', async () => {

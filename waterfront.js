@@ -12,7 +12,7 @@
   let sunlight=daylight(0);
   let model,painter,width=1,height=1,ratio=1,time=Math.random()*900,raf=0,last=0,active=false;
   let route='',travel=-1.55,speed=0,reveal=0;
-  const marks={studio:0,planner:1,jobs:2};
+  const marks={'sky/studio':-1,studio:0,planner:1,jobs:2};
   // Select the scale and sightline together, like changing lenses at the quay.
   const shots=[{zoom:1,yaw:0,horizon:0},{zoom:1.42,yaw:-.19,horizon:.07},
     {zoom:1.65,yaw:.13,horizon:.035},{zoom:1.12,yaw:-.045,horizon:-.12}];

@@ -5,7 +5,7 @@
   const host=document.querySelector('aero-shards'),root=document.querySelector('#root');
   if(!host?.style)return;
   const reducedColors=matchMedia('(forced-colors:active)');
-  const isStudio=view=>['studio','planner','jobs'].includes(view);
+  const isStudio=view=>['sky/studio','studio','planner','jobs'].includes(view);
   const enabled=()=>document.documentElement.dataset.uiMotion==='on'&&!reducedColors.matches;
   function phase(start,end,p){
     const t=Math.min(1,Math.max(0,(p-start)/(end-start)));

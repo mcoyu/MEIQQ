@@ -27,6 +27,11 @@ let setupEntryPath=null,setupReturnView=null,setupOrigin=null,newScenarioRequest
 let skyPlayback=null;
 const editorSteps=['offers','demand','people','cash'];
 const destinations={studio:'Ideas',planner:'Planner',jobs:'Jobs',map:'Run scenario',finances:'Scenario results',projects:'Projects',scenarios:'Runs and backups',about:'Model guide'};
+const workspaceHomes={
+ 'sky/studio':{name:'Studio',pages:[['studio','box'],['planner','chart'],['jobs','file']]},
+ 'sky/simulator':{name:'Simulator',pages:[['setup','settings'],['map','play'],['finances','chart'],['projects','file'],['scenarios','compare'],['about','info']]}
+};
+let skyLandingRoute='sky';
 let routeReady=false,lastRoute=null,resumeRoute='',lastEditorStep=0;
 let workspaceTrail=[];
 try{
@@ -293,9 +298,10 @@ function languagePicker() {
  return `<div class="language-tools" translate="no"><label class="theme-picker language-picker"><span>Language / 语言</span><select id="language" aria-label="Language / 语言"><option value="en"${selected === 'en' ? ' selected' : ''}>English</option><option value="zh-CN"${selected === 'zh-CN' ? ' selected' : ''}>简体中文</option></select></label>${info}</div>`;
 }
 const waterfrontView=document.querySelector('#waterfront-view');
-function inStudio(){return view==='studio'||view==='planner'||view==='jobs';}
+function inStudio(route=view){return route==='studio'||route==='planner'||route==='jobs';}
+function atWaterfront(){return inStudio()||(view==='sky'&&skyLandingRoute==='sky/studio');}
 function sceneOptions(){
- return inStudio()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>';
+ return atWaterfront()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>';
 }
 function routeLink(route,label,cls='',attrs=''){
  return `<a class="${cls}" href="#${esc(route)}" ${attrs}>${label}</a>`;
@@ -480,6 +486,7 @@ function patchRenderChildren(current,next){
 let lastPresentationKey='',preferencesRoute=null;
 const openWorkspaceMenus='#root details[data-workspace-menu][open]';
 function presentationKey(){
+ if(view==='sky')return skyLandingRoute;
  if(view==='studio')return [view,studioSession.ready,studioUI.tab,studioUI.selectedId,studioUI.section].join('/');
  if(view==='jobs'||view==='planner'){
    const ui=view==='jobs'?jobsController.ui:plannerController.ui;
@@ -624,6 +631,7 @@ function workspaceTransition(root,nextContent){
        if(number)moveRunEstimate(number,origin,main.querySelector('[data-run-estimate="profit"]'));
        animate(main,[{opacity:0,translate:openingRevision||openingKeptSetup?'0 -14px':'0 18px'},{opacity:1,translate:'0 0'}],launch?560:490,135);
      };
+     if(Object.hasOwn(workspaceHomes,key))return null;
      return ()=>animate(root.querySelector('main.workspace'),[{opacity:0,translate:`${40*direction}px 9px`},{opacity:1,translate:'0 0'}],470,95);
    }
  }
@@ -661,7 +669,7 @@ function workspaceTransition(root,nextContent){
      departure.finished.then(()=>outgoing.remove(),()=>outgoing.remove());
    }
    if(story){
-     animate(story,[{opacity:0,translate:`${-14*direction}px ${26*direction}px`},{opacity:1,translate:'0 0'}],outgoing?570:320,outgoing?190:0);
+     if(!Object.hasOwn(workspaceHomes,key))animate(story,[{opacity:0,translate:`${-14*direction}px ${26*direction}px`},{opacity:1,translate:'0 0'}],outgoing?570:320,outgoing?190:0);
      return;
    }
    if(oldStory&&sheet){
@@ -726,10 +734,11 @@ function render(){
   const entrance=setupNeedsChoice(),skyOnly=view==='sky/view';
   if(firstStepEstimate&&(view!=='setup'||entrance||firstStepEstimate.step!==stepIndex||firstStepEstimate.draft!==draft))firstStepEstimate=null;
   if(!skyOnly&&skyPlayback){skyPlayback=null;applyShardMotion();}
-  const skyStage=view==='setup'?(entrance?'night':editorSteps[stepIndex]):inStudio()||view==='sky'||skyOnly?'home':view;
-  if(routeReady)window.StudioFlight?.route(view,skyStage);
-  if(inStudio()){
-    if(shardBackground?.getAttribute?.('waterfront')!==view)shardBackground?.setAttribute?.('waterfront',view);
+  const scene=view==='sky'?skyLandingRoute:view;
+  const skyStage=view==='setup'?(entrance?'night':editorSteps[stepIndex]):scene==='sky/simulator'?'surface':atWaterfront()||view==='sky'||skyOnly?'home':view;
+  if(routeReady)window.StudioFlight?.route(scene,skyStage);
+  if(atWaterfront()){
+    if(shardBackground?.getAttribute?.('waterfront')!==scene)shardBackground?.setAttribute?.('waterfront',scene);
   }else{
     if(waterfrontView?.open)waterfrontView.close();
     shardBackground?.removeAttribute?.('waterfront');
@@ -933,6 +942,7 @@ function runLengthOptions(selected,elapsed=0){
  return prompt+Array.from({length:12},(_,i)=>i+1).map(months=>`<option value="${months}" ${months===selected?'selected':''} ${months*30<elapsed?'disabled':''}>${runLengthLabel(months)}</option>`).join('');
 }
 function workspaceRoute(){
+ if(view==='sky')return skyLandingRoute;
  if(view!=='setup')return view;
  if(editingRerun)return 'setup/rerun/'+editorSteps[stepIndex];
  if(setupNeedsChoice()){
@@ -961,7 +971,7 @@ function syncWorkspaceRoute(){
  workspaceTrail=workspacePathTo(workspaceTrail,route);
  if(window.location.hash!==hash)window.history.pushState({workspaceTrail},'',hash);
  else window.history.replaceState({...window.history.state,workspaceTrail},'',hash);
- if(route==='sky'||route==='sky/view')return;
+ if(route==='sky'||route.startsWith('sky/'))return;
  resumeRoute=route;
  if(view==='setup'&&!setupNeedsChoice())lastEditorStep=stepIndex;
  try{
@@ -1024,7 +1034,10 @@ function readWorkspaceRoute(){
    if(['business','restaurant'].includes(path))setupEntryPath=path;
    if(route==='setup/style'&&!firstExamplePending())setupEntryPath='style';
   }
- }else view=route==='sky/view'||Object.hasOwn(destinations,route)?route:'sky';
+ }else{
+  view=route==='sky/view'||Object.hasOwn(destinations,route)?route:'sky';
+  if(view==='sky')skyLandingRoute=Object.hasOwn(workspaceHomes,route)?route:'sky';
+ }
  if(leavingRevision&&view==='finances'){
   analyticsTab=rerunDraft?.returnTab||'overview';
   selectResultsMonth(rerunDraft?.resultsMonth||null);
@@ -1076,6 +1089,7 @@ function beginSetupEntrance(newScenario=false){
 function workspaceStopLabel(route){
  if(route==='sky')return 'Home';
  if(route==='sky/view')return 'Sky view';
+ if(Object.hasOwn(workspaceHomes,route))return workspaceHomes[route].name;
  if(Object.hasOwn(destinations,route))return destinations[route];
  const [,section,step]=route.split('/');
  if(section==='edit'||section==='rerun')return steps[editorSteps.indexOf(step)]||'Business setup';
@@ -1083,15 +1097,28 @@ function workspaceStopLabel(route){
  if(section==='style')return 'Choose your setup style';
  return 'Business setup';
 }
+function workspaceHomeFor(route){
+ if(Object.hasOwn(workspaceHomes,route))return route;
+ if(route==='sky'||route==='sky/view')return '';
+ return inStudio(route)?'sky/studio':'sky/simulator';
+}
 function workspaceBreadcrumb(){
  const trail=workspaceTrail.length?workspaceTrail:workspacePathTo([],workspaceRoute());
  const separator='<span class="breadcrumb-separator" aria-hidden="true">/</span>';
- const path=trail.map((route,index)=>{
+ const parts=[];
+ let previousWorkspace='';
+ for(const [index,route] of trail.entries()){
+  const workspace=workspaceHomeFor(route);
+  const stopAttrs=`data-action="breadcrumb-stop" data-index="${index}"`;
+  if(workspace&&workspace!==previousWorkspace&&workspace!==route){
+   parts.push(routeLink(workspace,workspaceHomes[workspace].name,'breadcrumb-workspace',stopAttrs));
+  }
+  previousWorkspace=workspace;
   const label=workspaceStopLabel(route);
-  return index===trail.length-1?`<span class="breadcrumb-current" aria-current="page">${label}</span>`:
-   routeLink(route,label,'',`data-action="breadcrumb-stop" data-index="${index}"`);
- }).join(separator);
- return `<nav class="workspace-breadcrumb" aria-label="Breadcrumb">${separator}${path}</nav>`;
+  parts.push(index===trail.length-1?`<span class="breadcrumb-current" data-render-key="crumb-${esc(route)}" aria-current="page">${label}</span>`:
+   routeLink(route,label,'',stopAttrs));
+ }
+ return `<nav class="workspace-breadcrumb" aria-label="Breadcrumb">${separator}${parts.join(separator)}</nav>`;
 }
 function skyHeader(info){
  const sky=view==='sky'||view==='sky/view';
@@ -1100,7 +1127,7 @@ function skyHeader(info){
  const status=info?`<small id="${view}-save-status" role="status">${esc(info.message)}</small>`:'';
  return `<header class="sky-header"><div class="sky-identity">${home}${workspaceBreadcrumb()}
  ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}</div><div class="sky-tools">
- <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${sceneOptions()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View sky')}${branch}${status}${btn('Reset app','reset-app','small')}</div></details></div></header>`;
+ <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${sceneOptions()}${languagePicker()}${atWaterfront()||view==='sky/view'?'':routeLink('sky/view','View sky')}${branch}${status}${btn('Reset app','reset-app','small')}</div></details></div></header>`;
 }
 async function resetApp(){
  resettingApp=true;
@@ -1149,6 +1176,13 @@ function resumeDestination(){
  return null;
 }
 function skyHome(){
+ const home=workspaceHomes[skyLandingRoute];
+ if(home){
+  const links=home.pages.map(([id],index)=>routeLink(id,workspaceStopLabel(id),'scene-action',`style="--arrival-order:${index}"`)).join('');
+  return `<section class="setup-story workspace-landing" data-render-key="${skyLandingRoute}" aria-labelledby="sim-heading">
+   <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">${home.name}</h1></div>
+   <nav class="studio-destinations" aria-label="${home.name}">${links}</nav></section>`;
+ }
  const resume=resumeDestination();
  return `<section class="setup-story" data-render-key="sky-home" aria-labelledby="sim-heading">
  <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">Studio &amp; Simulator</h1></div>
@@ -1189,25 +1223,24 @@ function setSetupMode(mode){
 const navigatorDialog=document.querySelector('#workspace-navigator');
 function workspaceNavigator(){
  const currentPage=id=>{
-  if(id==='sky'&&view==='sky/view')return 'aria-current="location"';
+  if(id==='sky'&&(view==='sky/view'||view==='sky'&&skyLandingRoute!=='sky'))return 'aria-current="location"';
   if(view!==id)return '';
   return id==='setup'&&workspaceRoute()!=='setup'?'aria-current="location"':'aria-current="page"';
  };
  const link=(id,symbol,label)=>routeLink(id,icon(symbol)+`<span>${label}</span>`,'navigator-link',currentPage(id));
- const group=(name,routes)=>`<section class="navigator-group"><h3>${name}</h3>${routes.map(([id,symbol])=>
-  link(id,symbol,id==='setup'?'Business setup':destinations[id])).join('')}</section>`;
- const studioLinks=[['studio','box'],['planner','chart'],['jobs','file']];
- const simLinks=[['setup','settings'],['map','play'],['finances','chart'],['projects','file'],['scenarios','compare'],['about','info']];
+ const group=({name,pages})=>`<section class="navigator-group"><h3>${name}</h3>${pages.map(([id,symbol])=>
+  link(id,symbol,workspaceStopLabel(id))).join('')}</section>`;
  const backupActions={
   studio:['Studio backup','studio-backup','Import ideas','studio-import'],
   planner:['Planner backup','planner-backup','Import plans','planner-import'],
   jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import'],
  };
- const [backup,saveAction,open,loadAction]=backupActions[view]||['Simulator backup','backup','Open simulator backup','import'];
+ const backupView=view==='sky'&&skyLandingRoute==='sky/studio'?'studio':view;
+ const [backup,saveAction,open,loadAction]=backupActions[backupView]||['Simulator backup','backup','Open simulator backup','import'];
  return `<div class="navigator-shell"><header class="navigator-heading"><h2 id="navigator-title" tabindex="-1" autofocus>Navigate</h2>${btn(icon('close'),'hide-navigator','navigator-close','aria-label="Close"')}</header>
  <nav class="navigator-body" aria-label="Workspace">
   <div class="navigator-home">${link('sky','grid','Home')}</div>
-  <div class="navigator-groups">${group('Studio',studioLinks)}${group('Simulator',simLinks)}</div>
+  <div class="navigator-groups">${Object.values(workspaceHomes).map(group).join('')}</div>
  </nav>
  <footer class="navigator-footer">${btn(icon('download')+backup,saveAction)}${btn(icon('upload')+open,loadAction)}</footer></div>`;
 }
@@ -3977,8 +4010,9 @@ document.addEventListener('click',e=>{
   if(a==='breadcrumb-stop'&&routeReady){
    if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
    e.preventDefault();
-   const shortened=workspaceTrail.slice(0,Number(el.dataset.index)+1);
-   const hash='#'+shortened.at(-1);
+   const index=Number(el.dataset.index);
+   const hash=el.hash;
+   const shortened=workspacePathTo(workspaceTrail.slice(0,index),hash.slice(1));
    if(window.location.hash===hash)window.history.replaceState({workspaceTrail:shortened},'',hash);
    else window.history.pushState({workspaceTrail:shortened},'',hash);
    readWorkspaceRoute();
@@ -3987,7 +4021,7 @@ document.addEventListener('click',e=>{
   else if(a==='reset-app')modal(`<h2 id="dialog-title">Reset 美QQ to defaults?</h2><p>This permanently erases saved runs, drafts, checkpoints, Studio ideas, plans, and jobs in this browser. Settings return to their defaults. Downloaded backups are kept.</p><div class="actions">${btn('Cancel','close')}${btn('Erase progress and reset','confirm-app-reset','soft','id="confirm-app-reset"')}</div>`);
   else if(a==='confirm-app-reset')void resetApp();
   else if(a==='hide-navigator')navigatorDialog.close();
-  else if(a==='view-waterfront'&&inStudio()){
+  else if(a==='view-waterfront'&&atWaterfront()){
    const options=el.closest('.workspace-options');
    if(options){options.open=false;options.querySelector('summary').focus();}
    waterfrontView.setAttribute('aria-label',QQI18n.text('Studio waterfront'));

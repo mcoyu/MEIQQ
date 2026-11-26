@@ -308,7 +308,7 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
 .sky-identity>a,.workspace-breadcrumb a {color:inherit;text-decoration:none;font:500 13px var(--ui-font)}
 .workspace-breadcrumb,.breadcrumb-current {display:flex;flex-direction:row;align-items:center;gap:8px;font:500 13px var(--ui-font)}
 .workspace-breadcrumb {min-width:0;overflow:auto;white-space:nowrap;scrollbar-width:thin;padding-block:3px}
-.workspace-breadcrumb a {color:var(--muted);flex:none}
+.workspace-breadcrumb a,.breadcrumb-workspace {color:var(--muted);flex:none}
 .sky-identity .navigator-trigger {flex:none}
 .breadcrumb-separator,.sky-trail>span,.editor-trail>span {opacity:.6}
 .sky-preferences {position:relative}
@@ -342,6 +342,31 @@ aero-shards::after {background:linear-gradient(180deg,#1e26301c,transparent 45%)
 .setup-story :is(.scene-action.primary,.studio-destinations .scene-action)::after {content:"";width:7px;height:7px;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg)}
 .scene-action:hover {filter:brightness(1.12)}
 .studio-destinations {display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin-top:auto}
+.workspace-breadcrumb a {position:relative}
+.sky-identity .workspace-breadcrumb a:is(:hover,:focus-visible) {color:var(--ink);text-decoration:none}
+.workspace-breadcrumb a::after {
+  content:"";position:absolute;inset:auto 0 -2px;height:1px;background:currentColor;
+  transform:scaleX(0);transform-origin:left;
+}
+.workspace-breadcrumb a:is(:hover,:focus-visible)::after {transform:scaleX(1)}
+.setup-story .studio-destinations .scene-action:is(:hover,:focus-visible) {background:#f6d5b518;border-color:#fff0db}
+:root[data-ui-motion="on"] .workspace-breadcrumb a::after {transition:transform 180ms ease-out}
+:root[data-ui-motion="on"] .breadcrumb-current {animation:breadcrumb-arrival 320ms ease-out backwards}
+:root[data-ui-motion="on"] .setup-story .scene-action {transition:translate 180ms ease-out,background-color 180ms,border-color 180ms}
+:root[data-ui-motion="on"] .setup-story .scene-action::after {transition:translate 180ms ease-out}
+:root[data-ui-motion="on"] .setup-story .scene-action:is(:hover,:focus-visible) {translate:0 -2px}
+:root[data-ui-motion="on"] .setup-story .scene-action:is(:hover,:focus-visible)::after {translate:4px 0}
+:root[data-ui-motion="on"] .setup-story .scene-action:active {translate:0 0}
+:root[data-ui-motion="on"] .workspace-landing .workspace-heading {
+  animation:workspace-arrival 560ms cubic-bezier(.18,.74,.22,1) 90ms backwards;
+}
+:root[data-ui-motion="on"] .workspace-landing .scene-action {
+  animation:workspace-arrival 430ms cubic-bezier(.18,.74,.22,1) calc(160ms + 55ms * var(--arrival-order)) backwards;
+}
+:root[data-ui-motion="on"] #root[data-flight-revealing] .workspace-landing :is(.workspace-heading,.scene-action) {animation-play-state:paused}
+:root[data-ui-motion="on"] .workspace-landing .scene-action:focus-visible {animation:none}
+@keyframes breadcrumb-arrival {from {opacity:.35;transform:translateX(-5px)}to {opacity:1;transform:none}}
+@keyframes workspace-arrival {from {opacity:0;transform:translateY(16px)}to {opacity:1;transform:none}}
 .sky-resume {display:flex;align-items:baseline;gap:8px 18px;flex-wrap:wrap;margin-top:clamp(20px,3vh,36px);font-size:13px}
 .sky-resume span {color:#dfd1c4}
 .sky-resume a {color:#f8d6b5;font-weight:600}
@@ -757,7 +782,7 @@ html:has(#waterfront-view[open]) {overflow:hidden}
 @media(max-width:370px) {
  .app[data-screen]>.sky-header {padding-inline:12px;gap:5px}
  .app[data-screen] .sky-identity a.sky-wordmark {font-size:19px}
- .workspace-breadcrumb a,.breadcrumb-current {font-size:12px}
+ .workspace-breadcrumb a,.breadcrumb-workspace,.breadcrumb-current {font-size:12px}
 }
 @media(max-width:600px) and (max-height:720px) {
  .app[data-screen] .workspace.setup-landing:has(.setup-entry) {padding-top:18px;padding-bottom:20px}
