@@ -123,7 +123,8 @@
         record.source=source;
       }
     }
-    return {state,saved,draft,checkpointInfo,recoveryFiles};
+    const origin=['business','restaurant'].includes(raw.setupOrigin)?{setupOrigin:raw.setupOrigin}:{};
+    return {state,saved,draft,checkpointInfo,recoveryFiles,...origin};
   }
   function validReplayPair(base,alternative,replay){
     if(!object(replay)||!['designerHours','designers','ownerHours'].includes(replay.key))return false;
@@ -233,6 +234,7 @@
       });
       if(replaySources.length>MAX_ITEMS)throw Error('Too many replay source links. Export workspaces separately or remove unneeded checkpoints.');
       const packed={state,saved,draft:q.clone(w.draft),checkpointInfo,recoveryFiles:q.clone(w.recoveryFiles||[])};
+      if(['business','restaurant'].includes(w.setupOrigin))packed.setupOrigin=w.setupOrigin;
       if(replaySources.length)packed.replaySources=replaySources;
       return packed;
     };

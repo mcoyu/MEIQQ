@@ -31,11 +31,11 @@ test('whole-run estimates scale fixed monthly inputs and continuous weekdays ind
 
 test('both setup paths begin at ninety days and a two-month draft survives a complete run and reload', () => {
  const own = setup();
- own.click('start-business');
+ own.click('start-business');own.click('enter-setup',{mode:'guided'});
  assert.equal(read(own, 'draft.months'), 3);
  assert.match(own.elements['#root'].innerHTML, /90-day estimate/);
  const ui = setup();
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  assert.match(ui.elements['#root'].innerHTML, /Simulate 90 days/);
  const monthlyOverhead = read(ui, 'draft.overhead');
  selectLength(ui, 2);
@@ -58,7 +58,7 @@ test('both setup paths begin at ninety days and a two-month draft survives a com
 
 test('finishing a month respects the billing boundary and live length keeps an independent draft', () => {
  const ui = setup();
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  ui.click('view', {view:'map'});
  ui.click('step');
  ui.click('finish');
@@ -81,7 +81,7 @@ test('finishing a month respects the billing boundary and live length keeps an i
 
 test('an explicit one-month workspace keeps its shorter horizon when reopened', () => {
  const ui = setup();
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  selectLength(ui, 1, true);
  const reopened = setup([...ui.storage]);
  assert.equal(read(reopened, 'draft.months'), 1);
@@ -96,7 +96,7 @@ test('a year charges twelve model months and a cash shortfall interrupts a longe
  assert.equal(year.expenses, 1200);
  assert.equal(year.cash, config.startingCash - 1200);
  const ui = setup();
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  read(ui, "Object.assign(draft,{months:3,acquisition:'preset',inquiries:0,overhead:100,startingCash:150})");
  ui.click('simulate');
  ui.click('apply', {mode:'future', resume:'simulate'});

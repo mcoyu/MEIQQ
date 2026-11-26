@@ -6,7 +6,7 @@ const read=(ui,code)=>vm.runInContext(code,ui.ctx);
 
 test('confirming the day-zero month action runs once and opens reconciled results',()=>{
  const ui=setup();
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  read(ui,'draft.months=1;draft.services[0].price=365');
  ui.click('simulate');
  assert.match(ui.elements['#modal'].innerHTML,/Apply and simulate 30 days/);
@@ -23,7 +23,7 @@ test('confirming the day-zero month action runs once and opens reconciled result
 
 test('a reviewed month pauses for a real funding decision and cancel keeps day zero',()=>{
  const ui=setup();
- ui.click('start-restaurant');read(ui,'draft.startingCash=0');ui.click('simulate');ui.click('close');ui.drainTimers();
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});read(ui,'draft.startingCash=0');ui.click('simulate');ui.click('close');ui.drainTimers();
  assert.equal(read(ui,'state.day'),0);assert.equal(read(ui,'state.config.startingCash'),6000);
  ui.click('simulate');ui.click('apply',{mode:'future',resume:'simulate'});ui.drainTimers();
  assert.equal(read(ui,'state.day'),0);assert.equal(read(ui,'running'),false);
@@ -31,14 +31,14 @@ test('a reviewed month pauses for a real funding decision and cancel keeps day z
 });
 
 test('advance to next project event stops on the first active day and preserves quieter days',()=>{
- const ui=setup();ui.click('start-restaurant');ui.click('view',{view:'map'});ui.click('next-event');ui.drainTimers();
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('view',{view:'map'});ui.click('next-event');ui.drainTimers();
  assert.equal(read(ui,'state.day'),2);assert.equal(read(ui,'state.history.length'),2);
  assert.equal(read(ui,'running'),false);assert.match(ui.elements['#root'].innerHTML,/Client declined quote/i);
  const reopened=setup([...ui.storage]);assert.equal(read(reopened,'state.day'),2);
 });
 
 test('project details return to the invoking result section and ledger item key',()=>{
- const ui=setup();ui.click('start-restaurant');ui.click('simulate');ui.drainTimers();ui.click('analytics-tab',{tab:'cash'});
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('simulate');ui.drainTimers();ui.click('analytics-tab',{tab:'cash'});
  const id=read(ui,'state.ledger.find(e=>e.project).project');
  ui.click('project',{id,ledgerIndex:'3'});assert.equal(read(ui,'view'),'map');
  assert.equal(read(ui,'inspectorTrail[0].key.ledgerIndex'),'3');

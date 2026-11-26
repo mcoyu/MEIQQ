@@ -18,19 +18,63 @@ test('day-zero opening, autosave and reload keep the first choice until a path i
   read(first,'save()');
   const unopened=setup([...first.storage]);
   assert.match(unopened.elements['#root'].innerHTML,/Try the restaurant example/);
-  unopened.click('start-restaurant');
+  unopened.click('start-restaurant');unopened.click('enter-setup',{mode:'guided'});
   assert.doesNotMatch(unopened.elements['#root'].innerHTML,/data-action="start-business"/);
   const reopened=setup([...unopened.storage]);
   assert.match(reopened.elements['#root'].innerHTML,/data-action="simulate"/);
   assert.doesNotMatch(reopened.elements['#root'].innerHTML,/id="preset-market"/);
 });
 
+test('each business path waits for an explicit detail level before creating the draft', () => {
+  for(const path of ['business','restaurant'])for(const mode of ['guided','analyst']){
+    const ui=setup([['qq-studio-setup-mode',mode==='guided'?'analyst':'guided']]);
+    const initial=read(ui,'JSON.stringify(currentWorkspace())');
+    ui.click('start-'+path);
+    assert.match(ui.elements['#root'].innerHTML,/Choose your setup style/);
+    assert.match(ui.elements['#root'].innerHTML,/>Guided</);
+    assert.match(ui.elements['#root'].innerHTML,/>All assumptions</);
+    assert.doesNotMatch(ui.elements['#root'].innerHTML,/id="setup-panel"/);
+    assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),initial);
+    ui.click('setup-path-back');
+    assert.match(ui.elements['#root'].innerHTML,/data-action="start-business"/);
+    ui.click('start-'+path);ui.click('enter-setup',{mode});
+    assert.match(ui.elements['#root'].innerHTML,new RegExp('setup-mode-'+mode));
+    const editor=ui.elements['#root'].innerHTML;
+    assert.match(editor,/<header class="sky-header">/);
+    assert.match(editor,/<main class="workspace setup-editing"[^>]*>[\s\S]*?id="setup-panel"[\s\S]*?Build your service menu/);
+    assert.doesNotMatch(editor,/<aside class="sidebar">/);
+    assert.equal(read(ui,'draft.services.length'),path==='business'?1:3);
+    assert.equal(read(ui,'draft.services[0].name')==='',path==='business');
+    assert.equal(ui.storage.get('qq-studio-setup-mode'),mode);
+  }
+});
+
+test('all four setup steps keep the sky header, step tabs and setup options in both directions',()=>{
+ for(const mode of ['guided','analyst']){
+  const ui=setup(),attributes=new Map(),stages=[];
+  const host=ui.elements['aero-shards'];
+  host.getAttribute=name=>attributes.get(name);
+  host.setAttribute=(name,value)=>{attributes.set(name,value);if(name==='sky-stage')stages.push(value);};
+  read(ui,'render()');ui.click('start-restaurant');ui.click('enter-setup',{mode});
+  for(const step of [0,1,2,3,2,1,0]){
+   ui.click('setup-step',{step:String(step)});
+   const html=ui.elements['#root'].innerHTML;
+   assert.match(html,/<header class="sky-header">/);
+   assert.match(html,/data-disclosure="offer-setup-options"/);
+   assert.match(html,new RegExp('aria-labelledby="setup-tab-'+step+'"'));
+   assert.deepEqual([...html.matchAll(/data-setup-page="(\d+)"/g)].map(match=>Number(match[1])),[step]);
+   read(ui,'render()');
+  }
+  assert.deepEqual(stages,['surface','night','offers','demand','people','cash','people','demand','offers']);
+ }
+});
+
 test('starting another scenario preserves and can reopen the previous run including its unfinished draft', () => {
-  const ui=setup();ui.click('start-restaurant');ui.click('simulate');ui.drainTimers();
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('simulate');ui.drainTimers();
   read(ui,"view='setup';draft.name='Unfinished November draft';draft.services[0].hours=null;render()");
   const previous=read(ui,'JSON.stringify(currentWorkspace())');
-  ui.click('new-scenario');ui.click('close');assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),previous);
-  ui.click('new-scenario');ui.click('new-business');
+  ui.click('new-scenario');ui.click('cancel-new-setup');assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),previous);
+  ui.click('new-scenario');ui.click('start-business');ui.click('enter-setup',{mode:'guided'});
   assert.equal(read(ui,'draft.name'),'My business');assert.equal(read(ui,'draft.services[0].price'),null);
   assert.equal(read(ui,'draft.services.length'),1);assert.match(read(ui,'draftError()'),/.+/);
   assert.equal(read(ui,'JSON.stringify(archives[0].workspace)'),previous);
@@ -40,7 +84,7 @@ test('starting another scenario preserves and can reopen the previous run includ
 });
 
 test('fixed-volume switch uses current outreach and retains an explicit fixed estimate through reload', () => {
-  const ui=setup();ui.click('start-restaurant');ui.click('setup-step',{step:'1'});
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('setup-step',{step:'1'});
   edit(ui,'outreachHours',3);edit(ui,'acquisition','preset');assert.equal(read(ui,'draft.inquiries'),3.9);
   edit(ui,'inquiries',45);edit(ui,'acquisition','sales');ui.drainTimers();
   const re=setup([...ui.storage]);edit(re,'acquisition','preset');
@@ -50,7 +94,7 @@ test('fixed-volume switch uses current outreach and retains an explicit fixed es
 });
 
 test('draft preview exposes owner-time economics and explains an impossible delivery', () => {
-  const ui=setup();ui.click('start-restaurant');
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
   let html=read(ui,'draftSummary()');
   assert.match(html,/\+\$789/);assert.match(html,/-\$1,962/);assert.match(html,/Expected new inquiries/);
   edit(ui,'designers',0);html=read(ui,'draftSummary()');
@@ -60,7 +104,7 @@ test('draft preview exposes owner-time economics and explains an impossible deli
 });
 
 test('demand evidence is linked to the exact estimate, reported on review, and saved in the draft', () => {
-  const ui=setup();ui.click('start-restaurant');
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
   ui.click('input-evidence',{group:'demand'});ui.handlers.change({target:{id:'record-field',value:'conversion',dataset:{}}});
   for(const [id,value] of [['#record-source','Quote log <April>'],['#record-date','2026-04-30'],['#record-sample','6 wins / 20 decided quotes']])ui.elements[id]={value};
   ui.click('save-input-evidence');
@@ -96,7 +140,7 @@ test('the first Run action identifies the restaurant example and a chosen worksp
 });
 
 test('fixing a setup error opens its step and enclosing disclosures and focuses its control',()=>{
-  const ui=setup();ui.click('start-restaurant');
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
   const focusIssue=(path,step,depth)=>{
     const selector='[data-input="'+path+'"]',details=[];
     for(let i=0;i<depth;i++){
@@ -127,7 +171,7 @@ test('fixing a setup error opens its step and enclosing disclosures and focuses 
 });
 
 test('an invalid dormant input can be fixed without changing the selected demand mode or enabling a disruption',()=>{
-  const ui=setup();ui.click('start-restaurant');ui.click('setup-step',{step:'1'});
+  const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('setup-step',{step:'1'});
   edit(ui,'acquisition','preset');edit(ui,'inquiries','');edit(ui,'acquisition','sales');
   ui.click('setup-step',{step:'2'});ui.click('fix-setup-issue');
   assert.match(ui.elements['#root'].innerHTML,/id="input-inquiries"/);
@@ -155,4 +199,57 @@ test('invalid source records are rejected and a recipe retains evidence only for
   assert.ok(!report.edited.some(v=>v.startsWith('services.')));
   assert.equal(report.lineage.find(v=>v.path==='services.0.price').kind,'inherited-assumption');
   same.services[0].price++;assert.ok(presets.audit(same).edited.includes('services.0.price'));
+});
+
+test('the app home and setup chapters have restorable addresses, and browser Back edits the same draft',async()=>{
+ const ui=setup(),url=new URL('file:///MEIQQ.html#'),entries=[url.href],session=new Map();
+ ui.ctx.window.location=url;
+ ui.ctx.window.history={
+  pushState(_state,_title,hash){url.hash=hash;entries.push(url.href);},
+  replaceState(_state,_title,hash){url.hash=hash;entries[entries.length-1]=url.href;}
+ };
+ ui.ctx.window.sessionStorage={setItem:(k,v)=>session.set(k,v),getItem:k=>session.get(k)};
+ await read(ui,'appReady');
+ assert.equal(url.hash,'#sky');
+ assert.match(ui.elements['#root'].innerHTML,/href="#planner"/);
+ const visit=hash=>{url.hash=hash;read(ui,'readWorkspaceRoute()');};
+ visit('#setup');ui.click('start-business');assert.equal(url.hash,'#setup/business');
+ ui.click('enter-setup',{mode:'guided'});assert.equal(url.hash,'#setup/edit/offers');
+ assert.ok(entries.at(-2).endsWith('#setup/style'));
+ read(ui,"draft.services[0].name='Local design';save()");
+ ui.click('setup-step',{step:'2'});assert.equal(url.hash,'#setup/edit/people');
+ const saved=read(ui,'JSON.stringify(currentWorkspace())');
+ for(const page of ['#sky','#jobs','#planner','#studio','#setup/style'])visit(page);
+ ui.click('enter-setup',{mode:'analyst'});
+ assert.equal(url.hash,'#setup/edit/people');assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),saved);
+ visit('#setup');ui.click('start-business');ui.click('enter-setup',{mode:'guided'});
+ assert.equal(read(ui,'archives.length'),0);assert.equal(read(ui,'draft.services[0].name'),'Local design');
+ visit('#setup/new/business');ui.click('enter-setup',{mode:'guided'});
+ assert.equal(read(ui,'archives.length'),1);assert.equal(read(ui,'archives[0].workspace.draft.services[0].name'),'Local design');
+ assert.equal(read(ui,'draft.services[0].name'),'');
+ const reopened=setup([...ui.storage]);assert.equal(read(reopened,'setupOrigin'),'business');
+});
+
+test('every workspace uses the shared navigator, identifies its location and offers its own backup', async () => {
+  const ui=setup();
+  await read(ui,'Promise.all([appReady,studioReady])');
+  ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
+  const routes=['setup','map','finances','projects','scenarios','about','studio','planner','jobs'];
+  for(const route of [...routes,'sky','sky/view']){
+    ui.ctx.testRoute=route;
+    const nav=read(ui,'view=testRoute;render();workspaceNavigator()');
+    const html=ui.elements['#root'].innerHTML;
+    assert.match(html,/<header class="sky-header">/);
+    assert.equal((html.match(/id="navigator-trigger"/g)||[]).length,1);
+    assert.doesNotMatch(html,/<aside class="sidebar"|data-action="mobile-nav"/);
+    for(const id of ['sky',...routes])assert.ok(nav.includes('href="#'+id+'"'),id+' from '+route);
+    if(routes.includes(route)){
+      const active=route==='setup'?'location':'page';
+      assert.ok(nav.includes('href="#'+route+'" aria-current="'+active+'"'));
+    }
+    const studioArea=['studio','planner','jobs'].includes(route);
+    for(const action of studioArea?[route+'-backup',route+'-import']:['backup','import']){
+      assert.ok(nav.includes('data-action="'+action+'"'),route+' '+action);
+    }
+  }
 });

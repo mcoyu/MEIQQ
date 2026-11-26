@@ -1,7 +1,7 @@
 'use strict';
 const $=s=>{const el=document.querySelector(s);return s==='#root'?patchableRoot(el):el;},esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>QQI18n.language==='zh-CN'?QQI18n.yuan(x||0):new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(x||0),num=x=>Number(x||0).toFixed(1),pct=x=>Math.round(x*100)+'%';
-const icons={map:'M3 3h6v6H3z M15 15h6v6h-6z M15 3h6v6h-6z M6 9v9h9 M9 6h6',box:'M3 7l9-4 9 4v11l-9 4-9-4z M3 7l9 4 9-4 M12 11v11',chart:'M4 20V4 M4 20h17 M8 16v-4 M13 16V6 M18 16v-7',compare:'M5 3v18 M19 3v18 M5 7h9l-3-3 M14 7l-3 3 M19 17h-9l3-3 M10 17l3 3',settings:'M4 7h16 M4 17h16 M8 4v6 M16 14v6',play:'M8 5l11 7-11 7z',pause:'M8 5v14 M16 5v14',step:'M5 5l10 7-10 7z M19 5v14',reset:'M4 10a8 8 0 1 1 1 8 M4 4v6h6',branch:'M7 3v14a3 3 0 1 0 3 3 M7 7h7a3 3 0 0 0 3-3 M17 2v4',arrow:'M5 12h14 M14 7l5 5-5 5',plus:'M12 5v14 M5 12h14',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',upload:'M12 16V4 M7 9l5-5 5 5 M4 17v4h16v-4',info:'M12 10v7 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',people:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a7 7 0 0 1 14 0v2 M17 5a4 4 0 0 1 0 8 M19 16a5 5 0 0 1 3 5',user:'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',close:'M6 6l12 12 M18 6L6 18',clock:'M12 7v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',check:'M5 12l4 4L20 5',wallet:'M3 6h17v15H3z M3 6V3h14 M15 11h6v5h-6z',file:'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6'};
+const icons={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',map:'M3 3h6v6H3z M15 15h6v6h-6z M15 3h6v6h-6z M6 9v9h9 M9 6h6',box:'M3 7l9-4 9 4v11l-9 4-9-4z M3 7l9 4 9-4 M12 11v11',chart:'M4 20V4 M4 20h17 M8 16v-4 M13 16V6 M18 16v-7',compare:'M5 3v18 M19 3v18 M5 7h9l-3-3 M14 7l-3 3 M19 17h-9l3-3 M10 17l3 3',settings:'M4 7h16 M4 17h16 M8 4v6 M16 14v6',play:'M8 5l11 7-11 7z',pause:'M8 5v14 M16 5v14',step:'M5 5l10 7-10 7z M19 5v14',reset:'M4 10a8 8 0 1 1 1 8 M4 4v6h6',branch:'M7 3v14a3 3 0 1 0 3 3 M7 7h7a3 3 0 0 0 3-3 M17 2v4',arrow:'M5 12h14 M14 7l5 5-5 5',plus:'M12 5v14 M5 12h14',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',upload:'M12 16V4 M7 9l5-5 5 5 M4 17v4h16v-4',info:'M12 10v7 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',people:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a7 7 0 0 1 14 0v2 M17 5a4 4 0 0 1 0 8 M19 16a5 5 0 0 1 3 5',user:'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',close:'M6 6l12 12 M18 6L6 18',clock:'M12 7v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',check:'M5 12l4 4L20 5',wallet:'M3 6h17v15H3z M3 6V3h14 M15 11h6v5h-6z',file:'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6'};
 const icon=k=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[k]||icons.map}"/></svg>`;
 const btn=(text,action,cls='',extra='')=>`<button class="${cls}" data-action="${action}" ${extra}>${text}</button>`;
 
@@ -23,6 +23,16 @@ function syncBackgroundVisibility(){shardBackground?.toggleAttribute?.('suspende
 document.addEventListener('visibilitychange',syncBackgroundVisibility);
 syncBackgroundVisibility();
 const RESTAURANT_EXAMPLE='Restaurant studio example', ENTRY_KEY='qq-simulator-setup-chosen';
+let setupEntryPath=null,setupReturnView=null,setupOrigin=null,newScenarioRequested=false;
+let skyPlayback=null;
+const editorSteps=['offers','demand','people','cash'];
+const destinations={studio:'Ideas',planner:'Planner',jobs:'Jobs',map:'Run scenario',finances:'Scenario results',projects:'Projects',scenarios:'Runs and backups',about:'Model guide'};
+let routeReady=false,lastRoute=null,resumeRoute='',lastEditorStep=0;
+try{
+ resumeRoute=window.sessionStorage?.getItem('meiqq-last-page')||'';
+ const storedStep=Number(window.sessionStorage?.getItem('meiqq-setup-step'));
+ if(Number.isInteger(storedStep)&&editorSteps[storedStep])lastEditorStep=storedStep;
+}catch{/* Navigation also works without browser storage. */}
 let setupChoicePending=true,recipeOpen=false,setupCache=null,setupRepairPath=null;
 function scenarioName(name){
  return esc(name===RESTAURANT_EXAMPLE||name===QQ.DEFAULT.name?name:QQI18n.literal(name));
@@ -46,7 +56,7 @@ const latestCapacityReplay=new WeakMap();
 let replayDialog=null,monthJobHistory=null;
 let archives=[],checkpointInfo=[],recoveryFiles=[],saveTimer=null,saveNoticeTimer=null,showSavingNotice=false,backend=null,saveWriter=null;
 let loading=typeof indexedDB!=='undefined',saveStatus='saved',storeReason='',localRevision=null,primaryReadFailed=false,savePreparationError=null,fallbackPreserved=false;
-let inspectorTrail=[],mobileNavOpen=false;
+let inspectorTrail=[];
 let selection=null,running=false,timer=null,finishTarget=null,runGeneration=0,speed=1,theme='terminal',setupMode='guided',storeError=false,recoveryRaw=null,recoveryReason='';
 let filter='active',search='',toastTimer,modalFocus=null,actionFocus=null,expandedService=-1,setupModeChanging=false;
 let presetSelection={market:'metro',operation:'solo',mix:'balanced',condition:'steady'},pendingPreset=null,presetUndoDraft=null,pendingEvidence=null;
@@ -56,10 +66,10 @@ const disclosureState=new Map(),catalogPrices=new Map();
 const removedServices=new WeakMap();
 let studioUI={selectedId:null,tab:'idea',section:'offer',phase:'first'},pendingStudioImport=null;
 let studioLocal;try{studioLocal=localStorage;}catch(e){}
-const studioSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,seed:()=>{const studio=QQStudio.fresh();for(const item of QQStudioSeeds.EXAMPLES)QQStudio.create(studio,QQStudioSeeds.create(item.id));return studio;},onStatus:()=>updateStudioStatus()});
-const jobsSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,model:QQJobs,label:'Jobs',onStatus:()=>updateJobsStatus()});
-const jobsController=QQJobsController.create({session:jobsSession,findIdea:key=>studioSession.ready?studioSession.data.offerings.find(idea=>idea.linkKey===key):null,openWorkspace:()=>{view='jobs';mobileNavOpen=false;},render,toast,modal,closeModal,download,esc,btn,document,local:studioLocal});
-const plannerSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,model:QQPlanner,label:'Planner',seed:()=>QQPlanner.fresh(),onStatus:()=>updatePlannerStatus()});
+const studioSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,seed:()=>{const studio=QQStudio.fresh();for(const item of QQStudioSeeds.EXAMPLES)QQStudio.create(studio,QQStudioSeeds.create(item.id));return studio;},onStatus:()=>updateStudioStatus('studio')});
+const jobsSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,model:QQJobs,label:'Jobs',onStatus:()=>updateStudioStatus('jobs')});
+const jobsController=QQJobsController.create({session:jobsSession,findIdea:key=>studioSession.ready?studioSession.data.offerings.find(idea=>idea.linkKey===key):null,openWorkspace:()=>{view='jobs';},render,toast,modal,closeModal,download,esc,btn,document,local:studioLocal});
+const plannerSession=QQStudioSession.create({local:studioLocal,indexedDB:typeof indexedDB==='undefined'?undefined:indexedDB,model:QQPlanner,label:'Planner',seed:()=>QQPlanner.fresh(),onStatus:()=>updateStudioStatus('planner')});
 function linkStudioIdea(idea){
  if(idea.linkKey)return idea;
  const linked=QQStudio.linkIdea(studioSession.data,idea.id);studioSession.changed();return linked;
@@ -131,7 +141,7 @@ function dirty(){return JSON.stringify(draftRunConfig())!==JSON.stringify(state.
 function currentWorkspace(){
  const files=QQ.clone(recoveryFiles);
  if(recoveryRaw!==null&&!files.some(f=>f.text===recoveryRaw))files.push({name:'Unreadable original save',text:recoveryRaw});
- return {state,saved,draft,checkpointInfo,recoveryFiles:files};
+ return {state,saved,draft,checkpointInfo,recoveryFiles:files,...(setupOrigin?{setupOrigin}:{})};
 }
 function retainLegacySource(raw,workspace){
  const source=JSON.parse(raw);
@@ -141,10 +151,11 @@ function retainLegacySource(raw,workspace){
  }
 }
 function installWorkspace(data){
+ setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;setupOrigin=data.setupOrigin||null;
  state=data.state;saved=data.saved;draft=data.draft;checkpointInfo=data.checkpointInfo;comparisonSelection=null;
  serviceUndoDraft=null;presetUndoDraft=null;
  recoveryFiles=data.recoveryFiles;archives=data.archives||[];recipeOpen=false;
- if(state.config.name!==RESTAURANT_EXAMPLE||state.day||saved.length||archives.length||dirty())setupChoicePending=false;
+ if(setupOrigin||state.config.name!==RESTAURANT_EXAMPLE||state.day||saved.length||archives.length||dirty())setupChoicePending=false;
  view=state.day&&!dirty()?'map':'setup';
 }
 function saveLabel(){return loading?'Opening saved workspace…':recoveryRaw!==null?'Original save kept; changes in this tab are not saved.':storeError?(storeReason||'Changes are not saved. Download a backup before closing.'):saveStatus==='pending'?'Unsaved draft changes…':saveStatus==='saving'?'Saving workspace…':'Workspace saved in this browser.';}
@@ -177,7 +188,7 @@ async function initializeStorage(){
    try{
     const primary=MEIQQWorkspace.parseText(backend.raw);retainLegacySource(backend.raw,primary);
     const {state:run,saved:checkpoints,draft:setup,checkpointInfo:info,recoveryFiles:files}=primary;
-    const current={state:run,saved:checkpoints,draft:setup,checkpointInfo:info,recoveryFiles:files};
+    const current={state:run,saved:checkpoints,draft:setup,checkpointInfo:info,recoveryFiles:files,...(primary.setupOrigin?{setupOrigin:primary.setupOrigin}:{})};
     // The legacy/fallback store may contain newer work from an outage. Its age
     // cannot be inferred safely, so preserve both instead of dropping one.
     const combined=primary.archives;
@@ -202,7 +213,7 @@ async function initializeStorage(){
    storeReason='Your primary save could not be read. Back up this session and reopen the app before continuing; browser saving is disabled.';
   }
  }
- loading=false;render();save();
+ loading=false;if(!window.location)render();save();
 }
 function archiveCurrent(label){MEIQQWorkspace.archive(archives,currentWorkspace(),label);}
 function openImportedWorkspace(data){
@@ -222,54 +233,73 @@ function copyToSimulator(prepared){
  nextFiles.push({name:'Planner source · '+prepared.record.date+' · '+(prepared.record.plan.name||'Untitled plan').slice(0,100),text:JSON.stringify(prepared.record,null,2)});
  const next={...currentWorkspace(),draft:prepared.config,recoveryFiles:nextFiles};
  MEIQQWorkspace.serialize(next,nextArchives);
- stop();archives=nextArchives;recoveryFiles=nextFiles;draft=QQ.clone(prepared.config);presetUndoDraft=null;serviceUndoDraft=null;view='setup';stepIndex=0;closeModal();save();render();toast('Plan copied to a simulator draft. Your previous workspace is preserved in Runs & backups. Review setup before applying.');
+ stop();setupOrigin=null;setupEntryPath=null;setupReturnView=null;archives=nextArchives;recoveryFiles=nextFiles;draft=QQ.clone(prepared.config);presetUndoDraft=null;serviceUndoDraft=null;view='setup';stepIndex=0;closeModal();save();render();toast('Plan copied to a simulator draft. Your previous workspace is preserved in Runs & backups. Review setup before applying.');
 }
 function toast(message){clearTimeout(toastTimer);$('#toast').className='toast';$('#toast').textContent=QQI18n.text(message);toastTimer=setTimeout(()=>{$('#toast').className='';$('#toast').textContent='';},4500);}
 function badge(text,kind=''){return `<span class="badge ${kind}">${esc(text)}</span>`;}
 function metric(label,value,note,kind=''){return `<div class="metric ${kind}"><label>${label}</label><strong>${value}</strong><small>${note}</small></div>`;}
-function title(){return {planner:'Studio capacity and earnings',jobs:'Jobs',studio:'Studio workbench',setup:'Set up your business',map:'Watch the work move',projects:'Find a project',finances:'Scenario results',scenarios:'Runs and backups',about:'How this model works'}[view];}
+function title(){
+ if(view==='setup')return draft.name?scenarioName(draft.name):'Untitled scenario';
+ return view==='planner'?'Studio capacity and earnings':destinations[view];
+}
 function languagePicker() {
  const selected = QQI18n.language;
  const info=selected==='zh-CN'?`<details class="currency-info" data-disclosure="currency-rate"><summary>人民币 ¥</summary><p>${QQI18n.rateNote}</p></details>`:'';
  return `<div class="language-tools" translate="no"><label class="theme-picker language-picker"><span>Language / 语言</span><select id="language" aria-label="Language / 语言"><option value="en"${selected === 'en' ? ' selected' : ''}>English</option><option value="zh-CN"${selected === 'zh-CN' ? ' selected' : ''}>简体中文</option></select></label>${info}</div>`;
 }
+const waterfrontView=document.querySelector('#waterfront-view');
+function inStudio(){return view==='studio'||view==='planner'||view==='jobs';}
 function appearancePicker() {
  const options = Object.entries(THEMES).map(([value, label]) =>
    `<option value="${value}"${theme === value ? ' selected' : ''}>${label}</option>`
  ).join('');
  const motionOptions=Object.entries(MOTION).map(([key,label])=>`<option value="${key}"${shardMotion===key?' selected':''}>${label}</option>`).join('');
- return `<label class="theme-picker"><span>Appearance</span><select id="appearance" aria-label="Appearance">${options}</select></label><label class="theme-picker motion-picker"><span>Background motion</span><select id="shard-motion" aria-label="Background motion">${motionOptions}</select></label><button type="button" class="small" data-edit-sky>Edit sky</button>`;
+ return `<label class="theme-picker"><span>Appearance</span><select id="appearance" aria-label="Appearance">${options}</select></label><label class="theme-picker motion-picker"><span>Background motion</span><select id="shard-motion" aria-label="Background motion">${motionOptions}</select></label>${inStudio()?btn('View waterfront','view-waterfront','small','aria-haspopup="dialog"'):'<button type="button" class="small" data-edit-sky>Edit sky</button>'}`;
+}
+function routeLink(route,label,cls='',attrs=''){
+ return `<a class="${cls}" href="#${esc(route)}" ${attrs}>${label}</a>`;
 }
 function workspaceHeading(simulator = false) {
  const actions = simulator && dirty() && view !== 'setup'
    ? `<div class="heading-actions"><span class="draft-indicator">Setup changes pending</span>${btn('Review setup','view','small','data-view="setup"')}</div>`
    : '';
- return `<div class="heading workspace-heading"><h1${simulator ? ' id="sim-heading" tabindex="-1"' : ''}>${title()}</h1>${actions}</div>`;
+ const runContext=simulator&&view!=='setup'?`<p class="scene-context"><span>${scenarioName(state.config.name)}</span> · Day ${state.day} of ${state.config.months*30}</p>`:'';
+ return `<div class="heading workspace-heading"><div>${runContext}<h1${simulator ? ' id="sim-heading" tabindex="-1"' : ''}>${title()}</h1></div>${actions}</div>`;
 }
-function sidebar(){return `<aside class="sidebar"><div class="brand"><div class="brandmark" aria-hidden="true">M</div><span>MEIQQ</span></div><div class="subbrand">STUDIO & SIMULATOR</div>${btn('Navigate','mobile-nav','nav-toggle',`aria-expanded="${mobileNavOpen}" aria-controls="main-navigation"`)}<nav id="main-navigation"><div role="group" aria-label="Studio"><div class="navlabel">STUDIO</div>${[['studio','box','Ideas'],['planner','chart','Planner'],['jobs','file','Jobs']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`+(view===v?'<i class="nav-rail" aria-hidden="true"></i>':''),'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div><div role="group" aria-label="Simulator"><div class="navlabel">SIMULATOR</div>${[['setup','settings','1. Set up'],['map','map','2. Run scenario'],['finances','chart','3. Review results'],['projects','file','Projects'],['scenarios','compare','Runs & backups'],['about','info','Model guide']].map(([v,i,n])=>btn(icon(i)+`<span>${n}</span>`+(view===v?'<i class="nav-rail" aria-hidden="true"></i>':''),'view','navbutton '+(view===v?'active':''),`data-view="${v}" title="${n}" aria-label="${n}"`)).join('')}</div></nav><button class="sky-shortcut" type="button" data-view-sky aria-label="View live sky"><i aria-hidden="true"></i><span>View live sky</span></button></aside>`;}
 function jobsStatusLabel(){return jobsSession.status==='opening'?'Opening jobs…':jobsSession.status==='error'?jobsSession.error+' Download a Jobs backup to keep this session.':jobsSession.status==='pending'?'Saving your latest job edits…':jobsSession.status==='saving'?'Saving jobs…':'Jobs saved in this browser · use Jobs backup for a portable copy.';}
-function updateJobsStatus(){const el=$('#jobs-save-status');if(el){el.textContent=QQI18n.text(jobsStatusLabel());el.className='save-status '+(jobsSession.status==='error'?'negative':'');}}
 function plannerStatusLabel(){return plannerSession.status==='opening'?'Opening planner…':plannerSession.status==='error'?plannerSession.error+' Download a Planner backup to keep this session.':plannerSession.status==='pending'?'Saving your latest planning edits…':plannerSession.status==='saving'?'Saving planner…':'Planner saved in this browser · use Planner backup for a portable copy.';}
-function updatePlannerStatus(){const el=$('#planner-save-status');if(el){el.textContent=QQI18n.text(plannerStatusLabel());el.className='save-status '+(plannerSession.status==='error'?'negative':'');}}
+function workspaceShell(appClass,body){
+ const info=inStudio()?studioSaveInfo(view):null;
+ const error=info?`<div id="${view}-save-error" class="save-status negative" role="alert" ${info.failed?'':'hidden'}>${info.failed?esc(info.message):''}</div>`:'';
+ return `<div class="app ${appClass}" data-screen="${view}">${skyHeader(info)}<div class="shell" data-render-key="scene-body">${error}${body}</div></div>`;
+}
 function renderPlannerShell(){
- $('#root').innerHTML=`<div class="app planner-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="planner-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Planner backup','planner-backup','small')}${btn(icon('upload')+'Import plans','planner-import','small')}</div></details></header><div id="planner-save-status" class="save-status ${plannerSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(plannerStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${plannerSession.originals.length?`<div class="banner warn">Original saves are preserved. ${plannerSession.originals.map((v,i)=>btn('Download '+esc(v.label),'planner-original','small',`data-index="${i}"`)).join('')}</div>`:''}${plannerSession.ready?plannerController.render():'<p>Opening your locally saved plans…</p>'}</main></div></div>`;
+ const recovered=plannerSession.originals.length?`<div class="banner warn">Original saves are preserved. ${plannerSession.originals.map((v,i)=>btn('Download '+esc(v.label),'planner-original','small',`data-index="${i}"`)).join('')}</div>`:'';
+ $('#root').innerHTML=workspaceShell('planner-app',`<main class="workspace" data-render-key="workspace">${workspaceHeading()}${recovered}${plannerSession.ready?plannerController.render():'<p>Opening your locally saved plans…</p>'}</main>`);
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function renderJobsShell(){
- $('#root').innerHTML=`<div class="app jobs-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workspace</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="jobs-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Jobs backup','jobs-backup','small')}${btn(icon('upload')+'Import jobs','jobs-import','small')}</div></details></header><div id="jobs-save-status" class="save-status ${jobsSession.status==='error'?'negative':''}" role="status" aria-live="polite">${esc(jobsStatusLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading()}${jobsSession.originals.length?`<div class="banner warn">Original saves are preserved. ${jobsSession.originals.map((v,i)=>btn('Download '+esc(v.label),'jobs-original','small',`data-index="${i}"`)).join('')}</div>`:''}${jobsSession.ready?jobsController.render():'<p>Opening your locally saved jobs…</p>'}</main></div></div>`;
+ const recovered=jobsSession.originals.length?`<div class="banner warn">Original saves are preserved. ${jobsSession.originals.map((v,i)=>btn('Download '+esc(v.label),'jobs-original','small',`data-index="${i}"`)).join('')}</div>`:'';
+ $('#root').innerHTML=workspaceShell('jobs-app',`<main class="workspace" data-render-key="workspace">${workspaceHeading()}${recovered}${jobsSession.ready?jobsController.render():'<p>Opening your locally saved jobs…</p>'}</main>`);
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function studioStatusLabel(){return studioSession.status==='opening'?'Opening Studio ideas…':studioSession.status==='error'?studioSession.error+' Download a Studio backup to keep this session.':studioSession.status==='pending'?'Saving your latest idea edits…':studioSession.status==='saving'?'Saving Studio ideas…':'Studio ideas saved in this browser · use Studio backup for a portable copy.';}
-function updateStudioStatus(){
- const label=QQI18n.text(studioStatusLabel()),error=document.querySelector('#studio-save-error'),detail=document.querySelector('#studio-save-status');
- if(error){error.hidden=studioSession.status!=='error';error.textContent=error.hidden?'':label;}
+function studioSaveInfo(page){
+ if(page==='studio')return {failed:studioSession.status==='error',message:studioStatusLabel()};
+ if(page==='planner')return {failed:plannerSession.status==='error',message:plannerStatusLabel()};
+ return {failed:jobsSession.status==='error',message:jobsStatusLabel()};
+}
+function updateStudioStatus(page){
+ if(view!==page)return;
+ const {failed,message}=studioSaveInfo(page),label=QQI18n.text(message);
+ const error=document.querySelector('#'+page+'-save-error'),detail=document.querySelector('#'+page+'-save-status');
+ if(error){error.hidden=!failed;error.textContent=failed?label:'';}
  if(detail)detail.textContent=label;
 }
 function renderStudioShell(){
- const data=studioSession.data,failed=studioSession.status==='error';
- const options=`<details class="workspace-options" data-disclosure="studio-workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Studio backup','studio-backup','small')}${btn(icon('upload')+'Import ideas','studio-import','small')}<small id="studio-save-status" role="status">${esc(studioStatusLabel())}</small></div></details>`;
- $('#root').innerHTML=`<div class="app studio-app">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>Studio workbench</b></div>${languagePicker()}${options}</header>
- <div id="studio-save-error" class="save-status negative" role="alert" ${failed?'':'hidden'}>${failed?esc(studioStatusLabel()):''}</div><main class="workspace" data-render-key="workspace">${studioSession.originals.length?`<div class="banner warn">Original saves are preserved. ${studioSession.originals.map((v,i)=>btn('Download '+esc(v.label),'studio-original','small',`data-index="${i}"`)).join('')}</div>`:''}${studioSession.ready?QQStudioView.render(data,studioUI):'<p>Opening your locally saved ideas…</p>'}</main></div></div>`;
+ const data=studioSession.data;
+ const recovered=studioSession.originals.length?`<div class="banner warn">Original saves are preserved. ${studioSession.originals.map((v,i)=>btn('Download '+esc(v.label),'studio-original','small',`data-index="${i}"`)).join('')}</div>`:'';
+ $('#root').innerHTML=workspaceShell('studio-app',`<main class="workspace" data-render-key="workspace" aria-label="Studio workbench">${recovered}${studioSession.ready?QQStudioView.render(data,studioUI):'<p>Opening your locally saved ideas…</p>'}</main>`);
  $('#root').inert=Boolean($('#modal').firstChild);
 }
 function handleStudioInput(el){
@@ -320,13 +350,13 @@ function handleStudioAction(a,el){
  if(a==='studio-job'){
   if(!idea)throw Error('Select an idea first.');
   const job=jobsController.startFromIdea(linkStudioIdea(idea));
-  view='jobs';mobileNavOpen=false;render();
+  view='jobs';render();
   const client=$('#jobs-'+job.id+'-draft-client');client?.focus();return;
  }
  if(a==='studio-plan'){if(!idea)throw Error('Select an idea first.');plannerController.planIdea(idea);view='planner';render();plannerController.focusService('quantity');return;}
  if(a==='studio-select'){
   if(!idea)throw Error('Select an idea first.');
-  view='studio';mobileNavOpen=false;studioUI.selectedId=id;studioUI.tab='idea';studioUI.section='offer';
+  view='studio';studioUI.selectedId=id;studioUI.tab='idea';studioUI.section='offer';
   disclosureState.delete('studio-details-'+id);focusAfter='#studio-heading';
  }else if(a==='studio-tab'){
   studioUI.tab=el.dataset.tab==='compare'?'compare':'idea';studioUI.selectedId=null;
@@ -373,7 +403,7 @@ function handleStudioAction(a,el){
 function renderKey(node){
  if(node?.nodeType!==1)return null;
  if(node.id)return 'id:'+node.id;
- for(const name of ['data-render-key','data-input','data-disclosure'])if(node.hasAttribute(name))return name+':'+node.getAttribute(name);
+ for(const name of ['data-render-key','data-input','data-disclosure','data-setup-page'])if(node.hasAttribute(name))return name+':'+node.getAttribute(name);
  if(node.hasAttribute('data-action')){
   const parts=['data-action','data-id','data-index','data-view','data-step','data-mode','data-kind','data-tab','data-type','data-entry-id','data-delta'].map(name=>node.getAttribute(name)||'');
   return 'action:'+parts.join(':');
@@ -406,14 +436,15 @@ function patchRenderChildren(current,next){
  }
  while(cursor){const stale=cursor;cursor=cursor.nextSibling;stale.remove();}
 }
-let lastPresentationKey='';
+let lastPresentationKey='',preferencesRoute=null;
 function presentationKey(){
  if(view==='studio')return [view,studioSession.ready,studioUI.tab,studioUI.selectedId,studioUI.section].join('/');
  if(view==='jobs'||view==='planner'){
    const ui=view==='jobs'?jobsController.ui:plannerController.ui;
    return [view,ui.tab,ui.selectedId,ui.editingService?.serviceId].join('/');
  }
- return view==='setup'?[view,setupNeedsChoice(),stepIndex,setupMode].join('/'):view;
+ if(setupNeedsChoice())return 'setup/entry/'+(setupEntryPath||'business-choice');
+ return view==='setup'?[view,stepIndex].join('/'):view;
 }
 // Take layout measurements only for a deliberate list change, never while typing.
 function renderListChange(selector){
@@ -429,11 +460,38 @@ function renderListChange(selector){
    {id:'workspace-motion',duration:220,easing:'cubic-bezier(.22,.7,.2,1)'});
  }
 }
+// Step bodies are keyed so their fields stay live on edits and are replaced on navigation.
+function setupStepTransition(outgoing,nextStep){
+ const direction=Math.sign(nextStep-Number(outgoing.dataset.setupPage));
+ const distance=Math.min(56,outgoing.clientWidth*.09)*direction;
+ const style=getComputedStyle(outgoing);
+ const startOpacity=Number(style.opacity),startTransform=style.transform;
+ return panel=>{
+   const incoming=panel.querySelector('[data-setup-page]');
+   if(startOpacity>.02){
+     // The departing fields are decorative while the new step receives focus.
+     outgoing.inert=true;
+     outgoing.setAttribute('aria-hidden','true');
+     outgoing.removeAttribute('data-setup-page');
+     outgoing.classList.add('departing');
+     for(const el of outgoing.querySelectorAll('[id],details[data-disclosure],details[name]')){
+       el.removeAttribute('id');el.removeAttribute('data-disclosure');el.removeAttribute('name');
+     }
+     incoming.parentElement.append(outgoing);
+     const departure=outgoing.animate([{opacity:startOpacity,transform:startTransform},
+       {opacity:0,transform:`translateX(${-distance}px)`}],
+       {id:'workspace-motion',duration:160,easing:'ease-in',fill:'forwards'});
+     departure.finished.then(()=>outgoing.remove(),()=>outgoing.remove());
+   }
+   incoming.animate([{opacity:0,transform:`translateX(${distance}px)`},{opacity:1,transform:'none'}],
+     {id:'workspace-motion',duration:340,delay:70,fill:'backwards',easing:'cubic-bezier(.2,.72,.22,1)'});
+ };
+}
 // Measure the outgoing selection before reconciliation. Keep the live form
 // elements in place so typing, scrolling and autosaves do not replay entrances.
 function workspaceTransition(root){
  const key=presentationKey(), previous=lastPresentationKey;lastPresentationKey=key;
- if(document.documentElement.dataset.uiMotion!=='on'||!root.animate)return null;
+ if(window.StudioFlight?.active||document.documentElement.dataset.uiMotion!=='on'||!root.animate)return null;
  const animate=(node,frames,ms,delay=0)=>{
    if(!node)return;
    node.getAnimations().filter(a=>a.id==='workspace-motion').forEach(a=>a.cancel());
@@ -446,22 +504,78 @@ function workspaceTransition(root){
      if(el.isConnected&&el.textContent!==labels[i])animate(el,[{color:'var(--accent)',translate:'0 -2px'},{color:'var(--ink)',translate:'0 0'}],380);
    });
  }
- const oldRail=root.querySelector('.nav-rail')?.getBoundingClientRect();
+ const source=previous.split('/')[0],destination=key.split('/')[0];
+ if(source&&source!==destination&&!(source==='sky'&&destination==='setup')&&!(source==='setup'&&destination==='sky')){
+   const current=root.querySelector('main.workspace');
+   if(current){
+     // Only the page travels. The header, live renderer, and destination URL
+     // stay independent of how long the departing page takes to leave.
+     const pages=['sky','studio','planner','jobs','setup','map','finances','projects','scenarios','about'];
+     const direction=pages.indexOf(destination)>=pages.indexOf(source)?1:-1;
+     const bounds=current.getBoundingClientRect(),oldApp=root.firstElementChild;
+     const ghost=document.createElement('div');ghost.className='route-departure';ghost.inert=true;ghost.setAttribute('aria-hidden','true');
+     Object.assign(ghost.style,{top:bounds.top+'px',left:bounds.left+'px',width:bounds.width+'px'});
+     const frame=oldApp.cloneNode(false);frame.append(current);ghost.append(frame);
+     for(const el of current.querySelectorAll('[id],[data-disclosure],details[name]')){
+       el.removeAttribute('id');el.removeAttribute('data-disclosure');if(el.localName==='details')el.removeAttribute('name');
+     }
+     document.querySelector('.route-departure')?.remove();root.after(ghost);
+     const leave=ghost.animate([{opacity:1,translate:'0 0'},{opacity:0,translate:`${-32*direction}px -5px`}],
+       {id:'workspace-motion',duration:185,easing:'ease-in',fill:'forwards'});
+     leave.finished.then(()=>ghost.remove(),()=>ghost.remove());
+     return ()=>animate(root.querySelector('main.workspace'),[{opacity:0,translate:`${40*direction}px 9px`},{opacity:1,translate:'0 0'}],470,95);
+   }
+ }
+ if(view==='setup'&&!setupNeedsChoice()){
+   const outgoing=root.querySelector('#setup-panel [data-setup-page]');
+   if(outgoing&&Number(outgoing.dataset.setupPage)!==stepIndex){
+     const enter=setupStepTransition(outgoing,stepIndex);
+     return ()=>enter(root.querySelector('#setup-panel'));
+   }
+ }
+ const oldStory=root.querySelector('.setup-story:not(.departing)');
+ const outgoing=oldStory||root.querySelector('.setup-sheet:not(.departing)');
+ const bounds=outgoing?.getBoundingClientRect();
+ const outgoingOpacity=outgoing?getComputedStyle(outgoing).opacity:1;
  return ()=>{
    const workspace=root.querySelector('.workspace');
    if(!workspace)return;
-   const title=workspace.querySelector('h1'), opening=workspace.querySelector('.setup-start');
+   const story=workspace.querySelector('.setup-story:not(.departing)');
+   const sheet=workspace.querySelector('.setup-sheet');
+   const next=story||sheet;
+   const chapter=el=>el?.classList.contains('setup-sheet')?3:el?.dataset.renderKey==='sky-home'?0:el?.dataset.renderKey==='setup-story-start'?1:2;
+   const direction=outgoing&&next&&chapter(next)<chapter(outgoing)?-1:1;
+   if(outgoing&&next&&outgoing!==next){
+     // Let the sky travel behind the outgoing chapter, including on browser Back.
+     // Its live inputs and disclosure names must retire before the next chapter takes focus.
+     outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');outgoing.removeAttribute('data-render-key');
+     for(const el of outgoing.querySelectorAll('[id],[data-disclosure],details[name]')){
+       el.removeAttribute('id');el.removeAttribute('data-disclosure');if(el.localName==='details')el.removeAttribute('name');
+     }
+     outgoing.classList.add('departing');
+     Object.assign(outgoing.style,{left:bounds.left+'px',top:bounds.top+'px',width:bounds.width+'px'});
+     workspace.append(outgoing);
+     const departure=outgoing.animate([{opacity:outgoingOpacity,translate:'0 0'},{opacity:0,translate:`0 ${-14*direction}px`}],
+       {id:'workspace-motion',duration:220,fill:'forwards',easing:'ease-in'});
+     departure.finished.then(()=>outgoing.remove(),()=>outgoing.remove());
+   }
+   if(story){
+     animate(story,[{opacity:0,translate:`${-14*direction}px ${26*direction}px`},{opacity:1,translate:'0 0'}],outgoing?570:320,outgoing?190:0);
+     return;
+   }
+   if(oldStory&&sheet){
+     animate(sheet.querySelector('.sheet-heading'),[{opacity:0,translate:'0 24px'},{opacity:1,translate:'0 0'}],460,140);
+     animate(sheet.querySelector('.setup-workspace'),[{opacity:0,translate:'0 min(12vh,84px)'},{opacity:1,translate:'0 0'}],630,190);
+     return;
+   }
+   const title=workspace.querySelector('h1');
    const detail=workspace.querySelector('#setup-panel,#planner-editor-content,#jobs-editor-content,#studio-editor-content');
    const within=previous.split('/')[0]===view;
    const rows=workspace.querySelector('.studio-ideas');
-   const panels=within&&detail?[detail]:opening?[...opening.children]:rows?[...rows.children].slice(0,5):[...workspace.querySelectorAll(':scope > :not(.workspace-heading)')].slice(0,4);
+   const panels=within&&detail?[detail]:rows?[...rows.children].slice(0,5):[...workspace.querySelectorAll(':scope > :not(.workspace-heading)')].slice(0,4);
    if(!within||!detail)animate(title,[{opacity:.76,translate:'0 7px'},{opacity:1,translate:'0 0'}],290);
    panels.forEach((el,i)=>{if(!el.contains(title))animate(el,[{opacity:.78,translate:'0 8px'},{opacity:1,translate:'0 0'}],300,i*22);});
-   const rail=root.querySelector('.nav-rail');
-   if(rail&&oldRail){
-     const delta=oldRail.top-rail.getBoundingClientRect().top;
-     if(Math.abs(delta)>1)animate(rail,[{transform:'translateY('+delta+'px)'},{transform:'translateY(0)'}],360);
-   }
+
  };
 }
 function patchableRoot(root){
@@ -492,11 +606,40 @@ function restoreFocus(key,scroll=false){
 }
 function render(){
   const focus=focusKey(document.activeElement);
+  syncWorkspaceRoute();
+  const route=workspaceRoute();
+  if(preferencesRoute!==route){
+    const settings=document.querySelector('#root .sky-preferences[open]');
+    if(settings)settings.open=false;
+    disclosureState.delete('app-preferences');preferencesRoute=route;
+  }
+  const entrance=setupNeedsChoice(),skyOnly=view==='sky/view';
+  if(!skyOnly&&skyPlayback){skyPlayback=null;applyShardMotion();}
+  const skyStage=view==='setup'?(entrance?(setupEntryPath?'night':'surface'):editorSteps[stepIndex]):inStudio()||view==='sky'||skyOnly?'home':view;
+  if(routeReady)window.StudioFlight?.route(view,skyStage);
+  if(inStudio()){
+    if(shardBackground?.getAttribute?.('waterfront')!==view)shardBackground?.setAttribute?.('waterfront',view);
+  }else{
+    if(waterfrontView?.open)waterfrontView.close();
+    shardBackground?.removeAttribute?.('waterfront');
+  }
+  if((routeReady||!window.location)&&shardBackground?.getAttribute?.('sky-stage')!==skyStage)shardBackground?.setAttribute?.('sky-stage',skyStage);
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(!setupModeChanging)disclosureState.set(el.dataset.disclosure,el.open);
-  if(view==='studio'||view==='jobs'||view==='planner'){if(view==='planner')renderPlannerShell();else if(view==='jobs')renderJobsShell();else renderStudioShell();for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);if(!$('#root').inert)restoreFocus(focus);return;}
-  const m=QQ.metrics(state);
-  setupCache=view==='setup'?{}:null;
-  $('#root').innerHTML=`<div class="app simulator-app ${running?'running':''}" data-screen="${view}">${sidebar()}<div class="shell"><header class="topbar"><div class="crumb"><b>${view==='setup'?'Simulator':scenarioName(state.config.name)}</b></div>${languagePicker()}<details class="workspace-options" data-disclosure="workspace-options"><summary>Workspace options</summary><div class="topactions">${appearancePicker()}${btn(icon('download')+'Backup','backup','small')}${btn(icon('upload')+'Open backup','import','small')}${view!=='setup'?btn(icon('branch')+'Branch scenario','branch','small'):''}</div></details></header><div id="save-status" class="save-status ${storeError?'negative':''}" role="status" aria-live="polite" ${showSaveStatus()?'':'hidden'}>${esc(saveLabel())}</div><main class="workspace" data-render-key="workspace">${workspaceHeading(true)}${recoveryRaw!==null?`<div class="banner danger"><b>Saved workspace needs recovery.</b> ${esc(recoveryReason||'The file could not be validated.')} The original is intact; changes here will not save. ${btn('Download original save','recover','small')} ${btn('Open another backup','import','small')}</div>`:''}${fallbackPreserved?`<div class="banner warn">A different browser-local save has been preserved under Runs & backups. Compare it with this run before continuing. ${btn('View preserved workspaces','view','small','data-view="scenarios"')}</div>`:''}${state.blocked&&view!=='map'?`<div class="banner warn"><b>Cash shortfall paused the run.</b> ${esc(state.blocked.note)} · ${offerAmount(state.blocked.gap)} needed. ${btn('Resolve shortfall','cash','small')}</div>`:''}${view==='setup'?setupView():view==='map'?mapView(m):view==='projects'?projectsView():view==='finances'?financeView(m):view==='scenarios'?scenariosView():aboutView()}</main>${view==='map'?clock():''}</div></div>`;
+  if(inStudio()){if(view==='planner')renderPlannerShell();else if(view==='jobs')renderJobsShell();else renderStudioShell();for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);if(!$('#root').inert)restoreFocus(focus);return;}
+  const status=`<div id="save-status" class="save-status ${storeError?'negative':''}" role="status" aria-live="polite" ${showSaveStatus()?'':'hidden'}>${esc(saveLabel())}</div>`;
+  const notices=`${recoveryRaw!==null?`<div class="banner danger"><b>Saved workspace needs recovery.</b> ${esc(recoveryReason||'The file could not be validated.')} The original is intact; changes here will not save. ${btn('Download original save','recover','small')} ${btn('Open another backup','import','small')}</div>`:''}${fallbackPreserved?`<div class="banner warn">A different browser-local save has been preserved under Runs & backups. Compare it with this run before continuing. ${btn('View preserved workspaces','view','small','data-view="scenarios"')}</div>`:''}${state.blocked&&view!=='map'?`<div class="banner warn"><b>Cash shortfall paused the run.</b> ${esc(state.blocked.note)} · ${offerAmount(state.blocked.gap)} needed. ${btn('Resolve shortfall','cash','small')}</div>`:''}`;
+  if(skyOnly){
+    const playing=skyPlayback?skyPlayback==='animate':document.documentElement.dataset.uiMotion==='on';
+    $('#root').innerHTML=workspaceShell('sky-only',`<main class="workspace"><h1 id="sim-heading" tabindex="-1" class="sr-only">Live Sky</h1><nav aria-label="Live Sky">${btn(playing?'Pause sky':'Resume sky','sky-play')}<button type="button" data-edit-sky>Edit sky</button>${routeLink('sky','Live Sky home')}</nav></main>`);
+  }else if(view==='setup'||view==='sky'){
+    const editor=view==='setup'&&!entrance;
+    setupCache=editor?{}:null;
+    const content=editor?setupEditorScene(notices):view==='sky'?skyHome():setupEntrance();
+    $('#root').innerHTML=workspaceShell('simulator-app setup-entrance',`${status}<main class="workspace ${editor?'setup-editing':'setup-landing'}" data-render-key="workspace">${content}</main>`);
+  }else{
+    const m=QQ.metrics(state);
+    $('#root').innerHTML=workspaceShell('simulator-app'+(running?' running':''),`${status}<main class="workspace simulator-workspace" data-render-key="workspace">${workspaceHeading(true)}${notices}${view==='map'?mapView(m):view==='projects'?projectsView():view==='finances'?financeView(m):view==='scenarios'?scenariosView():aboutView()}</main>${view==='map'?clock():''}`);
+  }
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(setupMode==='analyst'&&el.dataset.disclosure.startsWith('setup-advanced-'))el.open=true;else if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);
   $('#root').inert=Boolean($('#modal').firstChild);
   if(!$('#root').inert)restoreFocus(focus);
@@ -537,7 +680,7 @@ function presetWorkbench(){
 function firstExamplePending(){
  return setupChoicePending&&!state.day&&!saved.length&&!archives.length&&!recoveryFiles.length&&recoveryRaw===null&&state.config.name===RESTAURANT_EXAMPLE&&!dirty();
 }
-function setupNeedsChoice(){return view==='setup'&&!stepIndex&&firstExamplePending();}
+function setupNeedsChoice(){return view==='setup'&&(setupEntryPath!==null||setupReturnView!==null||(!stepIndex&&firstExamplePending()));}
 function inputBasis(path,fallback='Scenario input'){
  const record=draft.assumptionRecords?.[path];
  if(record&&record.value===QQ.assumptionRecordValue(draft,path))return 'Your records · '+esc(QQI18n.literal(record.source))+' · '+esc(record.date)+' · '+esc(QQI18n.literal(record.sample));
@@ -616,21 +759,33 @@ function outreachVolume(c){
  const values=[c.outreachHours,c.ownerHours,c.leadsPerHour];
  return values.every(Number.isFinite)?QQ.round(Math.min(c.outreachHours,c.ownerHours)*QQ.workingDays(c.months*30)/(5*c.months)*c.leadsPerHour):null;
 }
-function chooseSetup(ownBusiness,replacing=false){
- if(replacing){
+function openSetupEditor(mode){
+ if(!setupNeedsChoice()||!setupEntryPath||!['guided','analyst'].includes(mode))return;
+ if(editingCurrentSetup()){
+  if(setupEntryPath!=='style'&&!setupOrigin){setupOrigin=setupEntryPath;save();}
+  setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;stepIndex=lastEditorStep;
+  setSetupMode(mode);render();focusViewHeading();return;
+ }
+ const chosenPath=setupEntryPath,ownBusiness=chosenPath==='business';
+ if(setupReturnView){
   if(loading||storeError||recoveryRaw!==null||primaryReadFailed)throw Error('Resolve the current simulator save before starting another scenario.');
   const prior=QQ.clone(archives),nextState=QQ.fresh(restaurantConfig());
   MEIQQWorkspace.archive(prior,currentWorkspace(),state.config.name+' · prior scenario · day '+state.day);
   const next={state:nextState,draft:QQ.clone(nextState.config),saved:[],checkpointInfo:[],recoveryFiles:[]};
   MEIQQWorkspace.serialize(next,prior);
-  stop();installWorkspace({...next,archives:prior});stepIndex=0;selection=null;expandedService=-1;disclosureState.clear();setupModeChanging=true;closeModal();
- }else if(!setupNeedsChoice())return;
+  stop();installWorkspace({...next,archives:prior});stepIndex=0;selection=null;expandedService=-1;disclosureState.clear();setupModeChanging=true;
+ }
+ setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;setupOrigin=chosenPath;
  rememberSetupChoice();
  if(ownBusiness){
   draft=QQPresets.compose({}, {...QQ.clone(state.config),name:'My business',services:[],fixedInquiriesEntered:false});
-  addCatalogService(null);
+  appendCatalogService(null);
  }
- save();render();setTimeout(()=>document.querySelector(ownBusiness?'#input-services-0-name':'#setup-tab-0')?.focus(),0);
+ // Back from a committed draft changes its style without creating another scenario.
+ if(routeReady)window.history.replaceState(null,'','#setup/style');
+ stepIndex=0;lastEditorStep=0;setSetupMode(mode);
+ save();render();
+ focusViewHeading();
 }
 function rememberSetupChoice(){
  setupChoicePending=false;
@@ -642,12 +797,174 @@ function runLengthOptions(selected,elapsed=0){
  const prompt=validRunLength(selected)?'':'<option value="" selected disabled>Choose a run length</option>';
  return prompt+Array.from({length:12},(_,i)=>i+1).map(months=>`<option value="${months}" ${months===selected?'selected':''} ${months*30<elapsed?'disabled':''}>${runLengthLabel(months)}</option>`).join('');
 }
-function newScenarioDialog(){
- modal(`<h2 id="dialog-title">Start a new scenario</h2><p>Your current run, unfinished setup and checkpoints will be kept in Runs &amp; backups → Preserved workspaces.</p><div class="actions">${btn('Keep editing','close')}${btn('Try the restaurant example','new-example','soft')}${btn('Set up my business','new-business','primary')}</div>`);
+function workspaceRoute(){
+ if(view!=='setup')return view;
+ if(setupNeedsChoice()){
+  const start=newScenarioRequested?'setup/new':'setup';
+  return setupEntryPath?start+'/'+setupEntryPath:start;
+ }
+ return 'setup/edit/'+editorSteps[stepIndex];
+}
+function syncWorkspaceRoute(){
+ if(!routeReady)return;
+ const route=workspaceRoute();
+ if(route===lastRoute)return;
+ lastRoute=route;
+ if(window.location.hash!=='#'+route)window.history.pushState(null,'','#'+route);
+ if(route==='sky'||route==='sky/view')return;
+ resumeRoute=route;
+ if(view==='setup'&&!setupNeedsChoice())lastEditorStep=stepIndex;
+ try{
+  window.sessionStorage.setItem('meiqq-last-page',route);
+  if(view==='setup'&&!setupNeedsChoice()){
+   window.sessionStorage.setItem('meiqq-setup-step',String(stepIndex));
+  }
+ }catch{/* Links and the in-memory return destination remain available. */}
+}
+function readWorkspaceRoute(){
+ if(!routeReady)return;
+ const previousStep=view==='setup'&&!setupNeedsChoice()?stepIndex:null;
+ const route=window.location.hash.slice(1)||'sky';
+ if($('#modal').firstChild)closeModal();
+ if(navigatorDialog.open)navigatorDialog.close();
+ if(waterfrontView?.open)waterfrontView.close();
+ const skyEditor=document.querySelector('#sky-editor');
+ if(skyEditor?.open)skyEditor.close('cancel');
+ stop();
+ setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;
+ if(route==='setup'||route.startsWith('setup/')){
+  view='setup';
+  const step=editorSteps.indexOf(route.slice('setup/edit/'.length));
+  if(recoveryRaw!==null||primaryReadFailed){stepIndex=0;}
+  else if(route.startsWith('setup/edit/')&&step>=0&&!firstExamplePending()){stepIndex=step;}
+  else{
+   if(firstExamplePending())stepIndex=0;
+   else setupReturnView='setup';
+   newScenarioRequested=route==='setup/new'||route.startsWith('setup/new/');
+   const path=route.slice(newScenarioRequested?'setup/new/'.length:'setup/'.length);
+   if(['business','restaurant'].includes(path))setupEntryPath=path;
+   if(route==='setup/style'&&!firstExamplePending())setupEntryPath='style';
+  }
+ }else view=route==='sky/view'||Object.hasOwn(destinations,route)?route:'sky';
+ const resolved=workspaceRoute();
+ if(window.location.hash!=='#'+resolved)window.history.replaceState(null,'','#'+resolved);
+ lastRoute=null;render();
+ if(previousStep!==null&&view==='setup'&&!setupNeedsChoice()&&previousStep!==stepIndex)focusSetupStep();
+ else focusViewHeading();
+}
+function beginSetupEntrance(newScenario=false){
+ if(recoveryRaw!==null||primaryReadFailed){view='setup';render();focusViewHeading();return;}
+ stop();
+ setupReturnView=firstExamplePending()?null:view;
+ setupEntryPath=null;newScenarioRequested=newScenario;view='setup';
+ if(!setupReturnView)stepIndex=0;
+ render();focusViewHeading();
+}
+function skyHeader(info){
+ const sky=view==='sky'||view==='sky/view',section=sky?'Live Sky':inStudio()?'Studio':'Simulator';
+ const home=routeLink('sky','MEIQQ','sky-wordmark','aria-label="Live Sky home"');
+ const identity=sky?'<b>Live Sky</b>':routeLink(inStudio()?'studio':'setup',section);
+ const branch=!sky&&!inStudio()&&view!=='setup'?btn(icon('branch')+'Branch scenario','branch','small'):'';
+ const status=info?`<small id="${view}-save-status" role="status">${esc(info.message)}</small>`:'';
+ return `<header class="sky-header"><div class="sky-identity">${home}<span aria-hidden="true">/</span>${identity}</div><div class="sky-tools">
+ ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}
+ <details class="sky-preferences workspace-options" data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${appearancePicker()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View live sky')}${branch}${status}</div></details></div></header>`;
+}
+function resumeDestination(){
+ if(Object.hasOwn(destinations,resumeRoute))return [resumeRoute,destinations[resumeRoute]];
+ if(resumeRoute==='setup')return ['setup','Business setup'];
+ if(['setup/new','setup/new/business','setup/new/restaurant','setup/business','setup/restaurant','setup/style'].includes(resumeRoute))return [resumeRoute,'Setup style'];
+ if(!firstExamplePending()){
+  if(state.day&&!dirty()&&!resumeRoute.startsWith('setup/edit/'))return ['map','Run scenario'];
+  return ['setup/edit/'+editorSteps[lastEditorStep],steps[lastEditorStep]];
+ }
+ return null;
+}
+function skyHome(){
+ const resume=resumeDestination();
+ return `<section class="setup-story" data-render-key="sky-home" aria-labelledby="sim-heading">
+ <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">Studio &amp; Simulator</h1></div>
+ <div class="setup-start"><div><h2>Simulator</h2><p>Follow a service business from its first inquiry to its final payment.</p>${routeLink('setup','Enter simulator','scene-action primary')}</div>
+ <div><h2>Studio</h2><p>Develop service ideas, plan your capacity and track client jobs.</p><nav class="studio-destinations" aria-label="Studio">${['studio','planner','jobs'].map(id=>routeLink(id,destinations[id],'scene-action')).join('')}</nav></div></div>
+ ${resume?`<div class="sky-resume"><span>Pick up where you left off</span>${routeLink(resume[0],esc(resume[1])+' <i aria-hidden="true">→</i>')}</div>`:''}</section>`;
+}
+function editingCurrentSetup(){
+ if(setupEntryPath==='style')return true;
+ if(!setupEntryPath||newScenarioRequested||firstExamplePending())return false;
+ if(setupOrigin)return setupEntryPath===setupOrigin;
+ // Older saves didn't record the chosen path. Recognize their original starter names.
+ return setupEntryPath==='business'?draft.name==='My business':draft.name===RESTAURANT_EXAMPLE&&draft.recipe?.profile==='new-workspace';
+}
+function setupTrail(chapter){
+ const labels=['Starting point','Setup style','Assumptions'];
+ const items=labels.map((label,i)=>{
+   if(i===chapter)return `<b aria-current="step">${label}</b>`;
+   if(i>chapter)return `<span class="upcoming">${label}</span>`;
+   if(i===0&&chapter===1)return btn(label,'setup-path-back','trail-link');
+   return routeLink(i===0?'setup':'setup/style',label);
+ });
+ return `<nav class="editor-trail setup-trail" aria-label="Setup navigation">${items.join('<i aria-hidden="true">›</i>')}</nav>`;
+}
+function setupEntrance(){
+ const heading=setupEntryPath?'Choose your setup style':'Set up your business';
+ const current=editingCurrentSetup(),business=setupEntryPath==='business';
+ const back=newScenarioRequested&&!setupEntryPath?btn('Keep editing','cancel-new-setup','setup-back'):'';
+ const hasDraft=!firstExamplePending();
+ const resume=hasDraft&&!setupEntryPath&&!newScenarioRequested?`<div class="setup-resume"><div><strong>${scenarioName(draft.name||state.config.name)}</strong><span>${steps[lastEditorStep]} · Day ${state.day}</span></div>${routeLink('setup/edit/'+editorSteps[lastEditorStep],'Continue setup','scene-action')}${state.day?routeLink('map','Resume run','scene-action'):''}</div>`:'';
+ const note=current?`<p class="setup-preservation">${scenarioName(draft.name||state.config.name)}</p>`:setupEntryPath&&hasDraft?'<p class="setup-preservation">Starting this scenario keeps your current work in Runs &amp; backups.</p>':'';
+ const choices=setupEntryPath?
+   `<div><h2>Guided</h2><p>${current?'Work through the essentials of your current scenario step by step.':business?'Start with your first service, then work through demand, people and payment terms.':'Walk through the restaurant’s offers, demand, people and payment terms step by step.'}</p>${btn(current?'Continue guided setup':'Start guided setup','enter-setup','primary','data-mode="guided"')}</div>
+    <div><h2>All assumptions</h2><p>${current?'Open the detailed controls for your current scenario.':business?'Open the detailed controls to set your prices, workload and cash assumptions.':'Explore the detailed prices, workload and cash assumptions behind the restaurant example.'}</p>${btn('Open all assumptions','enter-setup','soft','data-mode="analyst"')}</div>`:
+   `<div><h2>Your services</h2><p>Enter one service you sell, then set demand, working hours and payment terms.</p>${btn('Set up my business','start-business','primary')}</div>
+    <div><h2>Restaurant studio example</h2><p>Explore a menu refresh, table tents and a monthly promotion. The studio’s prices, time and demand are example estimates.</p>${btn('Try the restaurant example','start-restaurant','soft')}</div>`;
+ return `<section class="setup-story" data-render-key="setup-story-${setupEntryPath||'start'}" aria-labelledby="sim-heading">${back}${setupTrail(setupEntryPath?1:0)}<div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">${heading}</h1></div>${note}${resume}<div class="setup-start">${choices}</div></section>`;
+}
+function setSetupMode(mode){
+ setupMode=mode;setupModeChanging=true;
+ const advanced=['customers','team','cash','mix',...draft.services.flatMap(s=>['service-'+s.id,'delivery-'+s.id])];
+ for(const id of advanced)disclosureState.set('setup-advanced-'+id,mode==='analyst');
+ try{localStorage.setItem(SETUP_MODE_KEY,mode);}catch(err){toast('Setup view applied for this session. Browser storage is unavailable.');}
+}
+const navigatorDialog=document.querySelector('#workspace-navigator');
+function workspaceNavigator(){
+ const editor=view==='setup'&&!setupNeedsChoice(),simulator=!inStudio()&&view!=='sky'&&view!=='sky/view';
+ const label=id=>id==='setup'?'Business setup':destinations[id];
+ const group=(name,routes)=>`<section class="navigator-group"><h3>${name}</h3>${routes.map(([id,symbol])=>{
+   const current=view===id?(id==='setup'&&workspaceRoute()!=='setup'?'location':'page'):null;
+   return routeLink(id,icon(symbol)+`<span>${label(id)}</span><i aria-hidden="true">›</i>`,'navigator-link',current?`aria-current="${current}"`:'');
+ }).join('')}</section>`;
+ const studioLinks=[['studio','box'],['planner','chart'],['jobs','file']];
+ const simLinks=[['setup','settings'],['map','play'],['finances','chart'],['projects','file'],['scenarios','compare'],['about','info']];
+ const studioBackup={studio:['Studio backup','studio-backup','Import ideas','studio-import'],planner:['Planner backup','planner-backup','Import plans','planner-import'],jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import']};
+ const [backup,saveAction,open,loadAction]=studioBackup[view]||['Backup','backup','Open backup','import'];
+ const context=editor?'Current setup':inStudio()?'Studio':simulator?'Simulator':'Live Sky';
+ const page=editor?scenarioName(draft.name||state.config.name):view==='setup'?(setupEntryPath?'Choose your setup style':'Set up your business'):destinations[view]||'Live Sky';
+ const detail=editor?steps[stepIndex]:simulator&&view!=='setup'?scenarioName(state.config.name):'';
+ return `<div class="navigator-shell"><header class="navigator-heading"><h2 id="navigator-title" tabindex="-1" autofocus>Navigate</h2>${btn(icon('close'),'hide-navigator','navigator-close','aria-label="Close"')}</header>
+ <div class="navigator-body"><button type="button" class="navigator-current" data-action="hide-navigator" title="Back to workspace">
+ <span class="navigator-current-icon" aria-hidden="true">${icon(inStudio()?'box':simulator?'settings':'grid')}</span><span class="navigator-location"><small>${context}</small><strong>${page}</strong>${detail?`<span>${detail}</span>`:''}</span>${icon('arrow')}</button>
+ <nav class="navigator-groups" aria-label="Workspace">${group('Simulator',simLinks)}${group('Studio',studioLinks)}</nav></div>
+ <footer class="navigator-footer">${routeLink('sky','Live Sky home','navigator-home')}${btn(icon('download')+backup,saveAction)}${btn(icon('upload')+open,loadAction)}</footer></div>`;
+}
+function openWorkspaceNavigator(){
+ if(navigatorDialog.open)return;
+ const settings=document.querySelector('.sky-preferences');if(settings)settings.open=false;
+ navigatorDialog.innerHTML=QQI18n.html(workspaceNavigator());
+ navigatorDialog.showModal();
+}
+if(navigatorDialog?.addEventListener){
+ // A drag that starts inside the sheet can finish outside without dismissing it.
+ let backdropPress=false;
+ navigatorDialog.addEventListener('pointerdown',e=>{backdropPress=e.target===navigatorDialog;});
+ navigatorDialog.addEventListener('click',e=>{
+   if(e.target.closest('a[href],.navigator-footer button')){navigatorDialog.close();return;}
+   if(backdropPress&&e.target===navigatorDialog)navigatorDialog.close();backdropPress=false;});
+}
+function setupEditorScene(notices){
+ const context=dirty()?'Setup draft':draft.recipe?.profile==='new-workspace'&&draft.name===RESTAURANT_EXAMPLE?'Example scenario':'Current scenario';
+ return `<div class="setup-sheet" data-render-key="setup-sheet"><div class="sheet-heading"><div class="sheet-navigation">${setupTrail(2)}</div><div class="scenario-heading">${workspaceHeading(true)}<span>${context} · Day ${state.day}</span></div></div>${notices}${setupView()}</div>`;
 }
 function setupView(){
- if(setupNeedsChoice())return `<section class="panel setup-start" aria-label="Choose a starting point"><div><h2>Your services</h2><p>Enter one service you sell, then set demand, working hours and payment terms.</p>${btn('Set up my business','start-business','primary')}</div><div><h2>Restaurant studio example</h2><p>Explore a menu refresh, table tents and a monthly promotion. The studio’s prices, time and demand are example estimates.</p>${btn('Try the restaurant example','start-restaurant','soft')}</div></section>`;
- const context=dirty()?'Setup draft':draft.recipe?.profile==='new-workspace'&&draft.name===RESTAURANT_EXAMPLE?'Example scenario':'Current scenario';
  const modeButton=(id,label)=>btn(label,'setup-density',setupMode===id?'active':'',`data-mode="${id}" aria-pressed="${setupMode===id}"`);
  const actions=`<div class="setup-secondary">${btn(recipeOpen?'Close scenario builder':'Try a scenario','toggle-recipe','small',`aria-expanded="${recipeOpen}"`)}${btn('Assumption sources','current-evidence','small')}${btn('New scenario','new-scenario','small')}${presetUndoDraft?btn('Undo recipe','undo-preset','small'):''}</div>`;
  const issue=draftValidationIssues()[0],target=setupIssueTarget(issue);
@@ -655,11 +972,9 @@ function setupView(){
  const nextAction=finishOffer?btn((issue.path==='services'?'Fix ':'Set ')+esc(target.label),'fix-setup-issue','primary'):stepIndex<3?btn('Next: '+steps[stepIndex+1]+' →','setup-step',stepIndex===0?'primary':'soft','data-step="'+(stepIndex+1)+'"'):'';
  const tabs=steps.map((n,i)=>`<button id="setup-tab-${i}" role="tab" aria-controls="setup-panel" aria-selected="${stepIndex===i}" tabindex="${stepIndex===i?0:-1}" data-action="setup-step" data-step="${i}" class="${stepIndex===i?'active':''}"><span>${i+1}</span>${n}</button>`).join('');
  const content=stepIndex===0?serviceInputs():stepIndex===1?customerInputs():stepIndex===2?teamInputs():cashInputs();
- const controls=`<label class="month-picker setup-duration">Run length<select id="input-months" data-input="months">${runLengthOptions(draft.months)}</select></label><div class="segmented" role="group" aria-label="Setup detail level">${modeButton('guided','Guided')}${modeButton('analyst','All assumptions')}</div>`;
- const compact=stepIndex===0&&setupMode==='guided';
- const scenario=`<div><b>${draft.name?scenarioName(draft.name):'Untitled scenario'}</b><span>${context} · Day ${state.day}</span></div>`;
- const modebar=compact?`<div class="setup-modebar offer-modebar">${scenario}<details data-disclosure="offer-setup-options"><summary>Setup options</summary><div class="offer-setup-controls">${controls}${actions}</div></details></div>`:`<div class="setup-modebar">${scenario}${controls}</div>${actions}`;
- return `<div class="setup-workspace setup-mode-${setupMode}">${modebar}${recipeOpen?presetWorkbench():''}<div class="setup-layout"><div><div class="setup-steps" role="tablist" aria-label="Setup steps">${tabs}</div><section id="setup-panel" class="panel setup-body" role="tabpanel" aria-labelledby="setup-tab-${stepIndex}">${content}<div class="step-footer">${stepIndex?btn('← Back','setup-step','','data-step="'+(stepIndex-1)+'"'):'<span></span>'}${nextAction}</div></section></div><aside class="setup-summary" id="draft-summary">${draftSummary()}</aside></div></div>`;
+ const controls=`<div class="setup-detail"><span>Setup style</span><div class="segmented" role="group" aria-label="Setup detail level">${modeButton('guided','Guided')}${modeButton('analyst','All assumptions')}</div></div><label class="month-picker setup-duration">Run length<select id="input-months" data-input="months">${runLengthOptions(draft.months)}</select></label>`;
+ const modebar=`<div class="setup-modebar offer-modebar">${controls}<details data-disclosure="offer-setup-options"><summary>Setup options</summary><div class="offer-setup-controls">${actions}</div></details></div>`;
+ return `<div class="setup-workspace setup-mode-${setupMode}">${modebar}${recipeOpen?presetWorkbench():''}<div class="setup-steps" role="tablist" aria-label="Setup steps">${tabs}</div><div class="setup-layout"><section id="setup-panel" class="panel setup-body" role="tabpanel" aria-labelledby="setup-tab-${stepIndex}"><div class="setup-page-stack"><div class="setup-step-page" data-setup-page="${stepIndex}">${content}<div class="step-footer">${stepIndex?btn('← Back','setup-step','','data-step="'+(stepIndex-1)+'"'):'<span></span>'}${nextAction||btn('View run estimate','focus-estimate','soft')}</div></div></div></section><aside class="setup-summary" id="draft-summary" tabindex="-1" aria-label="Run estimate">${draftSummary()}</aside></div></div>`;
 }
 function serviceUnit(service){
  const config={...QQ.DEFAULT,designerRate:draft.designerRate,ownerTarget:draft.ownerTarget,quoteHours:draft.quoteHours,deliveryHours:draft.deliveryHours,services:[{...service,weight:100}]};
@@ -750,13 +1065,16 @@ function restoreDraftService(){
  renderListChange('.offer-card,.offer-recovery[data-render-key]');
  document.querySelector('#offer-edit-'+service.id)?.focus();
 }
-function addCatalogService(id,price){
+function appendCatalogService(id,price){
  if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');
  const s=id?QQServiceCatalog.createService(id):{customOffer:true,name:'',deliverable:'',price:null,hours:null,review:null,print:null,supplierMode:'choose',recurring:false,audience:'all',color:'#647f9a'};
  if(price!==undefined){if(!Number.isFinite(price)||price<0||price>1e6)throw Error('Enter a valid customer price.');s.price=price;}
  s.id=newServiceId();s.weight=draft.services.length?0:100;draft.services.push(s);serviceUndoDraft=null;presetUndoDraft=null;
  if(s.audience!=='all'&&!draft.customerMix){draft.customerMix=QQ.clone(QQ.DEFAULT.customerMix);draft.profileStrength=QQ.DEFAULT.profileStrength;draft.focusType='none';}
- expandedService=draft.services.length-1;disclosureState.set('service-'+s.id,true);closeModal();render();document.querySelector('#input-services-'+expandedService+'-name')?.focus();
+ expandedService=draft.services.length-1;disclosureState.set('service-'+s.id,true);
+}
+function addCatalogService(id,price){
+ appendCatalogService(id,price);closeModal();render();document.querySelector('#input-services-'+expandedService+'-name')?.focus();
 }
 function priceExperiment(index){
  const s=draft.services[index],unit=serviceUnit(s);if(!unit)throw Error('Complete the service work and cost inputs first.');
@@ -943,9 +1261,27 @@ function draftSummary(){
 }
 function updatePreview(){scheduleSave();}
 function workflowPath(){return `<div class="handoff-strip" aria-label="Project handoffs">${Object.entries(WORKFLOW_STAGES).filter(([,v])=>v.order>0&&v.order<8).sort((a,b)=>a[1].order-b[1].order).map(([id,v])=>btn(`<span>${v.order}</span><b>${esc(v.label)}</b><small>${esc(v.handoff)}</small>`,'stage','handoff-step '+(selection?.type==='stage'&&selection.id===id?'selected':''),`data-id="${id}"`)).join('')}</div>`;}
+function focusSetupStep(){
+ const tab=document.querySelector('#setup-tab-'+stepIndex);
+ tab?.focus({preventScroll:true});
+ const tabs=tab?.parentElement;
+ if(!tabs)return;
+ const bounds=tabs.getBoundingClientRect();
+ // Restore the sky header after using a footer on a long form. With expanded
+ // options or a short viewport, keep the new step and its tabs in view.
+ if(window.scrollY+bounds.bottom<=window.innerHeight-140){
+  if(window.scrollY)window.scrollTo({top:0,behavior:'instant'});
+ }else if(bounds.top<12||bounds.bottom>window.innerHeight*.65){
+  tabs.scrollIntoView({block:'start',behavior:'instant'});
+ }
+}
+function selectSetupStep(next){
+ stop();setupRepairPath=null;stepIndex=next;
+ render();focusSetupStep();
+}
 function focusViewHeading(){
- const title=document.querySelector(view==='studio'?'#studio-heading':'#sim-heading');
- title?.focus({preventScroll:true});window.scrollTo?.({top:0,behavior:'instant'});
+ const title=document.querySelector('main h1')||document.querySelector('#studio-heading');
+ if(title){title.setAttribute?.('tabindex','-1');title.focus({preventScroll:true});}window.scrollTo?.({top:0,behavior:'instant'});
 }
 function openInspector(type,button){
  stop();
@@ -1202,7 +1538,7 @@ function showSavedComparison(base,alternative,record){
  const records=(checkpointInfo[a].replays||[]).filter(r=>r.baselineId===checkpointInfo[b].replayId);
  const selected=record||records.find(r=>r===comparisonSelection?.record)||records[0];
  comparisonSelection={base,alternative,record:selected||null};
- stop();mobileNavOpen=false;inspectorTrail=[];selection=null;view='finances';analyticsTab='compare';
+ stop();inspectorTrail=[];selection=null;view='finances';analyticsTab='compare';
  render();focusViewHeading();
 }
 function comparedRuns(){
@@ -1971,27 +2307,59 @@ document.addEventListener('change',e=>{
  if(el.id==='project-filter'){filter=el.value;$('#project-table').innerHTML=QQI18n.html(projectTable());}
 });
 document.addEventListener('click',e=>{
+ const settings=document.querySelector('#root .sky-preferences[open]');
+ if(settings?.open&&!settings.contains(e.target))settings.open=false;
  const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;if(a.startsWith('planner-')){actionFocus=focusKey(el);try{plannerController.action(a,el.dataset);}catch(err){if($('#modal').firstChild)showError(err.message||'The plan could not be updated.');else plannerController.reportError(err.message||'The plan could not be updated.');}finally{actionFocus=null;}return;}if(a.startsWith('jobs-')){actionFocus=focusKey(el);try{jobsController.action(a,el.dataset);}catch(err){if($('#modal').firstChild)showError(err.message||'The job could not be updated.');else jobsController.reportError(err.message||'The job could not be updated.');}finally{actionFocus=null;}return;}if(a.startsWith('studio-')){actionFocus=focusKey(el);try{handleStudioAction(a,el);}catch(err){showError(err.message||'The idea could not be updated.');}finally{actionFocus=null;}return;}if(loading)return;
  actionFocus=focusKey(el);
  try{
   if(presetUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','remove-service','balance'].includes(a))presetUndoDraft=null;
   if(serviceUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','remove-service','balance','confirm-preset','undo-preset','load','confirm-restart','confirm-example','confirm-import','open-archive','confirm-restore-draft','confirm-branch'].includes(a))serviceUndoDraft=null;
-  if(a==='mobile-nav'){mobileNavOpen=!mobileNavOpen;render();}
+  if(a==='show-navigator')openWorkspaceNavigator();
+  else if(a==='hide-navigator')navigatorDialog.close();
+  else if(a==='view-waterfront'&&inStudio()){
+   const options=el.closest('.workspace-options');
+   if(options){options.open=false;options.querySelector('summary').focus();}
+   waterfrontView.setAttribute('aria-label',QQI18n.text('Studio waterfront'));
+   waterfrontView.querySelector('button').textContent=QQI18n.text('Back to workspace');
+   waterfrontView.showModal();
+  }
+  else if(a==='close-waterfront')waterfrontView.close();
+  else if(a==='sky-play'&&view==='sky/view'){
+   const playing=skyPlayback?skyPlayback==='animate':document.documentElement.dataset.uiMotion==='on';
+   skyPlayback=playing?'still':'animate';shardBackground?.setAttribute?.('motion',skyPlayback);render();
+  }
+  else if(a==='focus-estimate'){
+   const estimate=document.querySelector('#draft-summary');
+   estimate?.focus({preventScroll:true});estimate?.scrollIntoView?.({block:'nearest'});
+  }
+  else if(a==='setup-home')beginSetupEntrance();
   else if(a==='view'){
-   stop();mobileNavOpen=false;inspectorTrail=[];selection=null;
+   stop();inspectorTrail=[];selection=null;setupEntryPath=null;setupReturnView=null;
    if(el.dataset.view==='finances'&&view!=='finances'){analyticsTab='overview';selectResultsMonth(null);}
    if(el.dataset.view==='studio'){studioUI.selectedId=null;studioUI.tab='idea';studioUI.section='offer';}
    view=el.dataset.view;render();focusViewHeading();
   }
-  else if(a==='start-business'||a==='start-restaurant')chooseSetup(a==='start-business');
-  else if(a==='new-scenario')newScenarioDialog();
-  else if(a==='new-business'||a==='new-example')chooseSetup(a==='new-business',true);
+  else if(a==='start-business'||a==='start-restaurant'){
+   if(!setupNeedsChoice()||setupEntryPath)return;
+   setupEntryPath=a==='start-business'?'business':'restaurant';render();focusViewHeading();
+  }
+  else if(a==='setup-path-back'){
+   if(!setupNeedsChoice()||!setupEntryPath)return;
+   const origin=setupEntryPath==='style'?setupOrigin:setupEntryPath;
+   beginSetupEntrance(newScenarioRequested);
+   if(origin==='business'||origin==='restaurant')document.querySelector('[data-action="start-'+origin+'"]')?.focus();
+  }
+  else if(a==='enter-setup')openSetupEditor(el.dataset.mode);
+  else if(a==='new-scenario')beginSetupEntrance(true);
+  else if(a==='cancel-new-setup'&&setupReturnView){
+   view=setupReturnView;setupReturnView=null;setupEntryPath=null;newScenarioRequested=false;render();focusViewHeading();
+  }
   else if(a==='input-evidence')editInputRecord(el.dataset.group,el.dataset.id);
   else if(a==='save-input-evidence'||a==='remove-input-evidence')saveInputRecord(a==='remove-input-evidence');
   else if(a==='toggle-recipe'){recipeOpen=!recipeOpen;render();}
   else if(a==='analytics-tab'){analyticsTab=el.dataset.tab;if(analyticsTab==='cash')cashView={run:state,month:0,page:0};render();}
   else if(a==='review-latest-results'||a==='month-overview'){
-   stop();mobileNavOpen=false;inspectorTrail=[];selection=null;view='finances';analyticsTab='overview';
+   stop();inspectorTrail=[];selection=null;view='finances';analyticsTab='overview';
    selectResultsMonth(a==='month-overview'?Number(el.dataset.month):null);render();focusViewHeading();
   }
   else if(a==='month-cash'){
@@ -2023,7 +2391,7 @@ document.addEventListener('click',e=>{
   else if(a==='cancel-sample'){cancelMonthSample();render();}
   else if(a==='compare-runs'){stop();view='finances';analyticsTab='compare';render();focusViewHeading();}
   else if(a==='contract-page'){contractPage=Math.max(0,contractPage+Number(el.dataset.delta));render();}
-  else if(a==='setup-step'){stop();setupRepairPath=null;stepIndex=Number(el.dataset.step);render();document.querySelector('#setup-tab-'+stepIndex)?.focus();}
+  else if(a==='setup-step')selectSetupStep(Number(el.dataset.step));
   else if(a==='fix-setup-issue')fixSetupIssue();
   else if(a==='edit-inquiry-weight')revealSetupField({path:'services.'+Number(el.dataset.index)+'.weight'});
   else if(a==='inspect-mix'){
@@ -2052,7 +2420,7 @@ document.addEventListener('click',e=>{
   else if(a==='recipe-evidence')recipeEvidenceDialog();
   else if(a==='current-evidence')recipeEvidenceDialog('draft');
   else if(a==='download-evidence'){if(!pendingEvidence)throw Error('Open an evidence record first.');download('MEIQQ-Recipe-Evidence.json',pendingEvidence);}
-  else if(a==='setup-density'){if(!['guided','analyst'].includes(el.dataset.mode))throw Error('Choose a valid setup view.');setupMode=el.dataset.mode;setupModeChanging=true;for(const id of ['customers','team','cash','mix',...draft.services.flatMap(s=>['service-'+s.id,'delivery-'+s.id])])disclosureState.set('setup-advanced-'+id,setupMode==='analyst');try{localStorage.setItem(SETUP_MODE_KEY,setupMode);}catch(err){toast('Setup view applied for this session. Browser storage is unavailable.');}render();}
+  else if(a==='setup-density'){if(!['guided','analyst'].includes(el.dataset.mode))throw Error('Choose a valid setup view.');setSetupMode(el.dataset.mode);render();}
   else if(a==='apply-preset'){const next=QQPresets.compose(presetSelection,draft,{preserveServices:true}),changes=configDiff(draft,next);if(!changes.length&&['market','operation','condition','mix','profile'].every(k=>draft.recipe?.[k]===next.recipe[k])){toast('This recipe already matches your draft.');return;}pendingPreset=next;modal(`<div class="eyebrow">${changes.length?changes.length+' DRAFT VALUES WILL CHANGE':'SCENARIO CONTEXT CHANGE'}</div><h2 id="dialog-title">Load this recipe into your draft?</h2><p>Use the selected market label, team, customer mix and business conditions. Your custom services, prices, service mix, starting cash and run identity are preserved.</p><p>You can undo until your next draft edit. The running simulation changes only after you apply the draft.</p><ul class="change-list">${changes.map(v=>`<li>${esc(v.label)}: <b>${esc(v.before)} → ${esc(v.after)}</b></li>`).join('')}</ul><p class="helper">The recipe origin is saved with the applied setup and shown in Saved runs. Exact assumption values remain authoritative and may include later edits.</p><div class="actions">${btn('Keep current draft','close')}${btn('Merge into draft','confirm-preset','primary')}</div>`);}
   else if(a==='confirm-preset'){if(!pendingPreset)throw Error('Choose a recipe first.');presetUndoDraft=QQ.clone(draft);draft=QQ.clone(pendingPreset);pendingPreset=null;recipeOpen=false;expandedService=0;stepIndex=0;closeModal();render();toast('Recipe loaded into the draft. Review it, then apply when ready.');}
   else if(a==='undo-preset'){if(!presetUndoDraft)throw Error('There is no previous draft to restore.');draft=QQ.clone(presetUndoDraft);presetUndoDraft=null;render();toast('Previous draft restored.');}
@@ -2128,18 +2496,28 @@ else if(a==='open-archive'){
  }catch(err){showError(err.message||'The action could not be completed.');}finally{actionFocus=null;}
 });
 document.addEventListener('keydown',e=>{
+ if(navigatorDialog?.open||waterfrontView?.open||document.querySelector('#sky-editor')?.open)return;
+ if(e.key==='Escape'&&!$('#modal').firstChild){
+  const settings=document.querySelector('#root .sky-preferences[open]');
+  if(settings?.open){settings.open=false;settings.querySelector('summary').focus();e.preventDefault();return;}
+ }
  const tab=e.target?.closest?.('[role="tab"][data-action="setup-step"]');
  if(tab&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
   e.preventDefault();const current=Number(tab.dataset.step),next=e.key==='Home'?0:e.key==='End'?steps.length-1:(current+(e.key==='ArrowRight'?1:-1)+steps.length)%steps.length;
-  setupRepairPath=null;stepIndex=next;render();setTimeout(()=>document.querySelector('#setup-tab-'+next)?.focus(),0);return;
+  selectSetupStep(next);return;
  }
  if(!$('#modal').firstChild){if(e.key==='Escape'&&view==='map'&&selection){e.preventDefault();leaveInspector();}return;}
  if(e.key==='Escape'){closeModal();render();}
  if(e.key==='Tab'){const els=modalTabStops();if(!els.length)return;e.preventDefault();const current=els.indexOf(document.activeElement),next=current<0?(e.shiftKey?els.length-1:0):(current+(e.shiftKey?-1:1)+els.length)%els.length;els[next].focus();}
 });
 window.addEventListener('beforeunload',e=>{save();studioSession.save();jobsSession.save();plannerSession.save();if(plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
+if(window.location)view='sky';
 render();
-const appReady=initializeStorage();
+const appReady=initializeStorage().then(()=>{
+ routeReady=Boolean(window.location&&window.history);
+ if(routeReady)readWorkspaceRoute();
+});
+window.addEventListener('hashchange',readWorkspaceRoute);
 const studioReady=studioSession.open().then(()=>{if(['studio','planner','jobs'].includes(view))render();});
 const jobsReady=jobsSession.open().then(()=>{if(view==='jobs'||view==='planner')render();});
 const plannerReady=plannerSession.open().then(()=>{plannerController.initialize();if(view==='planner')render();});
@@ -2155,7 +2533,7 @@ function analyticsTable(headers,rows,empty='No results yet. Advance the simulati
 function resultCell(value){return `<td class="${value<0?'negative':''}">${dollars(value)}</td>`;}
 function financeView(m){
  const a=QQ.analytics(state);
- return `<div class="analytics-context"><span><b>${scenarioName(state.config.name)}</b> · Day ${state.day} of ${state.config.months*30}</span><span>${analyticsTab==='overview'||analyticsTab==='cash'?'USD':'USD · Run to date unless labeled monthly'}</span></div>
+ return `<div class="analytics-context"><span>${analyticsTab==='overview'||analyticsTab==='cash'?'USD':'USD · Run to date unless labeled monthly'}</span></div>
  <div class="analytics-tabs" role="group" aria-label="Results sections">${[['overview','Profit overview'],['contracts','Contracts'],['performance','Simulation stats'],['cash','Cash & ledger'],['compare','Compare runs']].map(([id,name])=>btn(name,'analytics-tab',analyticsTab===id?'active':'',`data-tab="${id}" aria-pressed="${analyticsTab===id}"`)).join('')}</div>
  <div class="analytics-content">${analyticsTab==='contracts'?contractAnalyticsView(a):analyticsTab==='performance'?simulationAnalyticsView(a,m):analyticsTab==='cash'?cashFinanceView(m):analyticsTab==='compare'?scenariosTableView():marginAnalyticsView(a,m)}</div>`;
 }

@@ -350,7 +350,7 @@ details[open]>summary>.disclosure-chevron,[aria-expanded=true]>.disclosure-chevr
 .mix-tools,.mix-correction {padding-top:10px}
 .mix-correction {align-items:center;font-size:12px}
 .mix-correction select {max-width:100%;padding:7px;border:1px solid var(--line);color:var(--ink);background:var(--surface)}
-.setup-body:has(.inquiry-mix) .step-footer {border:0;margin-top:0}
+.setup-step-page:has(.inquiry-mix) .step-footer {border:0;margin-top:0}
 @media(max-width:540px){
  .service-editor>summary {flex-wrap:nowrap;gap:7px}
  .service-editor>summary .offer-heading {min-width:0}

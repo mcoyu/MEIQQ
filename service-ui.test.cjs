@@ -5,7 +5,7 @@ const input=(ui,path,value,percent=false)=>ui.handlers.input({target:{dataset:{i
 
 test('fresh service menu has defined scopes and customer printing choice with no live mutation from browsing',()=>{
  const ui=setup(),before=read(ui,'JSON.stringify(state.config)');
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  assert.equal(read(ui,'draft.services.length'),3);assert.match(ui.elements['#root'].innerHTML,/Build your service menu/);
  ui.click('service-library');assert.match(ui.elements['#modal'].innerHTML,/Customer need/);
  ui.handlers.change({target:{id:'catalog-audience',value:'food',dataset:{}}});
@@ -94,7 +94,7 @@ test('accepted project inspector explains chosen print route and saved quoted op
 });
 
 test('a custom first offer stays unfinished across reload until each required assumption is supplied',()=>{
- const ui=setup();ui.click('start-business');
+ const ui=setup();ui.click('start-business');ui.click('enter-setup',{mode:'guided'});
  const first=read(ui,'draft.services[0]');
  assert.equal(first.weight,100);assert.equal(first.name,'');assert.equal(first.deliverable,'');
  for(const key of ['price','hours','review','print'])assert.equal(first[key],null);
@@ -111,7 +111,7 @@ test('a custom first offer stays unfinished across reload until each required as
 });
 
 test('parked custom offers survive edits, month runs and workspace recovery without affecting demand',()=>{
- const ui=setup();ui.click('start-restaurant');ui.click('add-blank-service');
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('add-blank-service');
  const parked=read(ui,'draft.services.at(-1).id');
  assert.equal(read(ui,'dirty()'),false);assert.equal(read(ui,'draftError()'),'');
  assert.equal(read(ui,'draftRunConfig().services.length'),3);assert.equal(read(ui,'draft.services.length'),4);
@@ -123,7 +123,7 @@ test('parked custom offers survive edits, month runs and workspace recovery with
 });
 
 test('mix editor shows effective audience shares, paired route costs and one group-level correction',()=>{
- const ui=setup();ui.click('start-restaurant');
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  const html=ui.elements['#root'].innerHTML;
  for(const value of ['18%','13.5%','68.5%'])assert.ok(html.includes(value+' of all new inquiries'));
  assert.match(html,/\$395 price · \$185 direct cost/);assert.match(html,/\$275 price · \$90 direct cost/);
@@ -138,7 +138,7 @@ test('mix editor shows effective audience shares, paired route costs and one gro
 });
 
 test('guided setup keeps weights together and takes an inactive offer directly to its own weight',()=>{
- const ui=setup();ui.click('start-restaurant');ui.click('add-blank-service');
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('add-blank-service');
  const html=ui.elements['#root'].innerHTML,mix=html.indexOf('<details class="inquiry-mix"');
  assert.ok(mix>0);assert.doesNotMatch(html.slice(0,mix),/data-input="services\.\d+\.weight"/);
  assert.equal([...html.slice(mix).matchAll(/data-input="services\.\d+\.weight"/g)].length,4);
@@ -152,7 +152,7 @@ test('guided setup keeps weights together and takes an inactive offer directly t
 });
 
 test('removing and restoring draft offers keeps their identity, evidence and newer edits',()=>{
- const ui=setup();ui.click('start-restaurant');
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  read(ui,`var original=JSON.stringify(state.config),offer=draft.services[1],path='services.'+offer.id+'.price';
    draft.assumptionRecords={[path]:{source:'Supplier quote',sample:'One order',date:'2026-11-01',value:offer.price}};`);
  const id=read(ui,'offer.id');

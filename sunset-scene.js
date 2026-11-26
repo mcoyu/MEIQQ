@@ -55,12 +55,11 @@
   const COLS=100, ROWS=64, STEP=.24;
   // Position is a fraction of the viewport. Draw both edges of a passing bank
   // when they are visible, so even a wide bank on a phone crosses continuously.
-  function bankCenters(bank,anchor,span,time){
-    const period=Math.max(1.36,span+.18), half=span/2;
-    const first=fract((anchor+time*bank.drift+half)/period)*period-half;
+  function bankCenters(bank,anchor,span,time,left=0,right=1){
+    const period=Math.max(1.36,span+.18),center=anchor+time*bank.drift;
+    const first=Math.floor((left-span/2-center)/period)+1,last=Math.ceil((right+span/2-center)/period)-1;
     const centers=[];
-    if(first-half<1 && first+half>0)centers.push(first);
-    if(first+period-half<1)centers.push(first+period);
+    for(let copy=first;copy<=last;copy++)centers.push(center+copy*period);
     return centers;
   }
   function sample(map,x,y) {

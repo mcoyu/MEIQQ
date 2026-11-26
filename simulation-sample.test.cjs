@@ -3,7 +3,7 @@ const {setup}=require('./ui-test-host.cjs'),q=require('./engine.js');
 const read=(ui,source)=>vm.runInContext(source,ui.ctx);
 function openStats(){
  const ui=setup();
- ui.click('start-restaurant');
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  ui.drainTimers();
  ui.click('view',{view:'finances'});
  ui.click('analytics-tab',{tab:'performance'});

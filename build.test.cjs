@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ui-test-host.cjs');
 test('distributed HTML exactly matches the source modules and has no external assets',()=>{
   let expected=fs.readFileSync('index.template.html','utf8');
-  for(const [tag,file]of [['STYLE','style.css'],['CHINESE','zh-CN.js'],['I18N','i18n.js'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['APP','app.js'],['SUNSET_SCENE','sunset-scene.js'],['SHARD_FLIGHT','shard-flight.js'],['GALAXY','galaxy.js'],['SKY_EDITOR','sky-editor.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
+  for(const [tag,file]of [['STYLE','style.css'],['CHINESE','zh-CN.js'],['I18N','i18n.js'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['STUDIO_FLIGHT','studio-flight.js'],['APP','app.js'],['SUNSET_SCENE','sunset-scene.js'],['SHARD_FLIGHT','shard-flight.js'],['SKY_CAMERA','sky-camera.js'],['GALAXY','galaxy.js'],['WATERFRONT_MODEL','waterfront-model.js'],['WATERFRONT','waterfront.js'],['SKY_EDITOR','sky-editor.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
   expected=expected.replace('</style>',()=>fs.readFileSync('themes.css','utf8')+'\n</style>');
   const html=fs.readFileSync('MEIQQ.html','utf8');assert.equal(html,expected);assert.ok(!/<script[^>]+src=|<link[^>]+href=|url\(https?:/i.test(html));
 });
@@ -14,7 +14,7 @@ test('packaged HTML loads the versioned service catalog before creating the star
   assert.equal(vm.runInContext('QQPresets.audit(state.config).lineage.find(row=>row.path==="services.0.price").recordIds.length>0',ctx),true);
 });
 test('packaged offline scripts run, fund, back up and restore through the UI',()=>{
-  const {ctx,click,elements,drainTimers}=setup(undefined,{built:true});click('start-restaurant');click('view',{view:'map'});click('finish');drainTimers();assert.equal(vm.runInContext('state.day',ctx),30);
+  const {ctx,click,elements,drainTimers}=setup(undefined,{built:true});click('start-restaurant');click('enter-setup',{mode:'guided'});click('view',{view:'map'});click('finish');drainTimers();assert.equal(vm.runInContext('state.day',ctx),30);
   click('fund');elements['#funding']={value:'1000',checkValidity:()=>true};click('confirm-fund');
   assert.equal(vm.runInContext('QQ.cashSeries(state).at(-1).cash===state.cash',ctx),true);
   vm.runInContext('draft.ownerHours=null;pendingImport=parseBackup(JSON.parse(JSON.stringify(backupPayload())))',ctx);
@@ -57,7 +57,7 @@ test('packaged HTML includes preset evidence and preserves composed values',()=>
   const {ctx,handlers,click,elements,storage,drainTimers}=setup(undefined,{built:true});
   assert.equal(vm.runInContext('QQPresets.MARKETS.length*QQPresets.OPERATIONS.length*QQPresets.MIXES.length*QQPresets.CONDITIONS.length',ctx),720);
   assert.equal(vm.runInContext('QQPresets.SOURCES.every(v=>v.url.startsWith("https://"))',ctx),true);
-  click('start-restaurant');click('toggle-recipe');click('recipe-evidence');
+  click('start-restaurant');click('enter-setup',{mode:'guided'});click('toggle-recipe');click('recipe-evidence');
   assert.match(elements['#modal'].innerHTML,/Values, sources and derivations/);
   assert.equal(vm.runInContext('QQPresetEvidence.RECORDS.length>=7',ctx),true);
   assert.match(elements['#modal'].innerHTML,/Published comparisons and context/);
@@ -78,12 +78,13 @@ test('packaged HTML includes preset evidence and preserves composed values',()=>
   assert.equal(JSON.stringify(exported.draft),expected);
 });
 
-test('one permanent copper scene serves all workspaces and remembers an explicit motion preference', async () => {
+test('the permanent backdrop switches between Studio waterfront and simulator sky and remembers motion', async () => {
   const contents = fs.readFileSync('MEIQQ.html','utf8');
   const sky = contents.match(/<body><aero-shards aria-hidden="true">([\s\S]*?)<\/aero-shards><div id="root">/);
   assert.ok(sky);
   assert.match(sky[1], /class="sunset-environment"/);
   assert.match(sky[1], /class="sunset-horizon"/);
+  assert.match(sky[1], /class="studio-waterfront"/);
   assert.doesNotMatch(sky[1], /<img|<picture/);
   assert.doesNotMatch(contents,/function loadAeroShardsGPU\(|function mountAeroShards\(/);
   const ui = setup(undefined,{built:true});
@@ -102,9 +103,15 @@ test('one permanent copper scene serves all workspaces and remembers an explicit
   assert.equal(applied,'animate');
   assert.equal(ui.storage.get('qq-studio-shard-motion'),'animate');
   await vm.runInContext('Promise.all([studioReady,jobsReady,plannerReady])',ui.ctx);
+  const attributes=new Map();
+  host.getAttribute=key=>attributes.get(key)??null;
+  host.setAttribute=(key,value)=>attributes.set(key,value);
+  host.removeAttribute=key=>attributes.delete(key);
   for (const view of ['studio','jobs','planner','setup']) {
     ui.click('view',{view});
-    assert.doesNotMatch(ui.elements['#root'].innerHTML,/<aero-shards/);
+    assert.equal(host.getAttribute('waterfront'),view==='setup'?null:view);
+    assert.equal(ui.elements['#root'].innerHTML.includes('data-action="view-waterfront"'),view!=='setup');
+    assert.doesNotMatch(ui.elements['#root'].innerHTML,/<aero-shards|class="studio-waterfront"/);
     assert.match(ui.elements['#root'].innerHTML,/<option value="animate" selected>Animate<\/option>/);
   }
   settings('unsupported');

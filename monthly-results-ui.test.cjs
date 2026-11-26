@@ -9,7 +9,7 @@ const chooseMonth=(ui,month)=>ui.handlers.change({target:{id:'result-month',valu
 
 test('the restaurant month explains profit, ranked spending, owner time and cash without expanding a control',()=>{
  const ui=setup();
- ui.click('start-restaurant');ui.click('view',{view:'map'});ui.click('finish');ui.drainTimers();ui.click('view',{view:'finances'});
+ ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});ui.click('view',{view:'map'});ui.click('finish');ui.drainTimers();ui.click('view',{view:'finances'});
  const html=visibleOverview(ui);
  assert.match(html,/Month 1 made \$444\.35/);
  assert.match(html,/2 deliveries earned <b>\$1,250<\/b>/);

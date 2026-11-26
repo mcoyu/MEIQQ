@@ -5,7 +5,7 @@
   const scene=window.SunsetScene;
   const {banks,bankCenters,clamp,mix,smooth}=scene;
   const verticalDrift=(bank,time)=>.023*.092*Math.cos(time*.092+bank.seed*.31);
-  function cloudViews(state,weather,aspect){
+  function cloudViews(state,weather,aspect,coverage){
     const views=[];
     banks.forEach((bank,index)=>{
       const layer=state[bank.id], time=weather[index].time;
@@ -14,7 +14,8 @@
       const sy=bank.height*layer.scale/100, phase=bank.seed*.31;
       const cy=layer.y/100+.023*(Math.sin(time*.092+phase)-Math.sin(phase));
       const period=Math.max(1.36,sx+.18);
-      for(const cx of bankCenters(bank,layer.x/100,sx,time)){
+      const [left,right]=coverage?coverage(index):[0,1];
+      for(const cx of bankCenters(bank,layer.x/100,sx,time,left,right)){
         const copy=Math.round((cx-layer.x/100-time*bank.drift)/period);
         views.push({index,copy,cx,cy,sx,sy});
       }

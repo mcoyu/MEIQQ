@@ -4,7 +4,7 @@
   if(!dialog?.showModal)return;
   const {defaults,types,update,clamp}=window.SunsetScene;
   const key='qq-studio-sunset-v1';
-  const layers={west:'Western cloud bank',east:'Eastern cloud bank',low:'Low cloud bank',galaxy:'Galaxy',moon:'Crescent moon',horizon:'Horizon',light:'Atmosphere'};
+  const layers={west:'Western cloud bank',east:'Eastern cloud bank',low:'Low cloud bank',galaxy:'Stars',moon:'Crescent moon',horizon:'Horizon',light:'Atmosphere'};
   const fields={
     x:['Horizontal position',-35,135],y:['Vertical position',-25,125],scale:['Scale',20,185],
     spacing:['Shard spacing',0,100],density:['Star density',0,100],dusk:['Twilight',0,100],wind:['Motion speed',0,100],
@@ -61,51 +61,15 @@
   }
   function open(button){
     if(dialog.open)return;
-    original=structuredClone(settings);opener=button;
+    original=structuredClone(settings);
+    const preferences=button.closest('.sky-preferences');
+    opener=preferences?.querySelector('summary')||button;
+    if(preferences)preferences.open=false;
     for(const el of panel.querySelectorAll('[data-copy]'))el.textContent=t(el.dataset.copy);
     const select=panel.querySelector('select');
     select.innerHTML=Object.entries(layers).map(([id,label])=>'<option value="'+id+'">'+t(label)+'</option>').join('');
     select.value=selected;showFields();dialog.showModal();select.focus();
   }
-  const viewer=document.querySelector('#sky-view'), host=document.querySelector('aero-shards');
-  const play=viewer.querySelector('[data-sky-play]'), adjust=viewer.querySelector('[data-sky-adjust]');
-  const exit=viewer.querySelector('[data-sky-exit]'), reduced=matchMedia('(prefers-reduced-motion:reduce)');
-  let workspaceMotion, viewOpener;
-  function playing(){
-    const mode=host.getAttribute('motion');
-    return settings.light.wind>0&&(mode==='animate'||(mode==='system'&&!reduced.matches));
-  }
-  function updatePlay(){play.textContent=t(playing()?'Pause sky':'Resume sky');}
-  function viewSky(){
-    const active=location.hash==='#sky';
-    if(active===!viewer.hidden)return;
-    viewer.hidden=!active;
-    if(active){
-      workspaceMotion=host.getAttribute('motion')||'system';
-      host.setAttribute('motion','system');
-      viewer.setAttribute('aria-label',t('Live sky'));
-      adjust.textContent=t('Edit sky');exit.textContent=t('Back to workspace');
-      updatePlay();play.focus({preventScroll:true});
-    }else{
-      if(dialog.open)dialog.close('cancel');
-      host.setAttribute('motion',workspaceMotion);
-      viewOpener?.focus({preventScroll:true});
-    }
-  }
-  play.addEventListener('click',()=>{
-    const resume=!playing();
-    if(resume&&!settings.light.wind){settings.light.wind=defaults.light.wind;update(settings);}
-    host.setAttribute('motion',resume?'animate':'still');updatePlay();
-  });
-  adjust.addEventListener('click',()=>open(adjust));
-  exit.addEventListener('click',()=>{location.hash='';viewSky();});
-  document.addEventListener('click',e=>{
-    const button=e.target.closest?.('[data-view-sky]');
-    if(button){viewOpener=button;location.hash='sky';viewSky();}
-  });
-  window.addEventListener('hashchange',viewSky);
-  reduced.addEventListener('change',updatePlay);
-  viewSky();
   document.addEventListener('click',e=>{const button=e.target.closest?.('[data-edit-sky]');if(button)open(button);});
   panel.querySelector('select').addEventListener('change',e=>{selected=e.target.value;showFields();});
   fieldset.addEventListener('input',e=>{
@@ -121,18 +85,19 @@
     if(action==='save'){try{localStorage.setItem(key,JSON.stringify(settings));}catch{toast(t('Sky changes apply to this session.'));}dialog.close('save');}
   });
   dialog.addEventListener('cancel',e=>{e.preventDefault();dialog.close('cancel');});
-  dialog.addEventListener('close',()=>{if(dialog.returnValue!=='save'){settings=original;update(settings);}drag=null;updatePlay();opener?.focus();});
+  dialog.addEventListener('close',()=>{if(dialog.returnValue!=='save'){settings=original;update(settings);}drag=null;opener?.focus();});
   const viewport=dialog.querySelector('.sky-viewport');
+  const point=e=>window.SunsetScene.layerPoint?.(selected,e.clientX/innerWidth,e.clientY/innerHeight)||[e.clientX/innerWidth,e.clientY/innerHeight];
   viewport.addEventListener('pointerdown',e=>{
     const layer=settings[selected];if(e.button!==0||layer.visible===false||(!('x' in layer)&&!('y' in layer)))return;
-    drag={id:e.pointerId,x:e.clientX,y:e.clientY,startX:layer.x,startY:layer.y};
+    const [x,y]=point(e);drag={id:e.pointerId,x,y,startX:layer.x,startY:layer.y};
     viewport.setPointerCapture(e.pointerId);
   });
   viewport.addEventListener('pointermove',e=>{
     if(!drag||drag.id!==e.pointerId)return;
-    const layer=settings[selected];
-    if('x' in layer)layer.x=clamp(Math.round(drag.startX+(e.clientX-drag.x)*100/innerWidth),...bounds(selected,'x'));
-    if('y' in layer)layer.y=clamp(Math.round(drag.startY+(e.clientY-drag.y)*100/innerHeight),...bounds(selected,'y'));
+    const layer=settings[selected],[x,y]=point(e);
+    if('x' in layer)layer.x=clamp(Math.round(drag.startX+(x-drag.x)*100),...bounds(selected,'x'));
+    if('y' in layer)layer.y=clamp(Math.round(drag.startY+(y-drag.y)*100),...bounds(selected,'y'));
     syncFields();update(settings);
   });
   viewport.addEventListener('lostpointercapture',()=>{drag=null;});

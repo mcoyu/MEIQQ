@@ -103,7 +103,7 @@ test('recipe loading preserves seed and horizon and can restore the prior draft'
 });
 
 test('both detail modes keep one draft preview and open a separate scenario comparison on request',()=>{
- const ui=setup();ui.click('start-restaurant');
+ const ui=setup();ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  const html=()=>ui.elements['#root'].innerHTML;
  for(const mode of ['guided','analyst']){
   ui.click('setup-density',{mode});

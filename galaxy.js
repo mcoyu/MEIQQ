@@ -20,6 +20,7 @@
     uniform vec3 uGalaxy, uMoon;
     uniform float uTime,uDusk,uOrbit,uBurst;
     uniform vec4 uStreak;
+    uniform float uNight,uLens,uRiverAir;uniform mat3 uSkyAxes;
     out vec4 color;
     float Hash21(vec2 p){
       p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);
@@ -35,7 +36,7 @@
       float seed=Hash21(id), size=fract(seed*345.32);
       vec2 center=.17+.66*vec2(Hash21(id+2.),Hash21(id+3.));
       float d=length(fract(grid)-center)/scale*uSize.y;
-      float radius=mix(.44,.98,pow(size,4.))*clamp(uSize.y/800.,.72,1.25);
+      float radius=mix(.44,.98,pow(size,4.))*clamp(uSize.y/800.,.72,1.25)*(1.+.17*uNight);
       float core=exp(-d*d/(radius*radius));
       float glow=exp(-d/(radius*2.3))*.115*size*size;
       float presence=smoothstep(1.-density*(.18+.61*band),1.,seed);
@@ -49,24 +50,30 @@
       vec3 top=mix(vec3(.39,.45,.49),vec3(.14,.20,.27),dusk);
       vec3 waist=mix(vec3(.66,.70,.70),vec3(.36,.47,.53),dusk);
       vec3 bottom=mix(vec3(.95,.86,.70),vec3(.74,.69,.64),dusk);
+      // The zenith loses its last daylight before the horizon does.
+      float night=smoothstep(0.,1.,uNight*(1.25-.25*h));
+      float twilight=smoothstep(0.,.64,night),dark=smoothstep(.32,1.,night);
+      top=mix(mix(top,vec3(.105,.16,.255),twilight),vec3(.019,.035,.072),dark);
+      waist=mix(mix(waist,vec3(.25,.33,.425),twilight),vec3(.058,.095,.15),dark);
+      bottom=mix(mix(bottom,vec3(.65,.48,.425),twilight),vec3(.168,.19,.225),dark);
       vec3 sky=mix(top,waist,smoothstep(-.12,.77,h));
       sky=mix(sky,bottom,smoothstep(.43,1.04,h));
-      sky+=vec3(.10,.043,.018)*exp(-length((uv-vec2(.21,.87))*vec2(1.5,3.)));
-      vec2 pole=vec2(.07,-.72), relative=(uv-uGalaxy.xy)*aspect-pole;
+      sky+=vec3(.10,.043,.018)*(1.-.85*night)*exp(-length((uv-vec2(.21,.87))*vec2(1.5,3.)));
+      vec3 atmosphere=sky;
+      vec3 ray=uSkyAxes*vec3((uv-.5)*aspect*uLens,1.);
+      vec2 skyUV=.5+ray.xy/(max(.06,ray.z)*uLens*aspect);
+      vec2 pole=vec2(.07,-.72), relative=(skyUV-uGalaxy.xy)*aspect-pole;
       float angle=uOrbit*.0038;
       vec2 skyPos=pole+mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*relative;
       float bend=.05*sin(skyPos.x*3.8);
       float crossBand=skyPos.y+skyPos.x*.53+bend;
       float band=exp(-crossBand*crossBand/.027);
-      vec2 grain=vec2(skyPos.x*6.+3.,crossBand*15.);
-      grain+=vec2(mist(grain*.56+8.),mist(grain*.86-2.))*.92;
-      float dust=.76*mist(grain)+.24*mist(grain*3.7+31.);
-      float air=(1.-smoothstep(.37,.90,h))*uGalaxy.z;
-      sky+=vec3(.19,.167,.209)*band*(dust-.22)*air;
+      float air=mix(1.-smoothstep(.37,.90,h),1.-.78*smoothstep(.66,1.,h),night)*uGalaxy.z;
+      band=mix(band,.48,night);
       for(int k=0;k<3;k++){
         float layer=float(k)/3.;
         sky+=StarLayer(skyPos+vec2(.0010,-.00024)*uOrbit*(layer+.3),
-          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer);
+          mix(16.,48.,layer),layer,uGalaxy.z,band)*air*(.91-.23*layer)*(1.+.23*night);
       }
       if(uBurst>0.){
         vec2 path=uStreak.zw*uSize, delta=(uv-uStreak.xy)*uSize;
@@ -78,15 +85,30 @@
         float head=exp(-length(delta)/(radius*1.6));
         sky+=uBurst*(mix(vec3(.48,.61,.90),vec3(1.,.86,.68),taper)*tail+vec3(1.,.96,.86)*head);
       }
-      vec2 moon=(uv-uMoon.xy)*uSize, rvec=moon;
+      vec2 moon=(uv-uMoon.xy)*uSize;
       float radius=uMoon.z, aa=.85;
-      float disk=1.-smoothstep(radius-aa,radius+aa,length(rvec));
-      float cut=smoothstep(radius*.93-aa,radius*.93+aa,length(rvec+vec2(.43,.14)*radius));
-      float crescent=disk*cut*step(.1,radius);
-      sky+=vec3(.12,.092,.052)*exp(-length(moon)/max(1.,radius*1.35))*step(.1,radius);
-      sky=mix(sky,vec3(1.,.925,.76),crescent);
-      sky+=(Hash21(gl_FragCoord.xy)-.5)*.006;
-      color=vec4(sky,1.);
+      if(radius>.1){
+        vec2 p=moon/radius;
+        float d=length(moon),disk=1.-smoothstep(radius-aa,radius+aa,d);
+        vec3 normal=vec3(p.x,-p.y,sqrt(max(0.,1.-dot(p,p))));
+        float incidence=dot(normal,normalize(vec3(.82,.24,-.54)));
+        float maria=.92+.08*mist(p*3.1+7.);
+        vec3 ivory=mix(vec3(1.,.925,.76),vec3(.98,.965,.89),night);
+        sky+=mix(vec3(.11,.079,.045),vec3(.074,.096,.13),night)*exp(-d/(radius*1.68));
+        vec3 earthshine=mix(atmosphere,vec3(.10,.126,.157),.36*night)+vec3(.014,.019,.024)*night*normal.z;
+        vec3 lit=ivory*maria*(.84+.16*max(0.,incidence));
+        sky=mix(sky,mix(earthshine,lit,smoothstep(-.015,.065,incidence)),disk);
+      }
+      sky+=(Hash21(gl_FragCoord.xy)-.5)*.004;
+      // The air under the cloud opens first. Cloud volumes, their lit
+      // edges and copper parcels are composited independently over the river.
+      float cover=1.;
+      if(uRiverAir>0.){
+        float edge=(1.-h)*.49+.19*mist(skyUV*vec2(4.5,3.)+vec2(uTime*.028,7.2));
+        cover=1.-smoothstep(edge,edge+.40,uRiverAir*1.12);
+        sky=mix(sky,vec3(.37,.295,.31),uRiverAir*.43);
+      }
+      color=vec4(sky*cover,cover);
     }`;
   const volumeVertex=`#version 300 es
     uniform vec2 uSize,uSpan,uPosition;
@@ -162,7 +184,7 @@
     layout(location=3) in vec4 aAxes;
     layout(location=4) in vec4 aFold;
     layout(location=5) in vec2 aOpacity;
-    uniform vec2 uSize,uSpan,uPosition,uLook;
+    uniform vec2 uSize,uSpan,uPosition,uLook;uniform mat3 uProjection;
     uniform float uSpace;
     out vec4 vColor;
     void main(){
@@ -171,7 +193,7 @@
       float size=min(uSpan.x,uSpan.y*1.85)*aParcel.w*mix(.86,.42,uSpace);
       vec2 offset=(aCorner.x*aAxes.xy+aCorner.y*wing)*size;
       vec2 pos=uPosition+(aParcel.xy-.5)*uSpan+offset+uLook*aParcel.z*uSize.y*.022;
-      gl_Position=vec4(pos/uSize*vec2(2.,-2.)+vec2(-1.,1.),-aParcel.z,1.);
+      vec3 clip=uProjection*vec3(pos,1.);gl_Position=vec4(clip.xy,-aParcel.z*clip.z,clip.z);
       float shade=lower?aFold.w:aFold.z;
       vec3 copper=mix(vec3(.49,.36,.36),vec3(.86,.58,.44),min(1.,shade*1.6));
       copper=mix(copper,vec3(1.,.88,.69),smoothstep(.54,1.,shade));
@@ -235,14 +257,15 @@
         const spec=clamp(-.30*x-.40*y+.865*z*front)**8;
         const light=stream[k+6];
         out[j+10+wing]=clamp(.14+.45*light+.30*sun+.46*spec*light);
-        out[j+12+wing]=stream[k+7]*(.075+.085*depth+.15*sun*light+.60*spec*light);
+        out[j+12+wing]=shardLight*stream[k+7]*(.075+.085*depth+.15*sun*light+.60*spec*light);
       }
     }
     return out;
   }
-  function bankPositions(index){
-    return views.filter(v=>v.index===index).map(v=>[v.cx*width,v.cy*height]);
-  }
+  const camera=window.SunsetScene.createSkyCamera(host.getAttribute('sky-stage'));
+  let cameraReady=host.hasAttribute('sky-stage'),cameraClock=0,night=0,cloudNight=0,cloudLight=1,shardLight=1;
+  const bankDepth=index=>2.55+2.45*weather[index].profile.height;
+  function bankPositions(index){return views.filter(v=>v.index===index).map(v=>[v.cx*width,v.cy*height]);}
   function copperSurface(){
     // Oxide grows in the recesses; grinding and long scoring marks expose the
     // warmer metal. Object-space UVs keep these marks attached during a turn.
@@ -320,10 +343,11 @@
       const bankRadius=Math.min(bank.sx*width,bank.sy*height*1.85)*mix(.86,.42,space)*p.extent;
       const closeRadius=clamp(Math.min(width,height)*.019,5*pixelRatio,15*pixelRatio)*(.86+.20*p.seed);
       const exposure=s.focus*(1-smooth((s.age/s.duration-.56)/.42));
-      const radius=mix(bankRadius,closeRadius,exposure)/(1-.81*s.near);
+      const depth=mix(bankDepth(s.from.index),bankDepth(s.to.index),clamp(s.age/s.duration))*(1-.29*s.near);
+      const [px,py,scale]=camera.project(s.x+(s.x-.50)*s.near*.09,s.y+(s.y-.46)*s.near*.09,depth);
+      const radius=mix(bankRadius,closeRadius,exposure)*scale/(1-.81*s.near);
       const parallax=height*.031*s.near;
-      const centerX=(s.x+(s.x-.50)*s.near*.09)*width+look[0]*parallax;
-      const centerY=(s.y+(s.y-.46)*s.near*.09)*height+look[1]*parallax;
+      const centerX=px+look[0]*parallax,centerY=py+look[1]*parallax;
       const face=new Float32Array(9);
       for(let k=0;k<flightMesh.length;k+=15){
         for(let i=0;i<3;i++){
@@ -346,7 +370,7 @@
         for(let i=0;i<3;i++){
           const j=k+i*5;
           projected[out++]=centerX+radius*face[i*3];projected[out++]=centerY+radius*face[i*3+1];
-          projected[out++]=light;projected[out++]=glint;projected[out++]=1-s.near;projected[out++]=s.alpha;
+          projected[out++]=light;projected[out++]=glint;projected[out++]=1-s.near;projected[out++]=s.alpha*shardLight;
           projected[out++]=.43+flightMesh[j]*.38+.10*p.seed;
           projected[out++]=.46+flightMesh[j+1]*.64+flightMesh[j+2]*.24+.12*p.depth;
         }
@@ -390,19 +414,27 @@
     return tex;
   }
   function prepareGL(gl){
-    const sky=program(gl,screenVertex,skyFragment,['uSize','uTime','uDusk','uMoon','uGalaxy','uOrbit','uBurst','uStreak']);
+    const sky=program(gl,screenVertex,skyFragment,['uSize','uTime','uDusk','uMoon','uGalaxy','uOrbit','uBurst','uStreak','uNight','uSkyAxes','uLens','uRiverAir']);
     const volume=program(gl,volumeVertex,volumeFragment,['uSize','uSpan','uPosition','uWater','uGrain','uAir','uTime','uSeed','uDusk','uSpace']);
-    const composite=program(gl,volumeVertex,`#version 300 es
+    const composite=program(gl,`#version 300 es
+      uniform vec2 uSpan,uPosition;uniform mat3 uProjection;out vec2 vUV;
+      void main(){vUV=vec2(gl_VertexID&1,(gl_VertexID>>1)&1);
+        vec3 clip=uProjection*vec3(uPosition+(vUV-.5)*uSpan,1.);gl_Position=vec4(clip.xy,0.,clip.z);}`,`#version 300 es
       precision mediump float;
-      in vec2 vUV; uniform sampler2D uBody,uPrevious; uniform float uBlend; out vec4 color;
+      in vec2 vUV; uniform sampler2D uBody,uPrevious; uniform float uBlend,uCloudLight,uNight,uMoonlight,uImmersion; out vec4 color;
       void main(){
         vec2 uv=vec2(vUV.x,1.-vUV.y);
         vec4 a=texture(uPrevious,uv),b=texture(uBody,uv);
         float alpha=mix(a.a,b.a,uBlend);
-        color=vec4(mix(a.rgb*a.a,b.rgb*b.a,uBlend)/max(alpha,.0001),alpha);
+        vec3 daylight=mix(a.rgb*a.a,b.rgb*b.a,uBlend)/max(alpha,.0001);
+        float rim=smoothstep(.39,.91,dot(daylight,vec3(.30,.59,.11)));
+        vec3 moonlit=mix(vec3(.026,.043,.070),vec3(.17,.215,.28)*(.68+.32*uMoonlight),rim*rim);
+        // Entering a denser part of the bank increases optical thickness along the ray.
+        float coverage=alpha+alpha*(1.-alpha)*uImmersion;
+        color=vec4(mix(daylight,moonlit,uNight),coverage*uCloudLight);
       }`,
-      ['uSize','uSpan','uPosition','uBody','uPrevious','uBlend']);
-    const cloud=program(gl,shardVertex,shardFragment,['uSize','uSpan','uPosition','uLook','uSpace']);
+      ['uProjection','uSpan','uPosition','uBody','uPrevious','uBlend','uCloudLight','uNight','uMoonlight','uImmersion']);
+    const cloud=program(gl,shardVertex,shardFragment,['uSize','uSpan','uPosition','uLook','uSpace','uProjection']);
     const metal=program(gl,`#version 300 es
       layout(location=0) in vec2 aPosition;layout(location=1) in vec4 aFinish;layout(location=2) in vec2 aUV;
       uniform vec2 uSize;out vec4 vFinish;out vec2 vUV;
@@ -453,18 +485,20 @@
       gl.viewport(0,0,width,height);
       gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.useProgram(sky.p);gl.bindVertexArray(null);
       const {moon,galaxy,light}=state;
+      gl.uniform1f(sky.u.uRiverAir,riverAir);gl.uniform1f(sky.u.uNight,night);gl.uniform1f(sky.u.uLens,camera.lens);gl.uniformMatrix3fv(sky.u.uSkyAxes,false,camera.axes);
       gl.uniform2f(sky.u.uSize,width,height);gl.uniform1f(sky.u.uTime,time);gl.uniform1f(sky.u.uOrbit,celestial);
       gl.uniform1f(sky.u.uDusk,light.dusk/100);
-      gl.uniform3f(sky.u.uMoon,moon.x/100,moon.y/100,moon.visible?moonRadius():0);
+      const [mx,my]=camera.project(moon.x/100,moon.y/100);
+      gl.uniform3f(sky.u.uMoon,mx/width,my/height,moon.visible?moonRadius():0);
       gl.uniform3f(sky.u.uGalaxy,galaxy.x/100,galaxy.y/100,galaxy.visible?galaxy.density/100:0);
       gl.uniform1f(sky.u.uBurst,meteorLight());gl.uniform4fv(sky.u.uStreak,streak);
       gl.drawArrays(gl.TRIANGLES,0,3);
       gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_3D,grain);gl.activeTexture(gl.TEXTURE0);
-      gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
       for(const i of bankOrder()){
         const bank=banks[i], layer=state[bank.id], w=weather[i], g=gpu[i];
         if(!layer.visible)continue;
-        const dimensions=span(bank), positions=bankPositions(i), air=w.profile;
+        const dimensions=span(bank),projection=camera.plane(bankDepth(i)),positions=bankPositions(i),air=w.profile;
         if(!positions.length)continue;
         gl.disable(gl.DEPTH_TEST);gl.bindVertexArray(null);
         // Cache the low-frequency scattering separately. Stars, shard edges and
@@ -499,11 +533,12 @@
         gl.useProgram(composite.p);
         gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,g.bodies[1-g.front]);gl.uniform1i(composite.u.uPrevious,2);
         gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,g.bodies[g.front]);gl.uniform1i(composite.u.uBody,0);
-        gl.uniform1f(composite.u.uBlend,g.interpolate?w.blend:1);
-        gl.uniform2f(composite.u.uSize,width,height);gl.uniform2fv(composite.u.uSpan,dimensions);
+        gl.uniform1f(composite.u.uBlend,g.interpolate?w.blend:1);gl.uniform1f(composite.u.uCloudLight,cloudLight);
+        gl.uniform1f(composite.u.uImmersion,immersion(i));gl.uniform1f(composite.u.uNight,cloudNight);gl.uniform1f(composite.u.uMoonlight,moon.visible?1:0);
+        gl.uniformMatrix3fv(composite.u.uProjection,false,projection);gl.uniform2fv(composite.u.uSpan,dimensions);
         gl.useProgram(cloud.p);gl.bindVertexArray(g.vao);gl.bindBuffer(gl.ARRAY_BUFFER,g.buffer);
         if(w.count)gl.bufferSubData(gl.ARRAY_BUFFER,0,projectBank(i,...dimensions),0,w.count*poseStride);
-        gl.uniform2f(cloud.u.uSize,width,height);gl.uniform2fv(cloud.u.uLook,look);
+        gl.uniformMatrix3fv(cloud.u.uProjection,false,projection);gl.uniform2f(cloud.u.uSize,width,height);gl.uniform2fv(cloud.u.uLook,look);
         gl.uniform2fv(cloud.u.uSpan,dimensions);gl.uniform1f(cloud.u.uSpace,layer.spacing/100);
         for(const pos of positions){
           gl.disable(gl.DEPTH_TEST);gl.useProgram(composite.p);gl.uniform2fv(composite.u.uPosition,pos);
@@ -527,42 +562,55 @@
   function meteorLight(){
     if(!meteor)return 0;
     const p=clamp(meteor.age/meteor.life), reach=(1-Math.exp(-8*p))*.46;
-    streak[0]=meteor.x+meteor.dx*p;streak[1]=meteor.y+meteor.dy*p;
-    streak[2]=meteor.dx*reach;streak[3]=meteor.dy*reach;
+    const x=meteor.x+meteor.dx*p,y=meteor.y+meteor.dy*p;
+    const head=camera.project(x,y),tail=camera.project(x-meteor.dx*reach,y-meteor.dy*reach);
+    streak[0]=head[0]/width;streak[1]=head[1]/height;
+    streak[2]=(head[0]-tail[0])/width;streak[3]=(head[1]-tail[1])/height;
     return smooth(p/.12)*(1-smooth((p-.60)/.40));
   }
   function span(bank){
     const size=state[bank.id].scale/100;
     return [bank.width*Math.max(width,height*.95)*size,bank.height*height*size];
   }
-  function moonRadius(){return Math.max(4,height*.0145)*state.moon.scale/100;}
+  function moonRadius(){return Math.max(4,height*mix(.0145,.018,night))*state.moon.scale/100;}
   function paintHorizon(){
     const layer=state.horizon;
     horizon.hidden=!layer.visible;
     if(!layer.visible)return;
     const top=layer.y/100;
-    horizon.style.top=top*100+'%';
-    horizon.style.height=(1-top)*100+'%';
-    horizon.width=width;horizon.height=Math.max(1,Math.round(height*(1-top)));
+    horizon.style.top='0';horizon.style.width='300%';horizon.style.height=(1.52-top)*100+'%';
+    horizon.style.transformOrigin='0 0';
+    const unitW=Math.min(width,900),unitH=unitW*height/width;
+    horizon.width=3*unitW;horizon.height=Math.max(1,Math.round(unitH*(1.52-top)));
     const ctx=horizon.getContext('2d');if(!ctx)return;
-    const h=horizon.height, step=Math.max(1,width/1300);
+    const h=unitH*(1-top),step=Math.max(1,unitW/1000),w=horizon.width;
     // Two ridgelines and a sparse foreground of roof parapets and trees.
     for(let level=0;level<2;level++){
-      ctx.fillStyle=level?'#2a2833':'#5f5963';ctx.beginPath();ctx.moveTo(0,h);
-      for(let x=0;x<=width+step;x+=step){
-        const t=x/width;
+      ctx.fillStyle=level?'#2a2833':'#5f5963';ctx.beginPath();ctx.moveTo(0,horizon.height);
+      for(let x=0;x<=w+step;x+=step){
+        const t=x/unitW-1;
         const ridge=h*(.40+.16*Math.sin(t*8+level)+.07*Math.sin(t*23+1)+level*.26);
         ctx.lineTo(x,ridge-hash(Math.floor(x/step),level)*Math.min(h*.08,4));
       }
-      ctx.lineTo(width,h);ctx.closePath();ctx.fill();
+      ctx.lineTo(w,horizon.height);ctx.closePath();ctx.fill();
     }
     ctx.fillStyle='#20232b';
-    for(let i=0;i<120;i++){
-      const x=hash(i,9)*width, y=h*(.65+.12*Math.sin(x/width*8+1));
-      const unit=Math.min(width,height)*.0016, size=(1+hash(i,11)*2.8)*unit;
+    for(let i=0;i<360;i++){
+      const x=hash(i+.02*Math.floor(i/120),9)*w, y=h*(.65+.12*Math.sin((x/unitW-1)*8+1));
+      const unit=Math.min(unitW,unitH)*.0016, size=(1+hash(i,11)*2.8)*unit;
       if(i%5===0){ctx.fillRect(x,y-size,size*4.5,h);}
       else {ctx.beginPath();ctx.arc(x,y,size,0,Math.PI*2);ctx.fill();ctx.fillRect(x-unit*.4,y,unit,h);}
     }
+    ctx.fillStyle='#20232b';ctx.fillRect(0,h,w,horizon.height-h);
+  }
+  function positionHorizon(){
+    if(!horizon||horizon.hidden)return;
+    const top=state.horizon.y/100,depth=4.9,cssW=host.clientWidth,cssH=host.clientHeight;
+    const mid=camera.project(.5,top,depth),east=camera.project(.501,top,depth),down=camera.project(.5,top+.001,depth);
+    const a=(east[0]-mid[0])*1000/width,b=(east[1]-mid[1])*1000/width;
+    const c=(down[0]-mid[0])*1000/height,d=(down[1]-mid[1])*1000/height;
+    const x=mid[0]*cssW/width-a*1.5*cssW-look[0]*3,y=mid[1]*cssH/height-b*1.5*cssW;
+    horizon.style.transform=`matrix(${a},${b},${c},${d},${x},${y})`;
   }
   const softwareLayers=new Map();
   function softwareBank(bank,index){
@@ -575,18 +623,21 @@
       const frame=ctx.createImageData(cols,rows);
       cache={canvas,ctx,frame,previous:new Uint8ClampedArray(frame.data.length),current:new Uint8ClampedArray(frame.data.length),version:-1};softwareLayers.set(bank.id,cache);
     }
-    const dusk=state.light.dusk/100;
-    const reset=cache.space!==layer.spacing||cache.dusk!==dusk||cache.epoch!==w.epoch;
+    const dusk=state.light.dusk/100,exposure=Math.round(cloudNight*48)/48;
+    const reset=cache.exposure!==exposure||cache.moon!==state.moon.visible||cache.space!==layer.spacing||cache.dusk!==dusk||cache.epoch!==w.epoch;
     if(reset||cache.version!==w.version){
       cache.interpolate=!reset&&cache.version+1===w.version;
       [cache.previous,cache.current]=[cache.current,cache.previous];
       const rgba=cache.current;
       for(let k=0;k<rgba.length;k+=4){
         const q=w.texture[k]/255, lit=smooth((w.texture[k+1]/255-.21)/.60);
-        rgba[k]=mix(135-46*dusk,255,lit);rgba[k+1]=mix(109-35*dusk,208,lit);rgba[k+2]=mix(115-17*dusk,159,lit);
+        const rim=lit*lit*(state.moon.visible?1:.68);
+        rgba[k]=mix(mix(135-46*dusk,255,lit),7+37*rim,exposure);
+        rgba[k+1]=mix(mix(109-35*dusk,208,lit),11+44*rim,exposure);
+        rgba[k+2]=mix(mix(115-17*dusk,159,lit),18+53*rim,exposure);
         rgba[k+3]=255*(1-Math.exp(-3.5*q*w.profile.optical*(1-.68*layer.spacing/100)));
       }
-      cache.version=w.version;cache.space=layer.spacing;cache.dusk=dusk;cache.epoch=w.epoch;
+      cache.version=w.version;cache.exposure=exposure;cache.moon=state.moon.visible;cache.space=layer.spacing;cache.dusk=dusk;cache.epoch=w.epoch;
     }
     const blend=cache.interpolate?w.blend:1;
     if(blend===1)cache.frame.data.set(cache.current);
@@ -595,9 +646,18 @@
       cache.frame.data[k+3]=alpha;
       if(alpha>0)for(let ch=0;ch<3;ch++)cache.frame.data[k+ch]=(a*cache.previous[k+ch]+b*cache.current[k+ch])/alpha;
     }
+    const thickness=immersion(index);
+    if(thickness>0)for(let k=3;k<cache.frame.data.length;k+=4){
+      const alpha=cache.frame.data[k]/255;cache.frame.data[k]=255*(alpha+alpha*(1-alpha)*thickness);
+    }
     cache.ctx.putImageData(cache.frame,0,0);
     const posed=projectBank(index,bw,bh);
-    for(const [x,y] of positions)paintSoftwareBank(w,layer,cache.canvas,posed,x-bw/2,y-bh/2,bw,bh);
+    for(const [x,y] of positions){
+      const depth=bankDepth(index),center=camera.project(x/width,y/height,depth);
+      const east=camera.project((x+1)/width,y/height,depth),down=camera.project(x/width,(y+1)/height,depth);
+      ctx2d.save();ctx2d.setTransform(east[0]-center[0],east[1]-center[1],down[0]-center[0],down[1]-center[1],center[0],center[1]);
+      paintSoftwareBank(w,layer,cache.canvas,posed,-bw/2,-bh/2,bw,bh);ctx2d.restore();
+    }
   }
   const bankTones=Array.from({length:96},(_,i)=>{
     const shade=i/95,warm=Math.min(1,shade*1.6),glow=smooth((shade-.54)/.46);
@@ -606,12 +666,11 @@
   });
   function paintSoftwareBank(w,layer,body,posed,ox,oy,bw,bh){
     const c=ctx2d;
-    c.drawImage(body,ox,oy,bw,bh);
+    c.globalAlpha=cloudLight;c.drawImage(body,ox,oy,bw,bh);c.globalAlpha=1;
     const scale=Math.min(bw,bh*1.85)*mix(.86,.42,layer.spacing/100);
     for(let i=0;i<w.count;i++){
       const k=i*poseStride,r=posed[k+3]*scale,shift=posed[k+2]*height*.022;
       const x=ox+posed[k]*bw+look[0]*shift,y=oy+posed[k+1]*bh+look[1]*shift;
-      if(x<-r||y<-r||x>width+r||y>height+r)continue;
       const ax=r*posed[k+4],ay=r*posed[k+5];
       for(let wing=0;wing<2;wing++){
         const wx=r*posed[k+6+2*wing],wy=r*posed[k+7+2*wing],[back,front,breadth]=wingTips[wing];
@@ -622,19 +681,50 @@
     }
     c.globalAlpha=1;
   }
+  // Stable sky coordinates keep individual stars recognizable on the return trip.
+  let starSeed=0x8d3ba752;
+  function randomStar(){starSeed^=starSeed<<13;starSeed^=starSeed>>>17;starSeed^=starSeed<<5;return (starSeed>>>0)/4294967296;}
+  const softwareStarField=Array.from({length:4900},()=>({x:(randomStar()-.5)*4.6,y:(randomStar()-.5)*2.6,
+    flux:.10+.8*randomStar()**4,radius:.38+.65*randomStar()**3,threshold:randomStar(),phase:randomStar()*6.28}));
   function softwareStars(c,galaxy){
-    const angle=celestial*.0038, ca=Math.cos(angle),sa=Math.sin(angle),aspect=width/height;
-    for(let i=0;i<1100;i++){
-      const sx=(hash(i,4)-.5)*2.9, sy=(hash(i,7)-.55)*2.3;
-      const u=sx-.07,v=sy+.72;
-      const x=galaxy.x/100+(.07+ca*u-sa*v)/aspect,y=galaxy.y/100-.72+sa*u+ca*v;
-      if(x<0||x>1||y<0||y>.88)continue;
-      const cross=sy+sx*.53, band=Math.exp(-cross*cross/.03);
-      const a=clamp((1-y)*(.3+.7*band)*galaxy.density/100);
-      if(hash(i,6)>a)continue;
-      const size=.6+hash(i,8);
-      c.fillStyle='rgba(248,236,222,'+a*(.8+.2*Math.sin(time*.8+i))+')';c.fillRect(x*width,y*height,size,size);
+    const angle=celestial*.0038,ca=Math.cos(angle),sa=Math.sin(angle),aspect=width/height;
+    const centerX=galaxy.x/100,centerY=galaxy.y/100,{moon}=state;
+    const [mx,my]=camera.project(moon.x/100,moon.y/100),r=moon.visible?moonRadius():0;
+    c.fillStyle='#e3e9ef';
+    for(const star of softwareStarField){
+      const u=star.x-.07,v=star.y+.72;
+      const x=centerX+(.07+ca*u-sa*v)/aspect,y=centerY-.72+sa*u+ca*v;
+      if(star.threshold>galaxy.density/100)continue;
+      const [px,py]=camera.project(x,y);
+      if(px<0||px>width||py<0||py>height||(px-mx)**2+(py-my)**2<r*r)continue;
+      const elevation=py/height,air=mix(1-smooth((elevation-.40)/.55),1-.78*smooth((elevation-.66)/.34),night);
+      c.globalAlpha=star.flux*air*(.91+.09*Math.sin(time*.68+star.phase));
+      c.beginPath();c.arc(px,py,star.radius,0,Math.PI*2);c.fill();
     }
+    c.globalAlpha=1;
+  }
+  let lunarDisc,lunarKey='';
+  function softwareMoon(c,moon){
+    const r=moonRadius(),[x,y]=camera.project(moon.x/100,moon.y/100);
+    const halo=c.createRadialGradient(x,y,0,x,y,r*5.5);
+    halo.addColorStop(0,'rgba(165,175,189,.16)');halo.addColorStop(.32,'rgba(145,156,171,.065)');halo.addColorStop(1,'rgba(145,156,171,0)');
+    c.fillStyle=halo;c.fillRect(x-r*5.5,y-r*5.5,r*11,r*11);
+    const radius=Math.ceil(r),exposure=Math.round(night*32)/32,key=radius+'/'+exposure;
+    if(key!==lunarKey){
+      if(!lunarDisc)lunarDisc=document.createElement('canvas');
+      const size=2*radius+2;lunarDisc.width=lunarDisc.height=size;
+      const ctx=lunarDisc.getContext('2d'),frame=ctx.createImageData(size,size);
+      for(let iy=0,k=0;iy<size;iy++)for(let ix=0;ix<size;ix++,k+=4){
+        const px=(ix+.5-size/2)/radius,py=(iy+.5-size/2)/radius,d=px*px+py*py;
+        const cover=clamp((1-Math.sqrt(d))*radius+.5);if(!cover)continue;
+        const light=.82*px-.24*py-.54*Math.sqrt(Math.max(0,1-d));
+        const lit=smooth((light+.015)/.08),shade=(.84+.16*Math.max(0,light))*(.94+.06*hash(ix+.3,iy+.9));
+        frame.data[k]=mix(25,252*shade,lit);frame.data[k+1]=mix(32,(236+10*exposure)*shade,lit);
+        frame.data[k+2]=mix(40,(194+33*exposure)*shade,lit);frame.data[k+3]=255*cover*mix(.26*exposure,1,lit);
+      }
+      ctx.putImageData(frame,0,0);lunarKey=key;
+    }
+    c.drawImage(lunarDisc,x-r-1,y-r-1,2*r+2,2*r+2);
   }
   function softwareMeteor(c){
     const strength=meteorLight();if(!strength)return;
@@ -645,17 +735,21 @@
     c.fillStyle='rgba(255,245,222,'+strength+')';c.beginPath();c.arc(x,y,c.lineWidth,0,Math.PI*2);c.fill();
   }
   function fallback(){
-    const c=ctx2d,{light,moon,galaxy}=state;
-    const rgb=(a,b,t)=>'rgb('+a.map((v,i)=>Math.round(mix(v,b[i],t))).join(',')+')';
-    const sky=c.createLinearGradient(0,0,0,height), d=light.dusk/100;
-    sky.addColorStop(0,rgb([99,115,125],[36,51,69],d));sky.addColorStop(.62,rgb([168,179,179],[92,120,135],d));
-    sky.addColorStop(1,rgb([245,219,178],[184,163,163],d));c.fillStyle=sky;c.fillRect(0,0,width,height);
+    const c=ctx2d,{light,moon,galaxy}=state,d=light.dusk/100;
+    const rgb=(a,b,twilight,n)=>'rgb('+a.map((v,i)=>Math.round(mix(mix(mix(v,b[i],d),twilight[i],smooth(night/.64)),n[i],smooth((night-.32)/.68)))).join(',')+')';
+    const sky=c.createLinearGradient(0,0,0,height);
+    sky.addColorStop(0,rgb([99,115,125],[36,51,69],[27,41,65],[5,9,18]));
+    sky.addColorStop(.62,rgb([168,179,179],[92,120,135],[64,84,108],[15,24,38]));
+    sky.addColorStop(1,rgb([245,219,178],[184,163,163],[166,122,108],[43,48,57]));c.fillStyle=sky;c.fillRect(0,0,width,height);
     if(galaxy.visible)softwareStars(c,galaxy);
     softwareMeteor(c);
-    if(moon.visible){
-      const r=moonRadius(),x=width*moon.x/100,y=height*moon.y/100;
-      c.save();c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.clip();c.fillStyle='#fff0cb';
-      c.beginPath();c.rect(x-r,y-r,r*2,r*2);c.arc(x-r*.43,y-r*.14,r*.93,0,Math.PI*2);c.fill('evenodd');c.restore();
+    if(moon.visible)softwareMoon(c,moon);
+    if(riverAir>0){
+      // Mask only the distant air. Draw all foreground banks after the mask.
+      const opening=c.createLinearGradient(0,0,0,height);
+      opening.addColorStop(0,'rgba(0,0,0,'+smooth((riverAir*1.12-.58)/.40)+')');
+      opening.addColorStop(1,'rgba(0,0,0,'+smooth((riverAir*1.12-.09)/.40)+')');
+      c.globalCompositeOperation='destination-out';c.fillStyle=opening;c.fillRect(0,0,width,height);c.globalCompositeOperation='source-over';
     }
     for(const i of bankOrder()){if(state[banks[i].id].visible)softwareBank(banks[i],i);}
     for(let k=0;k<facetCount*8;k+=24){
@@ -681,34 +775,78 @@
     const mode=host.getAttribute('motion');
     return mode==='animate'||(mode==='system'&&!reduced.matches);
   }
+  const passage=window.StudioFlight;
+  let riverAir=0,passSequence=-1,descent=null;
+  function skyHidden(){return forced.matches||document.hidden||host.hasAttribute('suspended')||(host.hasAttribute('waterfront')&&!passage?.active);}
+  function immersion(index){return passage?.active&&descent?.index===index?descent.thickness:0;}
+  function cloudApproach(){
+    // Aim for condensed water, not the centre of a bank's bounding rectangle.
+    // Rotating the screen or hiding a layer still leaves a safe route through open air.
+    let best=-Infinity,anchor={index:-1,x:.42,y:.67,depth:3.2};
+    for(const v of cloudViews(state,weather,width/height,()=>[-.2,1.2])){
+      for(let j=2;j<9;j++)for(let i=2;i<11;i++){
+        const u=i/12,t=j/10,x=v.cx+(u-.5)*v.sx,y=v.cy+(t-.5)*v.sy;
+        if(x<.13||x>.88||y<.42||y>.91)continue;
+        const mass=weather[v.index].densityAt(u,t);
+        const score=mass*1.8-Math.abs(x-.43)*.61-Math.abs(y-.71)*1.56;
+        if(mass>.025&&score>best){best=score;anchor={index:v.index,x,y,depth:bankDepth(v.index)};}
+      }
+    }
+    return anchor;
+  }
+  function descentPose(){
+    if(!passage?.active){riverAir=0;return null;}
+    const {progress:p,phase,sequence}=passage;
+    if(passSequence!==sequence){
+      descent=cloudApproach();
+      passSequence=sequence;
+    }
+    descent.approach=phase(0,.61,p);descent.drop=phase(.34,.84,p);
+    descent.thickness=phase(.09,.33,p)*(1-phase(.43,.70,p));
+    descent.bank=descent.approach*(1-phase(.46,.89,p));
+    riverAir=phase(.22,.66,p);
+    return descent;
+  }
   function frame(now){
-    raf=0;if(forced.matches||document.hidden||host.hasAttribute('suspended'))return;
+    raf=0;if(skyHidden())return;
     const moving=moveAllowed()&&state.light.wind>0;
-    const interval=renderGL?1000/(location.hash==='#sky'?60:30):1000/24;
+    const interval=renderGL?1000/(camera.moving||passage?.active||location.hash.startsWith('#sky')?60:30):1000/24;
     if(dirty||!last||now-last>=interval-1){
+      updateCameraClock(now);camera.aim(width,height,descentPose());
+      // Let the foreground keep its last warm rim as the higher sky darkens.
+      night=clamp((camera.position-.94)/1.06);cloudNight=Math.max(smooth((camera.position-1.20)/.80),riverAir*.58);
+      cloudLight=mix(1,.52,cloudNight);shardLight=mix(1,.012,cloudNight);
       const dt=moving&&last?Math.min((now-last)/1000,.35)*state.light.wind/45:0;
       if(dt){
-        time+=dt;celestial+=dt*state.galaxy.drift/50;
+        time+=dt;celestial+=dt*state.galaxy.drift/50*(1-.93*night);
         for(const w of weather)w.advance(dt);
         if(state.galaxy.visible&&state.galaxy.meteors)meteor=meteorClock.advance(dt,state.galaxy.meteors);
       }
       for(let i=0;i<2;i++)look[i]=moving?mix(look[i],target[i],1-Math.exp(-dt*3.1)):0;
-      views=cloudViews(state,weather,width/height);
+      views=cloudViews(state,weather,width/height,i=>camera.coverage(bankDepth(i)));
       for(const v of views){
         const depth=(1-weather[v.index].profile.height)*.017;
         v.cx+=look[0]*depth*height/width;v.cy+=look[1]*depth;
       }
-      if(horizon)horizon.style.transform='translate('+(-look[0]*9)+'px,'+(-look[1]*2)+'px) scaleX(1.02)';
       flights.advance(dt,views,width/height);projectFlights();
+      positionHorizon();
       if(renderGL)renderGL();else if(ctx2d)fallback();
       dirty=false;last=now;
     }
-    if(moving&&!failed)raf=requestAnimationFrame(frame);
+    if((moving||camera.moving||passage?.active)&&!failed)raf=requestAnimationFrame(frame);
   }
-  function wake(){dirty=true;if(!raf&&!document.hidden&&!forced.matches)raf=requestAnimationFrame(frame);}
+  function wake(){dirty=true;if(!raf&&!skyHidden())raf=requestAnimationFrame(frame);}
+  function updateCameraClock(now){
+    if(cameraClock)camera.advance(Math.max(0,(now-cameraClock)/1000));
+    cameraClock=now;
+  }
   function sync(){
     cancelAnimationFrame(raf);raf=0;last=0;
-    if(!moveAllowed()||forced.matches||document.hidden||host.hasAttribute('suspended')){meteor=null;meteorClock.clear();}
+    if(skyHidden())cameraClock=0;
+    else updateCameraClock(performance.now());
+    camera.go(passage?.active?passage.skyStage:host.getAttribute('sky-stage'),moveAllowed()&&cameraReady&&!skyHidden());
+    cameraReady=host.hasAttribute('sky-stage');
+    if(!moveAllowed()||skyHidden()){meteor=null;meteorClock.clear();}
     wake();
   }
   function resize(){
@@ -718,7 +856,7 @@
   }
   function start(){
     let gl;
-    try{gl=canvas.getContext('webgl2',{alpha:false,antialias:true,depth:true,powerPreference:'low-power'});if(gl)renderGL=prepareGL(gl);}catch{/* Use the same model with a software painter. */}
+    try{gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:true,depth:true,powerPreference:'low-power'});if(gl)renderGL=prepareGL(gl);}catch{/* Use the same model with a software painter. */}
     if(!renderGL){
       if(gl){const replacement=canvas.cloneNode();canvas.replaceWith(replacement);canvas=replacement;}
       ctx2d=canvas.getContext('2d');failed=!ctx2d;
@@ -732,9 +870,13 @@
   }
   new ResizeObserver(resize).observe(host);
   document.addEventListener('visibilitychange',sync);
-  new MutationObserver(sync).observe(host,{attributes:true,attributeFilter:['motion','suspended']});
+  new MutationObserver(sync).observe(host,{attributes:true,attributeFilter:['motion','suspended','sky-stage','waterfront','studio-flight']});
   reduced.addEventListener('change',sync);forced.addEventListener('change',sync);
   window.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&moveAllowed())target=[e.clientX/innerWidth-.5,e.clientY/innerHeight-.5];},{passive:true});
+  window.SunsetScene.layerPoint=(id,x,y)=>{
+    const index=banks.findIndex(bank=>bank.id===id),depth=index>=0?bankDepth(index):id==='horizon'?4.9:Infinity;
+    return camera.unproject(x,y,depth);
+  };
   window.SunsetScene.update=next=>{const horizonChanged=state.horizon.y!==next.horizon.y||state.horizon.visible!==next.horizon.visible;
     if((state.light.wind===0)!==(next.light.wind===0))last=0;
     state=structuredClone(next);
