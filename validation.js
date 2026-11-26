@@ -66,6 +66,7 @@
       const c={...q.DEFAULT,acquisition:settings.acquisition,ownerHours:120,seed:s.config.seed,
         services:settings.services.map(v=>({...q.DEFAULT.services[0],id:v.id,weight:v.weight,audience:v.audience}))};
       if(c.acquisition==='sales'){c.outreachHours=settings.outreachHours;c.leadsPerHour=settings.leadsPerHour;}else c.inquiries=settings.inquiries;
+      if(settings.clientDemand!==undefined)c.clientDemand=settings.clientDemand;
       if(settings.customerMix!==undefined){c.customerMix=settings.customerMix;c.focusType=settings.focusType;}
       else{delete c.customerMix;delete c.focusType;delete c.profileStrength;}
       q.validateConfig(c);
@@ -107,6 +108,25 @@
     const cash = v => finite(v, -1e12) && Math.abs(v - q.round(v)) < 1e-7;
     const same = (a, b, label) => { if (cents(a) !== cents(b)) throw Error(label + ' does not reconcile.'); };
     if (!day(s.day, s.config.months * 30)) throw Error('Saved run has an invalid day.');
+    if(s.launchEstimate!==undefined){
+      const e=s.launchEstimate;
+      const validFigure=value=>Number.isFinite(value)&&Number.isSafeInteger(cents(value))&&q.round(value)===value;
+      const nonnegative=['leads','orders','ownerHours','designHours','revenue','designLabor','supplierCost','overhead','cost'];
+      if(!e||Array.isArray(e)||e.version!==1||!Number.isInteger(e.days)||e.days<30||e.days>360||e.days%30||
+        nonnegative.some(key=>!validFigure(e[key])||e[key]<0)||!validFigure(e.profit)||!validFigure(e.afterOwner)||
+        e.orders>e.leads||e.afterOwner>e.profit||
+        Math.abs(cents(e.cost)-cents(e.designLabor)-cents(e.supplierCost)-cents(e.overhead))>1||
+        Math.abs(cents(e.profit)-cents(e.revenue)+cents(e.cost))>1)throw Error('Saved launch estimate is invalid.');
+      if(e.clientDemand!==undefined){
+        const t=e.clientDemand;
+        if(!t||Object.keys(t).sort().join(',')!=='active,matched,orders,other,profileId,share,targeted'||!q.clientDemandType(t.profileId)||
+           !Number.isInteger(t.share)||t.share<0||t.share>100||t.active!==(t.share>0)||
+           ['targeted','other','matched','orders'].some(key=>!validFigure(t[key])||t[key]<0)||
+           Math.abs(cents(t.targeted)-cents(e.leads*t.share/100))>1||Math.abs(cents(e.leads)-cents(t.targeted)-cents(t.other))>1||
+           t.targeted>e.leads||t.matched!==0&&t.matched!==t.targeted||t.orders>t.matched||t.orders>e.orders)
+          throw Error('Saved client demand estimate is invalid.');
+      }
+    }
     for (const key of ['cash','revenue','expenses','ownerHours','designHours','funding','nextId','lost']) {
       if (!finite(s[key])) throw Error('Saved run has an invalid ' + key + '.');
     }
@@ -123,7 +143,7 @@
     const clients=new Map();
     for(const client of s.clients){
       if(!client||typeof client.id!=='string'||!/^[a-zA-Z0-9_-]{1,120}$/.test(client.id)||clients.has(client.id)||typeof client.name!=='string'||client.name.length>200||
-         client.type!==undefined&&!q.CUSTOMER_TYPES.some(t=>t.id===client.type)||typeof(client.brief||'')!=='string'||(client.brief||'').length>200||!day(client.created))throw Error('Saved client record is invalid.');
+         client.type!==undefined&&!q.profileFor(client.type)||typeof(client.brief||'')!=='string'||(client.brief||'').length>200||!day(client.created))throw Error('Saved client record is invalid.');
       clients.set(client.id,client);
     }
     const contracts=new Map();
@@ -143,7 +163,7 @@
       projects.set(p.id, p);
       if(typeof p.demandId!=='string'||!/^[a-zA-Z0-9:_-]{1,180}$/.test(p.demandId)||typeof p.clientId!=='string'||!clients.has(p.clientId))throw Error('Saved demand or client identity is invalid.');
       const client=clients.get(p.clientId);if(client.name!==p.client||client.type!==p.clientType||(client.brief||'')!==(p.brief||''))throw Error('Saved project client identity is inconsistent.');
-      if(p.clientType!==undefined&&!q.CUSTOMER_TYPES.some(t=>t.id===p.clientType))throw Error('Saved customer profile is invalid.');
+      if(p.clientType!==undefined&&!q.profileFor(p.clientType))throw Error('Saved customer profile is invalid.');
       if(!p.random||!['conversion','complexity','revision','approval','supplier','payment','return'].every(k=>finite(p.random[k],0,1)))throw Error('Saved demand randomness is invalid.');
       if(!p.commitments||!finite(p.commitments.quoteHours)||!day(p.commitments.quoteSetDay)||!Number.isInteger(p.cycle)||p.cycle<1||!['new-business','confirmed-repeat','paid-cycle-renewal','campaign-reoffer'].includes(p.orderKind))throw Error('Saved project commitment is invalid.');
       if(!['open','delivered'].includes(p.fulfillmentStatus)||!['unpaid','partial','paid'].includes(p.paymentStatus)||!['ineligible','scheduled','not-returning','skipped'].includes(p.renewalStatus))throw Error('Saved project lifecycle status is invalid.');

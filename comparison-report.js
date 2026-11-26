@@ -34,11 +34,16 @@ function flatten(value,path='',out={}){
  return out;
 }
 function valueText(value,path=''){
+ if(path==='clientDemand.share'&&Number.isFinite(value))return value+'%';
  if(root.QQI18n?.language==='zh-CN' && typeof value==='number' && /(?:^|\.)(startingCash|ownerTarget|designerRate|overhead|price|print|designOnlyPrice|modeledPriceRange\.\d+)$/.test(path))return root.QQI18n.yuan(value);
  return value===undefined?'not set':value===null?'none':typeof value==='boolean'?(value?'On':'Off'):String(value);}
 function assumptionRows(current,baseline){
  const a=flatten(baseline.config),b=flatten(current.config),keys=[...new Set([...Object.keys(a),...Object.keys(b)])].sort();
- return keys.filter(key=>JSON.stringify(a[key])!==JSON.stringify(b[key])).map(key=>`<tr><th>${esc(key)}</th><td>${esc(valueText(a[key],key))}</td><td>${esc(valueText(b[key],key))}</td></tr>`).join('')||'<tr><td colspan="3">No applied assumptions changed.</td></tr>';
+ const before=baseline.config.clientDemand,after=current.config.clientDemand;
+ const targetText=setting=>setting?(q.clientDemandType(setting.profileId)?.label||setting.profileId)+' · '+valueText(setting.share,'clientDemand.share'):'No target assigned';
+ const target=before?.profileId!==after?.profileId||before?.share!==after?.share?
+  `<tr><th>Target client inquiry share</th><td>${esc(targetText(before))}</td><td>${esc(targetText(after))}</td></tr>`:'';
+ return target+keys.filter(key=>!key.startsWith('clientDemand.')&&JSON.stringify(a[key])!==JSON.stringify(b[key])).map(key=>`<tr><th>${esc(key)}</th><td>${esc(valueText(a[key],key))}</td><td>${esc(valueText(b[key],key))}</td></tr>`).join('')||'<tr><td colspan="3">No applied assumptions changed.</td></tr>';
 }
 function results(run){const a=q.analytics(run),m=q.metrics(run);return{a,m,rows:[['Elapsed day',run.day],['Cash',money(run.cash)],['Delivered revenue',money(run.revenue)],['Operating result',money(a.profit)],['Operating margin',rate(a.operatingMargin)],['Owner hours',number(run.ownerHours)],['Result after owner time',money(a.periodAfterOwner)+(run.replayJournal?' · period-end targets':' · current target, rate history unavailable')],["All hours at today's target",money(a.afterOwner)+' at '+money(run.config.ownerTarget)+'/h'],['Delivered projects',m.delivered],['Skipped campaign quotes',a.skippedCampaigns??0],['Late open deliveries',m.late],['Receivables',money(m.receivable)]]};}
 function serviceRows(current,baseline){
@@ -55,7 +60,7 @@ function termsText(project){const terms=project.terms||{},campaign=project.servi
 function campaignRows(run,label){return q.analytics(run).contracts.filter(row=>row.kind==='campaign-relationship').map(row=>{const charges=Array.isArray(row.campaignCharges)?row.campaignCharges:[];return `<tr><th>${esc(label)} · ${esc(row.client)}<small>${esc(row.id)}</small></th><td>${esc(row.status||'unknown')}</td><td>${esc(row.cadenceDays==null?'Unavailable':row.cadenceDays+' days')}</td><td>${esc(row.relationshipEndDay==null?'Unavailable':'Day '+row.relationshipEndDay)}</td><td>${esc(row.nextQuoteDay==null?'None scheduled':'Day '+row.nextQuoteDay)}</td><td>${esc(row.skippedCampaigns??0)}</td><td>${charges.length}</td><td>${money(charges.reduce((sum,charge)=>sum+(Number(charge.price)||0),0))}</td></tr>`;}).join('');}
 function projectRows(current,baseline,comparison){
  const prior=new Map(comparison.flags.sameWorkloadIdentity?baseline.projects.map(p=>[p.demandId,p]):[]),accepted=current.projects.filter(p=>p.accepted!==undefined).sort((a,b)=>(Number(b.delivered)-Number(a.delivered))||(a.due-b.due)||a.id.localeCompare(b.id)),limit=1000;
- const rows=accepted.slice(0,limit).map(p=>{const match=prior.get(p.demandId),old=match?.clientId===p.clientId&&match?.serviceId===p.serviceId?match:null,late=!p.delivered&&current.day>p.due;return `<tr><th>${esc(p.id)}<small>${esc(p.client)} · ${reportName(p.service?.name||p.serviceId)}</small></th><td>${esc(p.stage)}${late?' · late':''}</td><td>${esc(fulfillmentText(p))}</td><td>${esc(termsText(p))}</td><td>${money(p.price)}</td><td>${money(p.cost)}</td><td>${number(p.ownerHours)} / ${number(p.designHours)}</td><td>${p.due}</td><td>${old?`${money(old.price)} / ${money(old.cost)} / ${esc(old.stage)} · ${esc(fulfillmentText(old))}`:'No verified match'}</td></tr>`;}).join('');
+ const rows=accepted.slice(0,limit).map(p=>{const match=prior.get(p.demandId),old=match&&match.clientId===p.clientId&&match.serviceId===p.serviceId&&match.clientType===p.clientType?match:null,late=!p.delivered&&current.day>p.due;return `<tr><th>${esc(p.id)}<small>${esc(p.client)} · ${reportName(p.service?.name||p.serviceId)}</small></th><td>${esc(p.stage)}${late?' · late':''}</td><td>${esc(fulfillmentText(p))}</td><td>${esc(termsText(p))}</td><td>${money(p.price)}</td><td>${money(p.cost)}</td><td>${number(p.ownerHours)} / ${number(p.designHours)}</td><td>${p.due}</td><td>${old?`${money(old.price)} / ${money(old.cost)} / ${esc(old.stage)} · ${esc(fulfillmentText(old))}`:'No verified match'}</td></tr>`;}).join('');
  return {html:rows||'<tr><td colspan="9">No accepted projects yet.</td></tr>',note:accepted.length>limit?`Showing ${limit} of ${accepted.length} accepted current projects; aggregate totals above include all projects.`:''};
 }
 function lineageTable(label,audit){
@@ -65,7 +70,10 @@ function lineageTable(label,audit){
 function sources(configs,audits){
  const labels=['Baseline','Current'];
  const observed=configs.flatMap((config,index)=>{
-  return Object.entries(config.assumptionRecords||{}).map(([path,record])=>`<tr><th>${labels[index]} · ${esc(path)}</th><td>${esc(valueText(q.assumptionRecordValue(config,path),path))}</td><td>${esc(valueText(record.value,path))}</td><td>${esc(record.date)}</td><td translate="no">${esc(record.source)}</td><td translate="no">${esc(record.sample)}</td></tr>`);
+  return Object.entries(config.assumptionRecords||{}).map(([path,record])=>{
+   const label=path==='clientDemand.share'?'Target client inquiry share · '+(q.clientDemandType(record.profileId)?.label||record.profileId):path;
+   return `<tr><th>${labels[index]} · ${esc(label)}</th><td>${esc(valueText(q.assumptionRecordValue(config,path),path))}</td><td>${esc(valueText(record.value,path))}</td><td>${esc(record.date)}</td><td translate="no">${esc(record.source)}</td><td translate="no">${esc(record.sample)}</td></tr>`;
+  });
  });
  const observations=observed.length?`<section><h2>Studio assumption records</h2><table><tr><th>Run and assumption</th><th>Applied value</th><th>Recorded value</th><th>As of</th><th>Source</th><th>Sample</th></tr>${observed.join('')}</table></section>`:'';
  const scopeRows=configs.flatMap((config,index)=>config.services.filter(s=>s.spec?.printCostBasis).map(s=>`<tr><th>${labels[index]} · ${reportName(s.name)}</th><td>${money(s.print)}</td><td>${esc(s.spec.printCostBasis)}</td><td>${esc(s.spec.printSpec)}</td></tr>`));

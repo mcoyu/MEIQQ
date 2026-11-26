@@ -3,7 +3,13 @@ const {setup}=require('./ui-test-host.cjs');
 test('distributed HTML exactly matches the source modules and has no external assets',()=>{
   let expected=fs.readFileSync('index.template.html','utf8');
   for(const [tag,file]of [['STYLE','style.css'],['CHINESE','zh-CN.js'],['I18N','i18n.js'],['VALIDATION','validation.js'],['ENGINE','engine.js'],['SERVICE_CATALOG','service-catalog.js'],['PRESET_EVIDENCE','preset-evidence.js'],['PRESETS','presets.js'],['COMPARISON_REPORT','comparison-report.js'],['WORKSPACE','workspace.js'],['STORAGE','storage.js'],['STUDIO','studio.js'],['STUDIO_SEEDS','studio-seeds.js'],['STUDIO_SESSION','studio-session.js'],['STUDIO_VIEW','studio-view.js'],['STUDIO_STYLE','studio.css'],['JOBS','jobs.js'],['JOBS_VIEW','jobs-view.js'],['JOBS_CONTROLLER','jobs-controller.js'],['JOBS_STYLE','jobs.css'],['PLANNER','planner.js'],['PLANNER_EXPLORER','planner-explorer.js'],['PLANNER_STUDIO','planner-studio.js'],['PLANNER_BRIDGE','planner-bridge.js'],['PLANNER_VIEW','planner-view.js'],['PLANNER_CONTROLLER','planner-controller.js'],['PLANNER_STYLE','planner.css'],['STUDIO_FLIGHT','studio-flight.js'],['APP','app.js'],['SUNSET_SCENE','sunset-scene.js'],['SHARD_FLIGHT','shard-flight.js'],['SKY_CAMERA','sky-camera.js'],['GALAXY','galaxy.js'],['WATERFRONT_MODEL','waterfront-model.js'],['WATERFRONT','waterfront.js'],['SKY_EDITOR','sky-editor.js']])expected=expected.replace('/* '+tag+' */',()=>fs.readFileSync(file,'utf8'));
-  expected=expected.replace('</style>',()=>fs.readFileSync('themes.css','utf8')+'\n</style>');
+  let theme=fs.readFileSync('themes.css','utf8');
+  for(const sector of ['food','retail','services']){
+    const file='assets/client-menus/'+sector+'.jpg';
+    assert.ok(theme.includes('url("'+file+'")'));
+    theme=theme.replace(file,'data:image/jpeg;base64,'+fs.readFileSync(file).toString('base64'));
+  }
+  expected=expected.replace('</style>',()=>theme+'\n</style>');
   const html=fs.readFileSync('MEIQQ.html','utf8');assert.equal(html,expected);assert.ok(!/<script[^>]+src=|<link[^>]+href=|url\(https?:/i.test(html));
 });
 test('packaged HTML loads the versioned service catalog before creating the starter workspace',()=>{

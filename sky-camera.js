@@ -16,8 +16,12 @@
     [4,    .83,-.90, 1.12,   .055, -.299,  -.45],
     [5,   1.18,-.98, 1.23,  -.020, -.277,   .56],
     [6,   1.39,-1.08,1.35,  -.105, -.304,   .04],
-    [7,   1.62,-.97, 1.39,   .010, -.298,  -.62],
-    [8,   1.82,-1.02,1.31,   .195, -.310,   .10],
+    // Clear the near bank on the way to the run. The review position moves
+    // along the same bank and looks back across the open part of the sky.
+    [6.50,1.60,-1.13,1.43,  -.070, -.266,  -.69],
+    [7,   1.83,-1.00,1.41,   .037, -.235,  -.18],
+    [7.50,1.96,-.96, 1.34,   .121, -.246,   .34],
+    [8,   2.03,-1.01,1.28,   .190, -.286,   .08],
     [9,   1.43,-1.18,1.20,   .083, -.265,   .48],
     [10,   .96,-1.13,1.07,  -.106, -.295,  -.24],
     [11,   .45,-.90,  .93,  -.215, -.260,   .28]
@@ -46,6 +50,12 @@
       if(!shortcut){sampleMark(p,out);return;}
       const t=clamp(clock/duration),r=1-t,ease=t*t*t*(10+t*(6*t-15));
       for(let i=0;i<6;i++)out[i]=shortcut.from[i]+(shortcut.to[i]-shortcut.from[i])*ease+shortcut.rate[i]*duration*t*r*r*r;
+      if(shortcut.intoRun){
+        // A direct launch from an earlier step takes the shoulder of the
+        // cloud once. Zero slope at either end keeps interrupted travel smooth.
+        const bank=16*t*t*r*r;
+        out[1]-=.10*bank;out[2]+=.065*bank;out[4]-=.018*bank;out[5]-=.66*bank;
+      }
     }
     function aim(w,h,descent){
       width=w;height=h;aspect=w/h;samplePose(pose);
@@ -69,10 +79,11 @@
       if(target===to)return;
       // A navigator jump flies straight to its framing. Keep the outgoing
       // pose and its velocity when a second destination is chosen mid-flight.
-      if(shortcut||Math.abs(to-position)>1.55){
+      const cloudPass=position<=stops.night&&to<=stops.night;
+      if(shortcut||!cloudPass&&Math.abs(to-position)>1.55){
         const from=[],ahead=[],end=[];
         samplePose(from);samplePose(ahead,clamp(position+velocity*.001,0,stops.about),elapsed+.001);sampleMark(to,end);
-        shortcut={from,to:end,rate:ahead.map((v,i)=>(v-from[i])*1000)};
+        shortcut={from,to:end,rate:ahead.map((v,i)=>(v-from[i])*1000),intoRun:to===stops.map&&position>=stops.night&&to-position>1.55};
       }
       start=position;target=to;elapsed=0;entryVelocity=velocity;
       const distance=Math.abs(to-start);

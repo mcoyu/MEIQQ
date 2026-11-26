@@ -45,8 +45,8 @@ test('both setup paths begin at ninety days and a two-month draft survives a com
  assert.equal(read(ui, 'state.config.months'), 3);
  assert.equal(read(ui, 'draft.overhead'), monthlyOverhead);
  ui.click('simulate');
- assert.match(ui.elements['#modal'].innerHTML, /Apply and simulate 60 days/);
- ui.click('apply', {mode:'future', resume:'simulate'});
+ assert.match(ui.elements['#root'].innerHTML, /Your 60-day run/);
+ assert.equal(read(ui,'state.launchEstimate.days'),60);
  ui.drainTimers();
  assert.equal(read(ui, 'state.day'), 60);
  assert.equal(read(ui, 'view'), 'finances');
@@ -99,7 +99,6 @@ test('a year charges twelve model months and a cash shortfall interrupts a longe
  ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
  read(ui, "Object.assign(draft,{months:3,acquisition:'preset',inquiries:0,overhead:100,startingCash:150})");
  ui.click('simulate');
- ui.click('apply', {mode:'future', resume:'simulate'});
  ui.drainTimers();
  assert.equal(read(ui, 'state.day'), 30);
  assert.equal(read(ui, 'state.cash'), 50);

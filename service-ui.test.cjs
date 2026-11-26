@@ -6,7 +6,7 @@ const input=(ui,path,value,percent=false)=>ui.handlers.input({target:{dataset:{i
 test('fresh service menu has defined scopes and customer printing choice with no live mutation from browsing',()=>{
  const ui=setup(),before=read(ui,'JSON.stringify(state.config)');
  ui.click('start-restaurant');ui.click('enter-setup',{mode:'guided'});
- assert.equal(read(ui,'draft.services.length'),3);assert.match(ui.elements['#root'].innerHTML,/Build your service menu/);
+ assert.equal(read(ui,'draft.services.length'),3);assert.match(ui.elements['#root'].innerHTML,/What do you sell\?/);
  ui.click('service-library');assert.match(ui.elements['#modal'].innerHTML,/Customer need/);
  ui.handlers.change({target:{id:'catalog-audience',value:'food',dataset:{}}});
  assert.match(ui.elements['#catalog-results'].innerHTML,/Menu refresh/);
@@ -158,7 +158,7 @@ test('removing and restoring draft offers keeps their identity, evidence and new
  const id=read(ui,'offer.id');
  ui.click('remove-service',{id});
  assert.equal(read(ui,'draft.assumptionRecords'),undefined);
- assert.match(ui.elements['#root'].innerHTML,/30% left to assign/);
+ assert.equal(read(ui,'JSON.stringify(draft.services.map(s=>s.weight))'),'[57.14,42.86]');
  assert.equal(read(ui,'JSON.stringify(state.config)'),read(ui,'original'));
  input(ui,'services.0.price',410);
  const nextId=read(ui,'draft.services[1].id');

@@ -128,7 +128,7 @@ test('unknown browser recipe preferences fall back without breaking setup',()=>{
  assert.equal(vm.runInContext('presetSelection.operation',ui.ctx),'growth');
  assert.equal(vm.runInContext('presetSelection.mix',ui.ctx),'balanced');
  assert.equal(vm.runInContext('presetSelection.condition',ui.ctx),'steady');
- assert.match(ui.elements['#root'].innerHTML,/Try the restaurant example/);
+ assert.match(ui.elements['#root'].innerHTML,/Restaurant example/);
 });
 
 test('source register is explicit, official and safe to embed offline',()=>{

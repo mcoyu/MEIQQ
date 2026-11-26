@@ -34,6 +34,10 @@ try{
  if(Number.isInteger(storedStep)&&editorSteps[storedStep])lastEditorStep=storedStep;
 }catch{/* Navigation also works without browser storage. */}
 let setupChoicePending=true,recipeOpen=false,setupCache=null,setupRepairPath=null;
+let firstStepEstimate=null;
+let rerunDraft=null,rerunLink=null,editingRerun=false,ordinaryDraft=null;
+let keptComparisonId=null,keptSetupRun=null;
+let savingKeptSetup=false;
 function scenarioName(name){
  return esc(name===RESTAURANT_EXAMPLE||name===QQ.DEFAULT.name?name:QQI18n.literal(name));
 }
@@ -49,6 +53,14 @@ let state=QQ.fresh(restaurantConfig()),saved=[],draft=QQ.clone(state.config),vie
 let analyticsTab='overview',contractSearch='',contractFilter='all',contractSort='contribution',contractPage=0;
 const resultsMonths=new WeakMap();
 let comparisonSelection=null;
+let savedComparisonReader=null;
+function rememberKeptComparison(id){
+ if(!routeReady||view!=='finances')return;
+ const route='finances',savedComparison={id,route,tab:'compare',opener:{action:'open-saved-comparison',comparisonId:id}};
+ // Keep a real library entry behind the preserved result. Back from the
+ // new setup revisits the report; closing it returns to this library.
+ window.history.pushState({savedComparison},'','#'+route+'?comparison='+id);
+}
 let cashView={run:null,month:0,page:0};
 const SAMPLE_SIZE=20;
 let monthSample=null;
@@ -58,9 +70,10 @@ let archives=[],checkpointInfo=[],recoveryFiles=[],saveTimer=null,saveNoticeTime
 let loading=typeof indexedDB!=='undefined',saveStatus='saved',storeReason='',localRevision=null,primaryReadFailed=false,savePreparationError=null,fallbackPreserved=false;
 let inspectorTrail=[];
 let selection=null,running=false,timer=null,finishTarget=null,runGeneration=0,speed=1,theme='terminal',setupMode='guided',storeError=false,recoveryRaw=null,recoveryReason='';
+let runPassage=null;
 let filter='active',search='',toastTimer,modalFocus=null,actionFocus=null,expandedService=-1,setupModeChanging=false;
 let presetSelection={market:'metro',operation:'solo',mix:'balanced',condition:'steady'},pendingPreset=null,presetUndoDraft=null,pendingEvidence=null;
-let catalogGoal='all',catalogAudience='all',pendingCatalogId=null,pendingStarterId=null,serviceUndoDraft=null;
+let offerPicker=null,pendingCatalogId=null,pendingStarterId=null,serviceUndoDraft=null;
 const disclosureState=new Map(),catalogPrices=new Map();
 // History belongs to this draft menu. Replacing a workspace or mix naturally drops it.
 const removedServices=new WeakMap();
@@ -120,28 +133,39 @@ const WORKFLOW_STAGES={
 const stageOwner=Object.fromEntries(Object.entries(WORKFLOW_STAGES).map(([id,v])=>[id,v.owner]));
 const stageNumber=Object.fromEntries(Object.entries(WORKFLOW_STAGES).filter(([,v])=>v.order>0&&v.order<8).map(([id,v])=>[id,v.order]));
 const shortLabels=Object.fromEntries(Object.entries(WORKFLOW_STAGES).map(([id,v])=>[id,v.label]));
-const businessType=id=>QQ.CUSTOMER_TYPES.find(t=>t.id===id)?.label;
+const businessType=id=>QQ.profileFor(id)?.label;
 function draftRunConfig(source=draft){
  const services=source.services.filter(s=>!(s.customOffer===true&&s.weight===0));
- return QQ.withCurrentAssumptionRecords(services.length===source.services.length?source:{...source,services});
+ if(services.length===source.services.length&&!source.clientMenu)return QQ.withCurrentAssumptionRecords(source);
+ const config={...source,services};
+ delete config.clientMenu;
+ return QQ.withCurrentAssumptionRecords(config);
+}
+function issuesForDraft(source,config){
+ const issues=QQ.configIssues(config);
+ if(config.services!==source.services){
+  for(const issue of issues){
+   const match=/^services\.(\d+)(\..*)?$/.exec(issue.path);
+   if(match)issue.path='services.'+source.services.indexOf(config.services[Number(match[1])])+(match[2]||'');
+  }
+ }
+ return issues;
 }
 function draftValidationIssues(){
  if(setupCache?.issues)return setupCache.issues;
- const config=draftRunConfig(),issues=QQ.configIssues(config);
- if(config.services!==draft.services){
-  for(const issue of issues){
-   const match=/^services\.(\d+)(\..*)?$/.exec(issue.path);
-   if(match)issue.path='services.'+draft.services.indexOf(config.services[Number(match[1])])+(match[2]||'');
-  }
- }
+ const issues=issuesForDraft(draft,draftRunConfig());
  if(setupCache)setupCache.issues=issues;
  return issues;
 }
-function dirty(){return JSON.stringify(draftRunConfig())!==JSON.stringify(state.config);}
+function dirty(){return JSON.stringify(draftRunConfig())!==JSON.stringify(editingRerun?rerunStartingConfig(state):state.config);}
 function currentWorkspace(){
  const files=QQ.clone(recoveryFiles);
  if(recoveryRaw!==null&&!files.some(f=>f.text===recoveryRaw))files.push({name:'Unreadable original save',text:recoveryRaw});
- return {state,saved,draft,checkpointInfo,recoveryFiles:files,...(setupOrigin?{setupOrigin}:{})};
+ const w={state,saved,draft:editingRerun?ordinaryDraft:draft,checkpointInfo,recoveryFiles:files,...(setupOrigin?{setupOrigin}:{})};
+ if(rerunDraft?.run===state)w.rerunDraft={...rerunTarget(rerunDraft),returnTab:rerunDraft.returnTab,resultsMonth:rerunDraft.resultsMonth,draft:editingRerun?draft:rerunDraft.draft};
+ if(rerunLink?.run===state)w.rerunLink={...rerunTarget(rerunLink),original:rerunLink.original};
+ if(keptSetupRun===state&&keptComparisonId)w.keptComparisonId=keptComparisonId;
+ return w;
 }
 function retainLegacySource(raw,workspace){
  const source=JSON.parse(raw);
@@ -153,6 +177,10 @@ function retainLegacySource(raw,workspace){
 function installWorkspace(data){
  setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;setupOrigin=data.setupOrigin||null;
  state=data.state;saved=data.saved;draft=data.draft;checkpointInfo=data.checkpointInfo;comparisonSelection=null;
+ editingRerun=false;ordinaryDraft=null;
+ rerunDraft=data.rerunDraft?{...data.rerunDraft,run:state}:null;
+ rerunLink=data.rerunLink?{...data.rerunLink,run:state}:null;
+ keptComparisonId=data.keptComparisonId||null;keptSetupRun=keptComparisonId?state:null;
  serviceUndoDraft=null;presetUndoDraft=null;
  recoveryFiles=data.recoveryFiles;archives=data.archives||[];recipeOpen=false;
  if(setupOrigin||state.config.name!==RESTAURANT_EXAMPLE||state.day||saved.length||archives.length||dirty())setupChoicePending=false;
@@ -169,14 +197,22 @@ function persistenceStatus(status,error){
  if(saveStatus==='saving')saveNoticeTimer=setTimeout(()=>{if(saveStatus==='saving'){showSavingNotice=true;updateSaveStatus();}},500);
 }
 function save(){
+ if(savingKeptSetup)return;
  clearTimeout(saveTimer);saveTimer=null;
  if(loading||recoveryRaw!==null||primaryReadFailed){updateSaveStatus();return;}
  try{
   const text=MEIQQWorkspace.serialize(currentWorkspace(),archives);
   savePreparationError=null;
-  if(saveWriter)saveWriter.push(text);
-  else {if((localStorage.getItem(KEY)??null)!==localRevision){const e=Error('Another window changed this workspace.');e.code='STALE_WORKSPACE';throw e;}localStorage.setItem(KEY,text);localRevision=text;persistenceStatus('saved');}
+  writeWorkspaceText(text);
+  if(!saveWriter)persistenceStatus('saved');
  }catch(e){savePreparationError=e;persistenceStatus('error',e);}
+}
+function writeWorkspaceText(text){
+ if(saveWriter){saveWriter.push(text);return;}
+ if((localStorage.getItem(KEY)??null)!==localRevision){
+  const error=Error('Another window changed this workspace.');error.code='STALE_WORKSPACE';throw error;
+ }
+ localStorage.setItem(KEY,text);localRevision=text;
 }
 function scheduleSave(){clearTimeout(saveTimer);saveStatus='pending';updateSaveStatus();saveTimer=setTimeout(save,300);}
 async function initializeStorage(){
@@ -188,7 +224,9 @@ async function initializeStorage(){
    try{
     const primary=MEIQQWorkspace.parseText(backend.raw);retainLegacySource(backend.raw,primary);
     const {state:run,saved:checkpoints,draft:setup,checkpointInfo:info,recoveryFiles:files}=primary;
-    const current={state:run,saved:checkpoints,draft:setup,checkpointInfo:info,recoveryFiles:files,...(primary.setupOrigin?{setupOrigin:primary.setupOrigin}:{})};
+    const current={state:run,saved:checkpoints,draft:setup,checkpointInfo:info,recoveryFiles:files,...(primary.setupOrigin?{setupOrigin:primary.setupOrigin}:{}),
+     ...(primary.rerunDraft?{rerunDraft:primary.rerunDraft}:{}),...(primary.rerunLink?{rerunLink:primary.rerunLink}:{}),
+     ...(primary.keptComparisonId?{keptComparisonId:primary.keptComparisonId}:{})};
     // The legacy/fallback store may contain newer work from an outage. Its age
     // cannot be inferred safely, so preserve both instead of dropping one.
     const combined=primary.archives;
@@ -232,7 +270,9 @@ function copyToSimulator(prepared){
  MEIQQWorkspace.archive(nextArchives,currentWorkspace(),'Before planner copy · '+state.config.name+' · day '+state.day);
  nextFiles.push({name:'Planner source · '+prepared.record.date+' · '+(prepared.record.plan.name||'Untitled plan').slice(0,100),text:JSON.stringify(prepared.record,null,2)});
  const next={...currentWorkspace(),draft:prepared.config,recoveryFiles:nextFiles};
+ delete next.keptComparisonId;
  MEIQQWorkspace.serialize(next,nextArchives);
+ keptComparisonId=null;keptSetupRun=null;
  stop();setupOrigin=null;setupEntryPath=null;setupReturnView=null;archives=nextArchives;recoveryFiles=nextFiles;draft=QQ.clone(prepared.config);presetUndoDraft=null;serviceUndoDraft=null;view='setup';stepIndex=0;closeModal();save();render();toast('Plan copied to a simulator draft. Your previous workspace is preserved in Runs & backups. Review setup before applying.');
 }
 function toast(message){clearTimeout(toastTimer);$('#toast').className='toast';$('#toast').textContent=QQI18n.text(message);toastTimer=setTimeout(()=>{$('#toast').className='';$('#toast').textContent='';},4500);}
@@ -437,13 +477,14 @@ function patchRenderChildren(current,next){
  while(cursor){const stale=cursor;cursor=cursor.nextSibling;stale.remove();}
 }
 let lastPresentationKey='',preferencesRoute=null;
+const openWorkspaceMenus='#root details[data-workspace-menu][open]';
 function presentationKey(){
  if(view==='studio')return [view,studioSession.ready,studioUI.tab,studioUI.selectedId,studioUI.section].join('/');
  if(view==='jobs'||view==='planner'){
    const ui=view==='jobs'?jobsController.ui:plannerController.ui;
    return [view,ui.tab,ui.selectedId,ui.editingService?.serviceId].join('/');
  }
- if(setupNeedsChoice())return 'setup/entry/'+(setupEntryPath||'business-choice');
+ if(setupNeedsChoice())return 'setup/entry';
  return view==='setup'?[view,stepIndex].join('/'):view;
 }
 // Take layout measurements only for a deliberate list change, never while typing.
@@ -487,10 +528,37 @@ function setupStepTransition(outgoing,nextStep){
      {id:'workspace-motion',duration:340,delay:70,fill:'backwards',easing:'cubic-bezier(.2,.72,.22,1)'});
  };
 }
-// Measure the outgoing selection before reconciliation. Keep the live form
-// elements in place so typing, scrolling and autosaves do not replay entrances.
-function workspaceTransition(root){
+// Measure the number before reconciliation so it can travel between layouts.
+function estimateTextBounds(el){
+ if(!el)return null;
+ const range=document.createRange();range.selectNodeContents(el);
+ const rect=range.getBoundingClientRect();
+ const header=document.querySelector('.sky-header')?.getBoundingClientRect().bottom||0;
+ return rect.height&&rect.top>=header-1&&rect.bottom<=window.innerHeight&&rect.left>=0&&rect.right<=window.innerWidth?rect:null;
+}
+let clearEstimateFlight=null;
+function moveRunEstimate(from,box,to){
+ const end=estimateTextBounds(to);
+ if(!box||!end||from.textContent!==to.textContent)return;
+ const copy=document.createElement('span'),style=getComputedStyle(to);
+ copy.className='travelling-estimate';copy.textContent=to.textContent;copy.setAttribute('aria-hidden','true');
+ Object.assign(copy.style,{left:end.left+'px',top:end.top+'px',fontFamily:style.fontFamily,fontSize:style.fontSize,fontWeight:style.fontWeight,lineHeight:end.height+'px',letterSpacing:style.letterSpacing,color:style.color});
+ document.body.append(copy);
+ const x=box.left-end.left,y=box.top-end.top,scale=box.height/end.height;
+ const frames=[{transform:`translate(${x}px,${y}px) scale(${scale})`},
+  {transform:`translate(${x*.37}px,${y*.37-Math.min(16,Math.abs(y)*.05)}px) scale(${1+(scale-1)*.37})`,offset:.56},
+  {transform:'none'}];
+ from.style.visibility='hidden';
+ const timing={duration:620,easing:'cubic-bezier(.36,0,.18,1)'};
+ const reveal=to.animate([{opacity:0},{opacity:0,offset:.86},{opacity:1}],timing);
+ const flight=copy.animate(frames,timing);
+ const clear=()=>{copy.remove();reveal.cancel();flight.cancel();if(clearEstimateFlight===clear)clearEstimateFlight=null;};
+ clearEstimateFlight=clear;flight.finished.then(clear,clear);
+}
+// Keep elements in place so typing, scrolling and autosaves do not replay entrances.
+function workspaceTransition(root,nextContent){
  const key=presentationKey(), previous=lastPresentationKey;lastPresentationKey=key;
+ if(previous!==key)clearEstimateFlight?.();
  if(window.StudioFlight?.active||document.documentElement.dataset.uiMotion!=='on'||!root.animate)return null;
  const animate=(node,frames,ms,delay=0)=>{
    if(!node)return;
@@ -498,10 +566,15 @@ function workspaceTransition(root){
    node.animate(frames,{id:'workspace-motion',duration:ms,delay,fill:'backwards',easing:'cubic-bezier(.18,.74,.22,1)'});
  };
  if(previous===key){
-   const values=[...root.querySelectorAll('.metric strong,.clockday b,.studio-total dd,.planner-lab-summary strong')].slice(0,10);
+   const editingAssumptions=view==='setup'&&!setupNeedsChoice()&&stepIndex>0;
+   const selector=editingAssumptions?'.decision-readout dd,.summary-numbers strong':'.metric strong,.clockday b,.studio-total dd,.planner-lab-summary strong';
+   const values=[...root.querySelectorAll(selector)].slice(0,editingAssumptions?24:10);
    const labels=values.map(el=>el.textContent);
    return ()=>values.forEach((el,i)=>{
-     if(el.isConnected&&el.textContent!==labels[i])animate(el,[{color:'var(--accent)',translate:'0 -2px'},{color:'var(--ink)',translate:'0 0'}],380);
+     if(el.isConnected&&el.textContent!==labels[i]){
+       const frames=editingAssumptions?[{color:'var(--accent)'},{}]:[{color:'var(--accent)',translate:'0 -2px'},{color:'var(--ink)',translate:'0 0'}];
+       animate(el,frames,380);
+     }
    });
  }
  const source=previous.split('/')[0],destination=key.split('/')[0];
@@ -513,16 +586,43 @@ function workspaceTransition(root){
      const pages=['sky','studio','planner','jobs','setup','map','finances','projects','scenarios','about'];
      const direction=pages.indexOf(destination)>=pages.indexOf(source)?1:-1;
      const bounds=current.getBoundingClientRect(),oldApp=root.firstElementChild;
+     const launch=source==='setup'&&destination==='map'&&nextContent?.querySelector('.run-passage');
+     const arrival=source==='map'&&destination==='finances'&&current.querySelector('.run-passage');
+     const openingRevision=source==='finances'&&destination==='setup'&&nextContent?.querySelector('.rerun-editor');
+     const openingKeptSetup=source==='finances'&&destination==='setup'&&current.querySelector('.variant-result')&&nextContent?.querySelector('.setup-comparison-link');
+     const returningToResults=source==='setup'&&destination==='finances'&&current.querySelector('.rerun-editor');
+     const runTransition=launch||arrival||openingRevision||openingKeptSetup||returningToResults;
+     const number=(launch||arrival)&&current.querySelector('[data-run-estimate="profit"]');
+     const origin=number?estimateTextBounds(number):null;
+     const pinned=launch&&current.querySelector('.setup-summary');
+     const pinBox=pinned&&getComputedStyle(pinned).position==='sticky'?pinned.getBoundingClientRect():null;
      const ghost=document.createElement('div');ghost.className='route-departure';ghost.inert=true;ghost.setAttribute('aria-hidden','true');
-     Object.assign(ghost.style,{top:bounds.top+'px',left:bounds.left+'px',width:bounds.width+'px'});
+     Object.assign(ghost.style,{top:(runTransition?0:bounds.top)+'px',left:bounds.left+'px',width:bounds.width+'px'});
      const frame=oldApp.cloneNode(false);frame.append(current);ghost.append(frame);
-     for(const el of current.querySelectorAll('[id],[data-disclosure],details[name]')){
+     if(runTransition){
+       // The button can be at the bottom of a long form. Preserve that slice
+       // of the outgoing page when the new workspace returns to the top.
+       ghost.classList.add('run-departure');frame.style.top=bounds.top+'px';
+       if(pinBox){
+         const slot=document.createElement('div');slot.className='setup-sheet';
+         Object.assign(slot.style,{position:'absolute',top:(pinBox.top-bounds.top)+'px',left:(pinBox.left-bounds.left)+'px',width:pinBox.width+'px'});
+         pinned.style.position='static';slot.append(pinned);frame.append(slot);
+       }
+     }
+     for(const el of frame.querySelectorAll('[id],[data-disclosure],details[name]')){
        el.removeAttribute('id');el.removeAttribute('data-disclosure');if(el.localName==='details')el.removeAttribute('name');
      }
      document.querySelector('.route-departure')?.remove();root.after(ghost);
-     const leave=ghost.animate([{opacity:1,translate:'0 0'},{opacity:0,translate:`${-32*direction}px -5px`}],
-       {id:'workspace-motion',duration:185,easing:'ease-in',fill:'forwards'});
+     const departure=runTransition?[{opacity:1,translate:'0 0'},{opacity:.82,offset:.35},{opacity:0,translate:'0 -22px'}]:
+       [{opacity:1,translate:'0 0'},{opacity:0,translate:`${-32*direction}px -5px`}];
+     const leave=ghost.animate(departure,{id:'workspace-motion',duration:runTransition?305:185,easing:'ease-in',fill:'forwards'});
      leave.finished.then(()=>ghost.remove(),()=>ghost.remove());
+     if(runTransition)return ()=>{
+       const main=root.querySelector('main.workspace');
+       if(!openingRevision)window.scrollTo({top:0,behavior:'instant'});
+       if(number)moveRunEstimate(number,origin,main.querySelector('[data-run-estimate="profit"]'));
+       animate(main,[{opacity:0,translate:openingRevision||openingKeptSetup?'0 -14px':'0 18px'},{opacity:1,translate:'0 0'}],launch?560:490,135);
+     };
      return ()=>animate(root.querySelector('main.workspace'),[{opacity:0,translate:`${40*direction}px 9px`},{opacity:1,translate:'0 0'}],470,95);
    }
  }
@@ -543,7 +643,7 @@ function workspaceTransition(root){
    const story=workspace.querySelector('.setup-story:not(.departing)');
    const sheet=workspace.querySelector('.setup-sheet');
    const next=story||sheet;
-   const chapter=el=>el?.classList.contains('setup-sheet')?3:el?.dataset.renderKey==='sky-home'?0:el?.dataset.renderKey==='setup-story-start'?1:2;
+   const chapter=el=>el?.classList.contains('setup-sheet')?2:el?.dataset.renderKey==='sky-home'?0:1;
    const direction=outgoing&&next&&chapter(next)<chapter(outgoing)?-1:1;
    if(outgoing&&next&&outgoing!==next){
      // Let the sky travel behind the outgoing chapter, including on browser Back.
@@ -584,7 +684,7 @@ function patchableRoot(root){
   if(property==='innerHTML'){
    const template=document.createElement('template');template.innerHTML=value;
    QQI18n.localize(template.content);
-   const present=workspaceTransition(target);
+   const present=workspaceTransition(target,template.content);
    patchRenderChildren(target,template.content);present?.();return true;
   }
   return Reflect.set(target,property,value,target);
@@ -601,21 +701,26 @@ function restoreFocus(key,scroll=false){
  if(!key)return;
  const candidates=document.querySelectorAll('#root [id], #root [data-input], #root [data-action]');
  const el=[...candidates].find(el=>key.domId?el.id===key.domId:Object.entries(key).every(([k,v])=>el.dataset?.[k]===v));
- el?.focus({preventScroll:!scroll});
+ const closedMenu=el?.closest?.('details[data-workspace-menu]:not([open])');
+ (closedMenu?.querySelector('summary')||el)?.focus({preventScroll:!scroll});
  return Boolean(el);
 }
 function render(){
+  if(keptSetupRun&&keptSetupRun!==state){keptSetupRun=null;keptComparisonId=null;}
+  if(editingRerun&&(view!=='setup'||setupNeedsChoice()))parkRerunEditor();
   const focus=focusKey(document.activeElement);
+  if(runPassage&&(view!=='map'||runPassage.run!==state||selection))runPassage=null;
   syncWorkspaceRoute();
+  if(routeReady&&view==='map')rememberRunPassage();
   const route=workspaceRoute();
   if(preferencesRoute!==route){
-    const settings=document.querySelector('#root .sky-preferences[open]');
-    if(settings)settings.open=false;
-    disclosureState.delete('app-preferences');preferencesRoute=route;
+    for(const menu of document.querySelectorAll(openWorkspaceMenus))menu.open=false;
+    disclosureState.delete('app-preferences');disclosureState.delete('offer-setup-options');preferencesRoute=route;
   }
   const entrance=setupNeedsChoice(),skyOnly=view==='sky/view';
+  if(firstStepEstimate&&(view!=='setup'||entrance||firstStepEstimate.step!==stepIndex||firstStepEstimate.draft!==draft))firstStepEstimate=null;
   if(!skyOnly&&skyPlayback){skyPlayback=null;applyShardMotion();}
-  const skyStage=view==='setup'?(entrance?(setupEntryPath?'night':'surface'):editorSteps[stepIndex]):inStudio()||view==='sky'||skyOnly?'home':view;
+  const skyStage=view==='setup'?(entrance?'night':editorSteps[stepIndex]):inStudio()||view==='sky'||skyOnly?'home':view;
   if(routeReady)window.StudioFlight?.route(view,skyStage);
   if(inStudio()){
     if(shardBackground?.getAttribute?.('waterfront')!==view)shardBackground?.setAttribute?.('waterfront',view);
@@ -638,7 +743,8 @@ function render(){
     $('#root').innerHTML=workspaceShell('simulator-app setup-entrance',`${status}<main class="workspace ${editor?'setup-editing':'setup-landing'}" data-render-key="workspace">${content}</main>`);
   }else{
     const m=QQ.metrics(state);
-    $('#root').innerHTML=workspaceShell('simulator-app'+(running?' running':''),`${status}<main class="workspace simulator-workspace" data-render-key="workspace">${workspaceHeading(true)}${notices}${view==='map'?mapView(m):view==='projects'?projectsView():view==='finances'?financeView(m):view==='scenarios'?scenariosView():aboutView()}</main>${view==='map'?clock():''}`);
+    const content=runPassage?runPassageView(m):workspaceHeading(true)+notices+(view==='map'?mapView(m):view==='projects'?projectsView():view==='finances'?financeView(m):view==='scenarios'?scenariosView():aboutView());
+    $('#root').innerHTML=workspaceShell('simulator-app'+(running?' running':''),`${status}<main class="workspace simulator-workspace" data-render-key="workspace">${runPassage?notices:''}${content}</main>${view==='map'&&!runPassage?clock():''}`);
   }
   for(const el of document.querySelectorAll('#root details[data-disclosure]'))if(setupMode==='analyst'&&el.dataset.disclosure.startsWith('setup-advanced-'))el.open=true;else if(disclosureState.has(el.dataset.disclosure))el.open=disclosureState.get(el.dataset.disclosure);
   $('#root').inert=Boolean($('#modal').firstChild);
@@ -653,10 +759,26 @@ function issueText(issue){
 }
 function field(label,key,value,options={}){
  const path=options.path||key,id='input-'+path.replace(/\./g,'-');const suffix=options.suffix||'';
- const awaitingEntry=setupMode==='guided'&&path.startsWith('services.')&&(value==null||value===''||value==='choose')&&setupRepairPath!==path;
+ const customInput=path.startsWith('services.')&&draft.services[Number(path.split('.')[1])]?.customOffer;
+ const awaitingEntry=(setupMode==='guided'||customInput)&&path.startsWith('services.')&&(value==null||value===''||value==='choose')&&setupRepairPath!==path;
  const issue=awaitingEntry?null:draftValidationIssues().find(v=>v.path===path||path.startsWith('customerMix.')&&v.path==='customerMix');
- const attrs=`data-input="${esc(path)}"${QQI18n.moneyField(suffix)} ${options.percent?'data-percent="true"':''} id="${id}"`,invalid=issue?'aria-invalid="true" aria-describedby="error-'+id+'"':'';
- return `<div class="input-field"><label for="${id}">${label}</label>${options.options?`<select ${attrs} ${invalid}>${options.options.map(([v,n])=>`<option value="${esc(v)}" ${String(value)===String(v)?'selected':''}>${n==='Monthly subscription'?'Paid-cycle subscription':n}</option>`).join('')}</select>`:`<div class="input-wrap"><input ${attrs} type="${options.text?'text':'number'}" value="${esc(value==null?'':options.percent?QQ.round(value*100):value)}" ${invalid} ${options.text?`maxlength="${options.maxlength||100}"`:`min="${options.min??0}" max="${options.max??1000000}" step="${options.step??1}"`} ${options.disabled?'disabled':''}>${suffix?`<span>${suffix}</span>`:''}</div>`}<small>${options.help||(key==='recurring'?'New repeat campaigns are quoted and paid separately.':' ')}</small><span class="field-error" id="error-${id}" aria-live="polite">${issue?esc(issueText(issue)):''}</span></div>`;
+ const help=options.help||(key==='recurring'?'New repeat campaigns are quoted and paid separately.':'');
+ const origin=rerunFieldOrigin(path);
+ const descriptions=[origin?'origin-'+id:'',help?'help-'+id:'',issue?'error-'+id:''].filter(Boolean).join(' ');
+ const attrs=`data-input="${esc(path)}"${QQI18n.moneyField(suffix)} ${options.percent?'data-percent="true"':''} ${issue?'aria-invalid="true"':''} ${descriptions?'aria-describedby="'+descriptions+'"':''} id="${id}"`;
+ const placeholder=options.placeholder?`placeholder="${esc(options.placeholder)}"`:'';
+ let control;
+ if(options.options){
+  const items=options.options.map(([v,n])=>`<option value="${esc(v)}" ${String(value)===String(v)?'selected':''}>${n==='Monthly subscription'?'Paid-cycle subscription':n}</option>`).join('');
+  control=`<select ${attrs}>${items}</select>`;
+ }else if(options.multiline){
+  control=`<textarea ${attrs} rows="2" maxlength="${options.maxlength}" ${placeholder}>${esc(value??'')}</textarea>`;
+ }else{
+  const limits=options.text?`maxlength="${options.maxlength||100}" ${placeholder}`:`min="${options.min??0}" max="${options.max??1000000}" step="${options.step??1}"`;
+  const display=value==null?'':options.percent?QQ.round(value*100):value;
+  control=`<div class="input-wrap"><input ${attrs} type="${options.text?'text':'number'}" value="${esc(display)}" ${limits} ${options.disabled?'disabled':''}>${suffix?`<span>${suffix}</span>`:''}</div>`;
+ }
+ return `<div class="input-field${origin?' rerun-field':''}"><label for="${id}">${label}</label>${control}${origin?`<small class="rerun-origin" id="origin-${id}"><span>Original value</span> <b>${esc(origin)}</b></small>`:''}${help?`<small id="help-${id}">${help}</small>`:''}<span class="field-error" id="error-${id}" aria-live="polite">${issue?esc(issueText(issue)):''}</span></div>`;
 }
 function checkbox(label,path,value,help=''){return `<label class="checkrow"><input type="checkbox" data-input="${path}" ${(path.startsWith('uncertainty.')||path.startsWith('disruptions.'))&&!draft.realism?'disabled':''} ${value?'checked':''}><span><b>${label}</b>${help?`<small>${help}</small>`:''}</span></label>`;}
 function advancedBlock(id,label,html){return `<details class="guided-options" data-disclosure="setup-advanced-${id}" ${setupMode==='analyst'?'open':''}><summary>${label}</summary><div class="advanced-body">${html}</div></details>`;}
@@ -692,10 +814,13 @@ function recordOptions(group,id){
  const fields=QQ.ASSUMPTION_FIELDS[group];
  if(!fields)return [];
  const prefix=group==='service'?'services.'+id+'.':'';
- return Object.entries(fields).map(([key,label])=>({path:prefix+key,label})).filter(({path})=>Number.isFinite(QQ.assumptionRecordValue(draft,path)));
+ return Object.entries(fields).map(([key,label])=>{
+  const profile=key==='clientDemand.share'&&demandProfile(draft.clientDemand?.profileId);
+  return {path:prefix+key,label:profile?QQI18n.text(profile.name)+' · '+QQI18n.text(label):label};
+ }).filter(({path})=>Number.isFinite(QQ.assumptionRecordValue(draft,path)));
 }
 function serviceInputBasis(service,key){
- const original=QQServiceCatalog.SERVICES.find(s=>service.spec?.catalogId===QQServiceCatalog.CATALOG.id&&service.spec?.version===1&&s.id===service.spec.packageId);
+ const original=originalOfferPackage(service);
  const path='services.'+service.id+'.'+key,value=QQ.assumptionRecordValue(draft,path);
  if(!Number.isFinite(value))return 'Enter an estimate';
  const example=key.split('.').reduce((v,k)=>v?.[k],original);
@@ -720,6 +845,7 @@ function currentAssumptionSources(){
 }
 function formatEvidenceValue(path,value){
  const amount=v=>new Intl.NumberFormat('en-US',{maximumFractionDigits:12}).format(v);
+ if(path==='clientDemand.share')return amount(value)+'%';
  if(percentPaths.has(path)||path.endsWith('.managedShare'))return amount(value*100)+'%';
  if(['overhead','designerRate'].includes(path)||/\.(price|print|designOnlyPrice)$/.test(path))return '$'+amount(value);
  if(/(Hours|hours|review)$/.test(path))return amount(value)+' h';
@@ -749,6 +875,7 @@ function saveInputRecord(remove=false){
  if(remove)delete records[path];
  else{
   records[path]={value,date:$('#record-date').value,source:$('#record-source').value.trim(),sample:$('#record-sample').value.trim()};
+  if(path==='clientDemand.share')records[path].profileId=draft.clientDemand.profileId;
   if(!QQ.validAssumptionRecords(records))throw Error('Enter a source, a real calendar date and the sample or period for this value.');
  }
  if(Object.keys(records).length)draft.assumptionRecords=records;else delete draft.assumptionRecords;
@@ -760,7 +887,8 @@ function outreachVolume(c){
  return values.every(Number.isFinite)?QQ.round(Math.min(c.outreachHours,c.ownerHours)*QQ.workingDays(c.months*30)/(5*c.months)*c.leadsPerHour):null;
 }
 function openSetupEditor(mode){
- if(!setupNeedsChoice()||!setupEntryPath||!['guided','analyst'].includes(mode))return;
+ if(!setupNeedsChoice()||!['guided','analyst'].includes(mode))return;
+ if(!setupEntryPath)setupEntryPath='business';
  if(editingCurrentSetup()){
   if(setupEntryPath!=='style'&&!setupOrigin){setupOrigin=setupEntryPath;save();}
   setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;stepIndex=lastEditorStep;
@@ -780,7 +908,7 @@ function openSetupEditor(mode){
  if(ownBusiness){
   draft=QQPresets.compose({}, {...QQ.clone(state.config),name:'My business',services:[],fixedInquiriesEntered:false});
   appendCatalogService(null);
- }
+ }else expandedService=0;
  // Back from a committed draft changes its style without creating another scenario.
  if(routeReady)window.history.replaceState(null,'','#setup/style');
  stepIndex=0;lastEditorStep=0;setSetupMode(mode);
@@ -799,6 +927,7 @@ function runLengthOptions(selected,elapsed=0){
 }
 function workspaceRoute(){
  if(view!=='setup')return view;
+ if(editingRerun)return 'setup/rerun/'+editorSteps[stepIndex];
  if(setupNeedsChoice()){
   const start=newScenarioRequested?'setup/new':'setup';
   return setupEntryPath?start+'/'+setupEntryPath:start;
@@ -810,7 +939,8 @@ function syncWorkspaceRoute(){
  const route=workspaceRoute();
  if(route===lastRoute)return;
  lastRoute=route;
- if(window.location.hash!=='#'+route)window.history.pushState(null,'','#'+route);
+ const hash=savedComparisonReader?.id&&savedComparisonReader.route===route?'#'+route+'?comparison='+savedComparisonReader.id:'#'+route;
+ if(window.location.hash!==hash)window.history.pushState(null,'','#'+route);
  if(route==='sky'||route==='sky/view')return;
  resumeRoute=route;
  if(view==='setup'&&!setupNeedsChoice())lastEditorStep=stepIndex;
@@ -822,20 +952,44 @@ function syncWorkspaceRoute(){
  }catch{/* Links and the in-memory return destination remain available. */}
 }
 function readWorkspaceRoute(){
- if(!routeReady)return;
+ if(!routeReady||savingKeptSetup)return;
+ const leavingRevision=editingRerun;
  const previousStep=view==='setup'&&!setupNeedsChoice()?stepIndex:null;
- const route=window.location.hash.slice(1)||'sky';
- if($('#modal').firstChild)closeModal();
+ const [route,comparisonId]=(window.location.hash.slice(1)||'sky').split('?comparison=');
+ if(!comparisonId&&savedComparisonReader&&route===workspaceRoute()){
+  closeModal(false);render();return;
+ }
+ const archive=savedComparisonArchive(comparisonId);
+ const pair=archive&&archivedVariantPair(archive.workspace);
+ const marker=window.history.state?.savedComparison;
+ const entry=pair&&marker?.id===comparisonId&&marker.route===route?marker:null;
+ if($('#modal').firstChild)closeModal(false);
+ if(pair&&entry&&route===workspaceRoute()&&lastRoute===route){
+  if(view==='finances')analyticsTab=entry.tab||'compare';
+  presentSavedComparison(pair,entry);return;
+ }
  if(navigatorDialog.open)navigatorDialog.close();
  if(waterfrontView?.open)waterfrontView.close();
  const skyEditor=document.querySelector('#sky-editor');
  if(skyEditor?.open)skyEditor.close('cancel');
  stop();
+ const rerunStep=route.startsWith('setup/rerun/')?editorSteps.indexOf(route.slice('setup/rerun/'.length)):-1;
+ const reopenRerun=rerunStep>=0&&rerunDraft?.run===state&&state.day===state.config.months*30&&recoveryRaw===null&&!primaryReadFailed;
+ if(!reopenRerun)parkRerunEditor();
  setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;
  if(route==='setup'||route.startsWith('setup/')){
   view='setup';
   const step=editorSteps.indexOf(route.slice('setup/edit/'.length));
-  if(recoveryRaw!==null||primaryReadFailed){stepIndex=0;}
+  if(reopenRerun){
+   activateRerunEditor(rerunStep);
+  }
+  else if(rerunStep>=0&&(rerunLink?.run===state||state.day)){
+   // The history entry can outlive its draft after a different run opens.
+   view=state.day===state.config.months*30?'finances':'map';
+   if(view==='finances'){analyticsTab='overview';selectResultsMonth(null);}
+  }
+  else if(recoveryRaw!==null||primaryReadFailed){stepIndex=0;}
+  else if(route==='setup'&&!firstExamplePending()){stepIndex=lastEditorStep;}
   else if(route.startsWith('setup/edit/')&&step>=0&&!firstExamplePending()){stepIndex=step;}
   else{
    if(firstExamplePending())stepIndex=0;
@@ -846,18 +1000,51 @@ function readWorkspaceRoute(){
    if(route==='setup/style'&&!firstExamplePending())setupEntryPath='style';
   }
  }else view=route==='sky/view'||Object.hasOwn(destinations,route)?route:'sky';
+ if(leavingRevision&&view==='finances'){
+  analyticsTab=rerunDraft?.returnTab||'overview';
+  selectResultsMonth(rerunDraft?.resultsMonth||null);
+ }
+ // The live passage and manual inspector share #map. Only the particular
+ // history entry that launched a run should reopen its paused presentation.
+ if(view==='map'&&window.history.state?.runPassage&&state.day<state.config.months*30&&recoveryRaw===null&&!primaryReadFailed){
+  selection=null;inspectorTrail=[];runPassage={run:state,estimate:QQ.runLaunchEstimate(state)};
+ }else runPassage=null;
  const resolved=workspaceRoute();
- if(window.location.hash!=='#'+resolved)window.history.replaceState(null,'','#'+resolved);
+ let reader;
+ if(pair){
+  reader=entry||{id:comparisonId,route:resolved,tab:'compare'};
+  if(view==='finances')analyticsTab=reader.tab||'compare';
+  if(!entry||resolved!==route){
+   // A pasted link or a recovered route has no in-app return entry yet.
+   reader={...reader,route:resolved};
+   window.history.replaceState(null,'','#'+resolved);
+   window.history.pushState({savedComparison:reader},'','#'+resolved+'?comparison='+comparisonId);
+  }
+  savedComparisonReader=reader;
+ }else if(window.location.hash!=='#'+resolved)window.history.replaceState(null,'','#'+resolved);
  lastRoute=null;render();
+ if(pair){presentSavedComparison(pair,reader);return;}
+ if(comparisonId)toast('This saved comparison is unavailable.');
+ if(reopenRerun&&focusRevisedAssumption())return;
+ if(leavingRevision&&view==='finances'&&focusResultAssumption())return;
  if(previousStep!==null&&view==='setup'&&!setupNeedsChoice()&&previousStep!==stepIndex)focusSetupStep();
  else focusViewHeading();
 }
+function rememberRunPassage(){
+ const previous=window.history.state;
+ if(Boolean(previous?.runPassage)===Boolean(runPassage))return;
+ const next={...previous};
+ if(runPassage)next.runPassage=true;else delete next.runPassage;
+ try{window.history.replaceState(Object.keys(next).length?next:null,'');}catch{/* Reload can still open the normal run controls. */}
+}
 function beginSetupEntrance(newScenario=false){
+ const returnDestination=editingRerun?workspaceRoute():view;
+ parkRerunEditor();
  if(recoveryRaw!==null||primaryReadFailed){view='setup';render();focusViewHeading();return;}
  stop();
- setupReturnView=firstExamplePending()?null:view;
+ setupReturnView=newScenario&&!firstExamplePending()?returnDestination:null;
  setupEntryPath=null;newScenarioRequested=newScenario;view='setup';
- if(!setupReturnView)stepIndex=0;
+ stepIndex=firstExamplePending()?0:lastEditorStep;
  render();focusViewHeading();
 }
 function skyHeader(info){
@@ -868,10 +1055,14 @@ function skyHeader(info){
  const status=info?`<small id="${view}-save-status" role="status">${esc(info.message)}</small>`:'';
  return `<header class="sky-header"><div class="sky-identity">${home}<span aria-hidden="true">/</span>${identity}</div><div class="sky-tools">
  ${btn(icon('grid')+'<span>Navigate</span>','show-navigator','navigator-trigger','id="navigator-trigger" aria-haspopup="dialog" aria-controls="workspace-navigator"')}
- <details class="sky-preferences workspace-options" data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${appearancePicker()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View live sky')}${branch}${status}</div></details></div></header>`;
+ <details class="sky-preferences workspace-options" data-workspace-menu data-disclosure="app-preferences"><summary>${icon('settings')}<span>Workspace options</span></summary><div>${appearancePicker()}${languagePicker()}${inStudio()||view==='sky/view'?'':routeLink('sky/view','View live sky')}${branch}${status}</div></details></div></header>`;
 }
 function resumeDestination(){
  if(Object.hasOwn(destinations,resumeRoute))return [resumeRoute,destinations[resumeRoute]];
+ if(rerunDraft?.run===state&&resumeRoute.startsWith('setup/rerun/')){
+  const step=editorSteps.indexOf(resumeRoute.slice('setup/rerun/'.length));
+  if(step>=0)return [resumeRoute,steps[step]];
+ }
  if(resumeRoute==='setup')return ['setup','Business setup'];
  if(['setup/new','setup/new/business','setup/new/restaurant','setup/business','setup/restaurant','setup/style'].includes(resumeRoute))return [resumeRoute,'Setup style'];
  if(!firstExamplePending()){
@@ -895,33 +1086,24 @@ function editingCurrentSetup(){
  // Older saves didn't record the chosen path. Recognize their original starter names.
  return setupEntryPath==='business'?draft.name==='My business':draft.name===RESTAURANT_EXAMPLE&&draft.recipe?.profile==='new-workspace';
 }
-function setupTrail(chapter){
- const labels=['Starting point','Setup style','Assumptions'];
- const items=labels.map((label,i)=>{
-   if(i===chapter)return `<b aria-current="step">${label}</b>`;
-   if(i>chapter)return `<span class="upcoming">${label}</span>`;
-   if(i===0&&chapter===1)return btn(label,'setup-path-back','trail-link');
-   return routeLink(i===0?'setup':'setup/style',label);
- });
- return `<nav class="editor-trail setup-trail" aria-label="Setup navigation">${items.join('<i aria-hidden="true">›</i>')}</nav>`;
-}
 function setupEntrance(){
- const heading=setupEntryPath?'Choose your setup style':'Set up your business';
- const current=editingCurrentSetup(),business=setupEntryPath==='business';
- const back=newScenarioRequested&&!setupEntryPath?btn('Keep editing','cancel-new-setup','setup-back'):'';
- const hasDraft=!firstExamplePending();
- const resume=hasDraft&&!setupEntryPath&&!newScenarioRequested?`<div class="setup-resume"><div><strong>${scenarioName(draft.name||state.config.name)}</strong><span>${steps[lastEditorStep]} · Day ${state.day}</span></div>${routeLink('setup/edit/'+editorSteps[lastEditorStep],'Continue setup','scene-action')}${state.day?routeLink('map','Resume run','scene-action'):''}</div>`:'';
- const note=current?`<p class="setup-preservation">${scenarioName(draft.name||state.config.name)}</p>`:setupEntryPath&&hasDraft?'<p class="setup-preservation">Starting this scenario keeps your current work in Runs &amp; backups.</p>':'';
- const choices=setupEntryPath?
-   `<div><h2>Guided</h2><p>${current?'Work through the essentials of your current scenario step by step.':business?'Start with your first service, then work through demand, people and payment terms.':'Walk through the restaurant’s offers, demand, people and payment terms step by step.'}</p>${btn(current?'Continue guided setup':'Start guided setup','enter-setup','primary','data-mode="guided"')}</div>
-    <div><h2>All assumptions</h2><p>${current?'Open the detailed controls for your current scenario.':business?'Open the detailed controls to set your prices, workload and cash assumptions.':'Explore the detailed prices, workload and cash assumptions behind the restaurant example.'}</p>${btn('Open all assumptions','enter-setup','soft','data-mode="analyst"')}</div>`:
-   `<div><h2>Your services</h2><p>Enter one service you sell, then set demand, working hours and payment terms.</p>${btn('Set up my business','start-business','primary')}</div>
-    <div><h2>Restaurant studio example</h2><p>Explore a menu refresh, table tents and a monthly promotion. The studio’s prices, time and demand are example estimates.</p>${btn('Try the restaurant example','start-restaurant','soft')}</div>`;
- return `<section class="setup-story" data-render-key="setup-story-${setupEntryPath||'start'}" aria-labelledby="sim-heading">${back}${setupTrail(setupEntryPath?1:0)}<div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">${heading}</h1></div>${note}${resume}<div class="setup-start">${choices}</div></section>`;
+ const current=editingCurrentSetup(),savedStyle=setupEntryPath==='style',restaurant=setupEntryPath==='restaurant';
+ const back=newScenarioRequested&&setupReturnView?btn('Keep editing','cancel-new-setup','setup-back'):routeLink('sky','← Live Sky','setup-back');
+ const source=(id,label,selected)=>btn(label,'start-'+id,'source-choice',`aria-pressed="${selected}"`);
+ const origin=savedStyle?`<p class="setup-preservation">${scenarioName(draft.name||state.config.name)}</p>`:
+   `<div class="entry-source"><span id="source-label">Start with</span><div role="group" aria-labelledby="source-label">${source('business','My own services',!restaurant)}${source('restaurant','Restaurant example',restaurant)}</div>
+    <p>${restaurant?'Three sample offers with example prices, workloads and demand.':'Enter the service you sell, its price and the time it takes.'}</p></div>`;
+ const note=!firstExamplePending()&&!current?'<p class="setup-preservation">Starting this scenario keeps your current work in Runs &amp; backups.</p>':'';
+ return `<section class="setup-story setup-entry" data-render-key="setup-entry" aria-labelledby="sim-heading">${back}
+  <div class="workspace-heading"><h1 id="sim-heading" tabindex="-1">Choose your setup style</h1></div>
+  ${origin}${note}<div class="entry-modes">
+  <button type="button" data-action="enter-setup" data-mode="guided"><span><strong>Guided</strong><small>Work through the essentials one step at a time.</small></span>${icon('arrow')}</button>
+  <button type="button" data-action="enter-setup" data-mode="analyst"><span><strong>All assumptions</strong><small>Open the detailed inputs and estimates for each step.</small></span>${icon('arrow')}</button>
+  </div></section>`;
 }
 function setSetupMode(mode){
  setupMode=mode;setupModeChanging=true;
- const advanced=['customers','team','cash','mix',...draft.services.flatMap(s=>['service-'+s.id,'delivery-'+s.id])];
+ const advanced=['customers','team','cash','mix',...editorSteps.map((_,i)=>'estimate-'+i),...draft.services.flatMap(s=>['service-'+s.id,'delivery-'+s.id])];
  for(const id of advanced)disclosureState.set('setup-advanced-'+id,mode==='analyst');
  try{localStorage.setItem(SETUP_MODE_KEY,mode);}catch(err){toast('Setup view applied for this session. Browser storage is unavailable.');}
 }
@@ -938,7 +1120,7 @@ function workspaceNavigator(){
  const studioBackup={studio:['Studio backup','studio-backup','Import ideas','studio-import'],planner:['Planner backup','planner-backup','Import plans','planner-import'],jobs:['Jobs backup','jobs-backup','Import jobs','jobs-import']};
  const [backup,saveAction,open,loadAction]=studioBackup[view]||['Backup','backup','Open backup','import'];
  const context=editor?'Current setup':inStudio()?'Studio':simulator?'Simulator':'Live Sky';
- const page=editor?scenarioName(draft.name||state.config.name):view==='setup'?(setupEntryPath?'Choose your setup style':'Set up your business'):destinations[view]||'Live Sky';
+ const page=editor?scenarioName(draft.name||state.config.name):view==='setup'?'Choose your setup style':destinations[view]||'Live Sky';
  const detail=editor?steps[stepIndex]:simulator&&view!=='setup'?scenarioName(state.config.name):'';
  return `<div class="navigator-shell"><header class="navigator-heading"><h2 id="navigator-title" tabindex="-1" autofocus>Navigate</h2>${btn(icon('close'),'hide-navigator','navigator-close','aria-label="Close"')}</header>
  <div class="navigator-body"><button type="button" class="navigator-current" data-action="hide-navigator" title="Back to workspace">
@@ -948,6 +1130,7 @@ function workspaceNavigator(){
 }
 function openWorkspaceNavigator(){
  if(navigatorDialog.open)return;
+ if(runPassage&&running){stop();render();}
  const settings=document.querySelector('.sky-preferences');if(settings)settings.open=false;
  navigatorDialog.innerHTML=QQI18n.html(workspaceNavigator());
  navigatorDialog.showModal();
@@ -960,21 +1143,49 @@ if(navigatorDialog?.addEventListener){
    if(e.target.closest('a[href],.navigator-footer button')){navigatorDialog.close();return;}
    if(backdropPress&&e.target===navigatorDialog)navigatorDialog.close();backdropPress=false;});
 }
+// A result can point into a nested service editor. Follow its service id if
+// another offer is reordered or removed while this revision is open.
+function rerunFieldOrigin(path){
+ if(!editingRerun)return '';
+ const target=rerunDraft.path.split('.');
+ const keys=path.split('.');
+ if(rerunDraft.serviceId){
+  if(keys[0]!=='services'||draft.services[Number(keys[1])]?.id!==rerunDraft.serviceId||keys.slice(2).join('.')!==target.slice(2).join('.'))return '';
+ }else if(path!==rerunDraft.path)return '';
+ const original=rerunStartingConfig(state);
+ const service=rerunDraft.serviceId&&original.services.find(s=>s.id===rerunDraft.serviceId);
+ const value=(service?keys.slice(2):keys).reduce((obj,key)=>obj?.[key],service||original);
+ return value==null?'':formatDiffValue(path,value);
+}
+function rerunControls(){
+ return `<section class="rerun-controls" data-render-key="rerun-controls" aria-label="Revised setup">
+ <div class="rerun-source">${btn('<i aria-hidden="true">←</i> <span>Original results</span>','return-rerun-results','rerun-return')}
+ <span class="rerun-original-profit"><span>Operating result</span> <strong>${setupResultAmount(state.revenue-state.expenses)}</strong></span></div>
+ ${btn('<span>Simulate again</span> <i aria-hidden="true">→</i>','simulate-again','primary rerun-launch',canSimulateRerun()?'':'disabled')}</section>`;
+}
 function setupEditorScene(notices){
- const context=dirty()?'Setup draft':draft.recipe?.profile==='new-workspace'&&draft.name===RESTAURANT_EXAMPLE?'Example scenario':'Current scenario';
- return `<div class="setup-sheet" data-render-key="setup-sheet"><div class="sheet-heading"><div class="sheet-navigation">${setupTrail(2)}</div><div class="scenario-heading">${workspaceHeading(true)}<span>${context} · Day ${state.day}</span></div></div>${notices}${setupView()}</div>`;
+ const source=!editingRerun&&keptComparisonId?savedComparisonArchive(keptComparisonId)?.workspace.rerunLink:null;
+ const example=draft.recipe?.profile==='new-workspace'&&draft.name===RESTAURANT_EXAMPLE;
+ const basis={original:'Based on the original run',revised:'Based on the revised run'}[source?.keptVersion];
+ const context=editingRerun?'Revised setup':dirty()?'Setup draft':basis||(example?'Example scenario':'Current scenario');
+ const savedLink=source?btn('<span>View saved comparison</span> <i aria-hidden="true">↗</i>','open-saved-comparison','setup-comparison-link',`id="setup-saved-comparison" data-comparison-id="${esc(keptComparisonId)}" aria-haspopup="dialog"`):'';
+ const modeButton=(id,label)=>btn(label,'setup-density',setupMode===id?'active':'',`data-mode="${id}" aria-pressed="${setupMode===id}"`);
+ const options=`${btn(recipeOpen?'Close scenario builder':'Try a scenario','toggle-recipe','small',`aria-expanded="${recipeOpen}"`)}${btn('Assumption sources','current-evidence','small')}${btn('New scenario','new-scenario','small')}${presetUndoDraft?btn('Undo recipe','undo-preset','small'):''}${dirty()?btn('Cancel all draft changes','ask-discard','small'):''}`;
+ return `<div class="setup-sheet${editingRerun?' rerun-editor':''}" data-render-key="setup-sheet"><div class="sheet-heading setup-context">
+  <div class="scenario-identity"><strong>${draft.name?scenarioName(draft.name):'Untitled scenario'}</strong><div class="scenario-context-line"><small><span>${context}</span>${editingRerun?'':' · Day '+state.day} ${btn('View estimate ↓','focus-estimate','mobile-estimate','aria-controls="draft-summary"')}</small>${savedLink}</div></div>
+  <div class="setup-modebar"><div class="setup-detail"><div class="segmented" role="group" aria-label="Setup detail level">${modeButton('guided','Guided')}${modeButton('analyst','All assumptions')}</div></div><label class="setup-duration"><span>Run length</span><select id="input-months" data-input="months">${runLengthOptions(draft.months)}</select></label>
+  <details data-workspace-menu data-disclosure="offer-setup-options"><summary id="setup-options-toggle">Setup options</summary><div class="offer-setup-controls"><div class="setup-secondary">${options}</div></div></details></div></div>
+  ${editingRerun?rerunControls():''}${notices}${setupView()}</div>`;
 }
 function setupView(){
- const modeButton=(id,label)=>btn(label,'setup-density',setupMode===id?'active':'',`data-mode="${id}" aria-pressed="${setupMode===id}"`);
- const actions=`<div class="setup-secondary">${btn(recipeOpen?'Close scenario builder':'Try a scenario','toggle-recipe','small',`aria-expanded="${recipeOpen}"`)}${btn('Assumption sources','current-evidence','small')}${btn('New scenario','new-scenario','small')}${presetUndoDraft?btn('Undo recipe','undo-preset','small'):''}</div>`;
- const issue=draftValidationIssues()[0],target=setupIssueTarget(issue);
- const finishOffer=setupMode==='guided'&&stepIndex===0&&target?.step===0&&issue.path.startsWith('services');
- const nextAction=finishOffer?btn((issue.path==='services'?'Fix ':'Set ')+esc(target.label),'fix-setup-issue','primary'):stepIndex<3?btn('Next: '+steps[stepIndex+1]+' →','setup-step',stepIndex===0?'primary':'soft','data-step="'+(stepIndex+1)+'"'):'';
- const tabs=steps.map((n,i)=>`<button id="setup-tab-${i}" role="tab" aria-controls="setup-panel" aria-selected="${stepIndex===i}" tabindex="${stepIndex===i?0:-1}" data-action="setup-step" data-step="${i}" class="${stepIndex===i?'active':''}"><span>${i+1}</span>${n}</button>`).join('');
+ const headings=['What do you sell?','Where do inquiries come from?','Who does the work?','When does cash change hands?'];
+ const nextAction=stepIndex<3?btn('Next: '+steps[stepIndex+1]+' →','setup-step','primary','data-step="'+(stepIndex+1)+'"'):btn('View run estimate','focus-estimate','primary');
+ const tabs=steps.map((n,i)=>`<button id="setup-tab-${i}" role="tab" aria-controls="setup-panel" aria-selected="${stepIndex===i}" tabindex="${stepIndex===i?0:-1}" data-action="setup-step" data-step="${i}" class="${stepIndex===i?'active':''}"><span aria-hidden="true">0${i+1}</span>${n}</button>`).join('');
  const content=stepIndex===0?serviceInputs():stepIndex===1?customerInputs():stepIndex===2?teamInputs():cashInputs();
- const controls=`<div class="setup-detail"><span>Setup style</span><div class="segmented" role="group" aria-label="Setup detail level">${modeButton('guided','Guided')}${modeButton('analyst','All assumptions')}</div></div><label class="month-picker setup-duration">Run length<select id="input-months" data-input="months">${runLengthOptions(draft.months)}</select></label>`;
- const modebar=`<div class="setup-modebar offer-modebar">${controls}<details data-disclosure="offer-setup-options"><summary>Setup options</summary><div class="offer-setup-controls">${actions}</div></details></div>`;
- return `<div class="setup-workspace setup-mode-${setupMode}">${modebar}${recipeOpen?presetWorkbench():''}<div class="setup-steps" role="tablist" aria-label="Setup steps">${tabs}</div><div class="setup-layout"><section id="setup-panel" class="panel setup-body" role="tabpanel" aria-labelledby="setup-tab-${stepIndex}"><div class="setup-page-stack"><div class="setup-step-page" data-setup-page="${stepIndex}">${content}<div class="step-footer">${stepIndex?btn('← Back','setup-step','','data-step="'+(stepIndex-1)+'"'):'<span></span>'}${nextAction||btn('View run estimate','focus-estimate','soft')}</div></div></div></section><aside class="setup-summary" id="draft-summary" tabindex="-1" aria-label="Run estimate">${draftSummary()}</aside></div></div>`;
+ return `<div class="setup-workspace setup-mode-${setupMode}">${stepIndex?'<span id="decision-announcement" role="status" aria-atomic="true"></span>':''}${recipeOpen?presetWorkbench():''}<div class="setup-steps" role="tablist" aria-label="Setup steps">${tabs}</div>
+  <div class="setup-layout"><section id="setup-panel" class="panel setup-body" role="tabpanel" aria-labelledby="setup-tab-${stepIndex}"><div class="setup-page-stack"><div class="setup-step-page" data-setup-page="${stepIndex}">
+  <h1 class="chapter-title" id="sim-heading" tabindex="-1">${headings[stepIndex]}</h1>${content}<div class="step-footer">${stepIndex?btn('← Back','setup-step','','data-step="'+(stepIndex-1)+'"'):'<span></span>'}${nextAction}</div>
+  </div></div></section><aside class="setup-summary" id="draft-summary" tabindex="-1" aria-label="Run estimate">${draftSummary()}${btn('↑ Back to inputs','setup-step','mobile-estimate estimate-return','data-step="'+stepIndex+'"')}</aside></div></div>`;
 }
 function serviceUnit(service){
  const config={...QQ.DEFAULT,designerRate:draft.designerRate,ownerTarget:draft.ownerTarget,quoteHours:draft.quoteHours,deliveryHours:draft.deliveryHours,services:[{...service,weight:100}]};
@@ -1000,18 +1211,148 @@ function serviceScope(service,catalogId=null){
  const audit=QQServiceCatalog.auditService(service),range=spec.modeledPriceRange;
  return `<div class="service-scope"><h3>Original example scope</h3><div class="service-scope-heading"><b>${esc(spec.scope)}</b><span>${service.fulfillment?'Design with optional print batch':service.print>0?'Design + print batch':'Digital delivery'} · ${service.campaign?(service.campaign.cadenceDays===90?'Seasonal campaign':'Monthly campaign'):service.recurring?'Per paid cycle':'One-off'}</span></div><ul>${spec.deliverables.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${spec.printQuantity?`<p><b>${spec.printQuantity} ${esc(spec.printUnit||'pieces')}</b> · ${esc(spec.printSpec)}</p><p class="helper">${esc(spec.printCostBasis)} Quantity describes this package; changing the batch requires a new supplier estimate.</p>`:''}<p class="helper">${spec.includedRevisions} included feedback round${spec.includedRevisions===1?'':'s'} budgeted in the work estimate. Optional disruption rounds add work; no automatic extra fee is charged.</p><div class="service-scope-footer"><span>${range?'Modeled starting price '+money(range[0])+'–'+money(range[1]):'Custom price'}${audit.compatible===false?' · source version unavailable':''}</span>${btn('Price & scope evidence','service-evidence','small',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:""}`)}</div></div>`;
 }
-function serviceEvidence(service,catalogId=null){
+function serviceEvidence(service,catalogId=null,pickerKey=null){
  const audit=QQServiceCatalog.auditService(service),spec=service.spec;
  const records=(audit.records||QQServiceCatalog.SOURCES.filter(v=>spec?.evidenceIds?.includes(v.id)));
- modal(`<h2 id="dialog-title">${serviceName(service)}: price and scope</h2><p>Published prices are comparables for the stated scope. Your customer price, work estimate and supplier allowance remain editable assumptions.</p><p><b>Current ${service.fulfillment?'managed-print ':''}customer price: ${Number.isFinite(service.price)?money(service.price):'not entered'}</b>${service.fulfillment?` · files only: ${Number.isFinite(service.fulfillment.designOnlyPrice)?money(service.fulfillment.designOnlyPrice):'not entered'} · managed-print share: ${Number.isFinite(service.fulfillment.managedShare)?pct(service.fulfillment.managedShare):'not entered'}`:''}</p><p>${esc(spec?.scope||service.deliverable)}</p><p>${esc(typeof audit.derivation==='string'?audit.derivation:JSON.stringify(audit.derivation||{}))}</p>${audit.edited?.length?`<p class="banner warn">Customized fields: ${esc(audit.edited.join(', '))}. The frozen derivation describes the original package; your edited values drive the preview and run.</p>`:''}${audit.modelRecord?`<details class="source-records"><summary>Documented price derivation</summary><pre>${esc(JSON.stringify(audit.modelRecord,null,2))}</pre></details>`:''}${audit.compatible===false?'<p class="banner warn">This package version is unavailable. Your saved values are preserved; current sources cannot verify its original quote.</p>':''}<div class="source-records">${records.map(record=>`<article><h3>${esc(record.title||record.label||record.id)}</h3><p>${esc(record.caveat||record.scope||record.note||'')}</p>${record.url?`<a href="${esc(record.url)}" target="_blank" rel="noopener">Open published source</a>`:''}<small>Recorded ${esc(record.retrieved||record.retrievedAt||'see source record')}</small><pre>${esc(JSON.stringify(record.snapshot||record.observations||record,null,2))}</pre></article>`).join('')}</div><div class="actions">${catalogId?btn('Back to package','catalog-package','',`data-id="${esc(catalogId)}"`):btn('Close','close')}${btn('Download service evidence','download-service-evidence','soft',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:''}`)}</div>`);
+ const basis=spec?.catalogId===QQServiceCatalog.OPPORTUNITY_CATALOG.id?'Fees and hours are editable planning estimates for the scope below. Linked sources document the workflow or supplier inputs.':'Published prices are comparables for the stated scope. Your customer price, work estimate and supplier allowance remain editable assumptions.';
+ modal(`<h2 id="dialog-title">${serviceName(service)}: price and scope</h2><p>${basis}</p><p><b>Current ${service.fulfillment?'managed-print ':''}customer price: ${Number.isFinite(service.price)?money(service.price):'not entered'}</b>${service.fulfillment?` · files only: ${Number.isFinite(service.fulfillment.designOnlyPrice)?money(service.fulfillment.designOnlyPrice):'not entered'} · managed-print share: ${Number.isFinite(service.fulfillment.managedShare)?pct(service.fulfillment.managedShare):'not entered'}`:''}</p><p>${esc(spec?.scope||service.deliverable)}</p><p>${esc(typeof audit.derivation==='string'?audit.derivation:JSON.stringify(audit.derivation||{}))}</p>${audit.edited?.length?`<p class="banner warn">Customized fields: ${esc(audit.edited.join(', '))}. The frozen derivation describes the original package; your edited values drive the preview and run.</p>`:''}${audit.modelRecord?`<details class="source-records"><summary>Documented price derivation</summary><pre>${esc(JSON.stringify(audit.modelRecord,null,2))}</pre></details>`:''}${audit.compatible===false?'<p class="banner warn">This package version is unavailable. Your saved values are preserved; current sources cannot verify its original quote.</p>':''}<div class="source-records">${records.map(record=>`<article><h3>${esc(record.title||record.label||record.id)}</h3><p>${esc(record.caveat||record.scope||record.note||'')}</p>${record.url?`<a href="${esc(record.url)}" target="_blank" rel="noopener">Open published source</a>`:''}<small>Recorded ${esc(record.retrieved||record.retrievedAt||'see source record')}</small><pre>${esc(JSON.stringify(record.snapshot||record.observations||record,null,2))}</pre></article>`).join('')}</div><div class="actions">${pickerKey?btn('Back to selection','picker-details-back','',`data-key="${esc(pickerKey)}"`):catalogId?btn('Back to package','catalog-package','',`data-id="${esc(catalogId)}"`):btn('Close','close')}${btn('Download service evidence','download-service-evidence','soft',`data-id="${esc(service.id)}" ${catalogId?`data-catalog="${esc(catalogId)}"`:''} ${pickerKey?`data-picker-evidence="${esc(pickerKey)}"`:''}`)}</div>`);
 }
-function serviceLibraryCards(){
- const rows=QQServiceCatalog.SERVICES.filter(row=>{const s=QQServiceCatalog.createService(row.id);return(catalogGoal==='all'||row.category===catalogGoal)&&(catalogAudience==='all'||s.audience==='all'||s.audience===catalogAudience);});
- return rows.map(row=>{const s=QQServiceCatalog.createService(row.id),unit=serviceUnit(s);return `<article class="catalog-card"><div><span class="catalog-category">${esc(row.goal||'Local business')}</span><h3>${serviceName(s)}</h3><p>${esc(s.spec?.scope||s.deliverable)}</p></div><div class="catalog-price"><b>${money(s.price)}</b><span>${s.recurring?'per paid cycle':'per project'} · ${s.fulfillment?'managed print · ':''}modeled starting price</span></div><p class="helper">${s.spec?.printQuantity?s.spec.printQuantity+' '+esc(s.spec.printUnit||'pieces')+' · '+esc(s.spec.printSpec):'Digital files · printing excluded'}</p><div class="catalog-facts"><span>${num(s.hours)} design h</span><span>${num(s.review)} owner review h</span><span>${unit?offerAmount(s.fulfillment?QQ.round(unit.designerCost+s.print):unit.directCost):'—'} ${s.fulfillment?'managed-print ':''}direct cost</span></div>${btn('Review package','catalog-package','soft',`data-id="${esc(row.id)}"`)}</article>`;}).join('')||'<p class="helper">No packages match these filters. Try another customer need.</p>';
+const offerGoals=[
+ ['offer','Promote an offer'],['menu','Refresh a menu'],['visibility','Improve storefront visibility'],
+ ['branding','Create a basic brand'],['recurring','Plan monthly or seasonal campaigns'],
+ ['analytics','Understand business performance'],['catalog','Organize products and pricing'],
+ ['localization','Reach customers in another language'],['sourcing','Evaluate products and suppliers'],
+ ['client-experience','Improve the client experience']
+];
+const offerAudiences=[['food','Restaurants & cafés'],['retail','Retail shops'],['services','Local services']];
+function normalizePackageSearch(value){
+ return value.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().trim();
 }
-function serviceLibrary(){
- const goals=[['offer','Promote an offer'],['menu','Refresh a menu'],['visibility','Improve storefront visibility'],['branding','Create a basic brand'],['recurring','Plan monthly or seasonal campaigns']];
- modal(`<h2 id="dialog-title">What does the customer need?</h2><p>Choose a defined package, inspect its scope and costs, then add it to your draft.</p><div class="catalog-filters"><label for="catalog-goal">Customer need<select id="catalog-goal" aria-label="Customer need"><option value="all">All needs</option>${goals.map(([id,label])=>`<option value="${id}" ${id===catalogGoal?'selected':''}>${esc(label)}</option>`).join('')}</select></label><label for="catalog-audience">Customer type<select id="catalog-audience" aria-label="Customer type">${[['all','All businesses'],['food','Restaurants & cafés'],['retail','Retail shops'],['services','Local services']].map(([id,name])=>`<option value="${id}" ${id===catalogAudience?'selected':''}>${name}</option>`).join('')}</select></label></div><div id="catalog-results" class="catalog-grid">${serviceLibraryCards()}</div><div class="actions">${btn('Close','close')}${btn('Start with a blank service','add-blank-service','soft')}</div>`);
+function openOfferPicker(){
+ const existing=new Map(),placeholder=pristineOfferStarter(draft);
+ let customCount=0;
+ for(const service of draft.services){
+  const id=catalogPackageId(service);
+  if(id){if(!existing.has(id))existing.set(id,[]);existing.get(id).push(service);}
+  else if(service!==placeholder)customCount++;
+ }
+ const featured=new Map(QQServiceCatalog.FEATURED_IDS.map((id,i)=>[id,i]));
+ const packages=[...QQServiceCatalog.SERVICES].sort((a,b)=>(featured.get(a.id)??Infinity)-(featured.get(b.id)??Infinity));
+ const rows=[];
+ for(const entry of packages){
+  const recommendation=QQServiceCatalog.recommendation(entry.id);
+  const copies=existing.get(entry.id);
+  for(const service of copies||[entry]){
+   const saved=Boolean(copies),key=(saved?'saved-':'new-')+service.id;
+   const audit=saved?QQServiceCatalog.auditService(service):null;
+   const goal=offerGoals.find(([id])=>id===entry.category)?.[1];
+   const audience=offerAudiences.find(([id])=>id===service.audience)?.[1];
+   const words=[service.name,entry.name,goal,entry.goal,audience,service.deliverable,recommendation.buyer,recommendation.benefit,...entry.spec.deliverables].filter(Boolean);
+   const search=normalizePackageSearch(words.flatMap(word=>[word,QQI18n.text(word)]).join(' '));
+   rows.push({key,service,entry,recommendation,saved,search,customized:saved&&(!audit.compatible||audit.edited.length>0)});
+  }
+ }
+ offerPicker={draft,rows,customCount,added:new Set(),removed:new Set(),query:'',goal:'all',audience:'all',selectionOnly:false};
+ serviceLibrary();
+}
+function packageIsSelected(row){
+ return row.saved?!offerPicker.removed.has(row.service.id):offerPicker.added.has(row.entry.id);
+}
+function offerPickerSummary(){
+ const p=offerPicker,selected=p.rows.filter(packageIsSelected).length;
+ const total=draft.services.length+p.added.size-p.removed.size-(p.added.size&&pristineOfferStarter(draft)?1:0);
+ const selectedText=selected===1?'1 package selected':selected+' packages selected';
+ const pending=[p.added.size?p.added.size+' to add':'',p.removed.size?p.removed.size+' to remove':''].filter(Boolean).join(' · ');
+ const onlyParked=p.removed.size&&!p.added.size&&draft.services.every(s=>p.removed.has(s.id)||s.weight===0);
+ const exceedsLimit=total>20&&(p.added.size>0||total>=draft.services.length);
+ const issue=exceedsLimit?'Your menu can hold up to 20 services.':total<1?'Keep at least one service in your menu.':onlyParked?'Keep at least one active offer or choose a replacement.':'';
+ return {selectedText,pending,issue,canApply:Boolean(pending)&&!issue};
+}
+function pickerPackageDetails(row){
+ const {service,recommendation,key}=row;
+ const scope=(title,body)=>`<div><dt>${title}</dt><dd>${body}</dd></div>`;
+ const included='<ul>'+(service.spec?.deliverables||[service.deliverable]).map(line=>'<li>'+esc(line)+'</li>').join('')+'</ul>';
+ return `<details class="offer-pick-more" id="details-${esc(key)}"><summary>Package details<span class="picker-sr"> · ${serviceName(service)}</span></summary>
+ <div class="offer-pick-detail"><dl>
+ ${scope('Who buys it',esc(recommendation.buyer))}${scope('What the client supplies',esc(recommendation.inputs))}
+ ${row.customized?scope('Your deliverable',esc(QQI18n.literal(serviceCopy(service,'deliverable')))):''}
+ ${scope(row.customized?'Original package deliverables':'Included in the package',included)}${scope('Outside this scope',esc(recommendation.boundary))}
+ ${scope('Work and costs',`<span>Production hours</span> · ${effortHours(service.hours)}<br><span>Owner review hours</span> · ${effortHours(service.review)}<br><span>Supplier allowance</span> · ${offerAmount(service.print)}`)}
+ ${service.campaign?scope('Campaign schedule','Quoted every '+service.campaign.cadenceDays+' days for '+service.campaign.relationshipDays+' days.'):''}
+ ${service.fulfillment?scope('Client print choices',`<span>Managed printing</span> · ${offerAmount(service.price)}<br><span>Files only</span> · ${offerAmount(service.fulfillment.designOnlyPrice)}`):''}
+ </dl>${btn('Price & scope evidence','picker-evidence','small',`id="evidence-${esc(key)}" data-key="${esc(key)}"`)}</div></details>`;
+}
+function visibleOfferRows(){
+ const p=offerPicker;
+ const words=normalizePackageSearch(p.query).split(/\s+/).filter(Boolean);
+ return p.rows.filter(row=>(p.goal==='all'||row.entry.category===p.goal||p.goal==='recurring'&&row.service.recurring)&&
+  (p.audience==='all'||row.service.audience==='all'||row.service.audience===p.audience)&&
+  (!p.selectionOnly||packageIsSelected(row))&&words.every(word=>row.search.includes(word)));
+}
+function offerResultCount(rows){return rows.length===1?'1 matching package':rows.length+' matching packages';}
+function serviceLibraryCards(rows=visibleOfferRows()){
+ if(!rows.length)return '<div class="picker-empty"><p>No packages match this view.</p>'+btn('Clear filters','reset-offer-filters','small')+'</div>';
+ return rows.map(row=>{
+  const {service:s,recommendation,key}=row,id='choose-'+key;
+  const status=row.saved?(row.customized?'Customized in your menu':'In your menu')+(s.weight===0?' · Draft only (0% share)':''):'';
+  let priceLabel=s.fulfillment?'Managed-print model price':'Model price';
+  if(s.campaign)priceLabel=s.fulfillment?'Managed-print model price per cycle':'Model price per cycle';
+  if(row.customized)priceLabel=s.campaign?'Your price per cycle':'Your price';
+  return `<article class="offer-pick-row"><div class="offer-pick-line"><label for="${esc(id)}">
+  <input type="checkbox" id="${esc(id)}" data-picker-key="${esc(key)}" aria-describedby="fit-${esc(key)}" ${packageIsSelected(row)?'checked':''}>
+  <span><strong>${serviceName(s)}</strong>${status?`<small class="offer-pick-status">${status}</small>`:''}</span></label>
+  <div class="offer-pick-rate"><strong>${offerAmount(s.price)}</strong><small>${priceLabel}</small></div>
+  <p id="fit-${esc(key)}">${esc(recommendation.benefit)}</p>
+  <small class="offer-pick-effort"><span>Production hours</span> · ${effortHours(s.hours)}</small>
+  </div>${pickerPackageDetails(row)}</article>`;
+ }).join('');
+}
+function pickerFilters(){
+ const p=offerPicker;
+ const select=(id,label,all,choices,value)=>`<label><span>${label}</span><select id="${id}"><option value="all">${all}</option>${choices.map(([id,name])=>`<option value="${id}" ${id===value?'selected':''}>${name}</option>`).join('')}</select></label>`;
+ return `<div class="offer-pick-filters"><label class="offer-search"><span>Search packages</span><input id="offer-package-search" type="search" autocomplete="off" enterkeyhint="search" value="${esc(p.query)}" placeholder="Service, customer or deliverable"></label>
+ ${select('catalog-goal','Customer need','All needs',offerGoals,p.goal)}${select('catalog-audience','Customer type','All businesses',offerAudiences,p.audience)}</div>`;
+}
+function serviceLibrary(focusId='dialog-title'){
+ if(!offerPicker||offerPicker.draft!==draft){openOfferPicker();return;}
+ const summary=offerPickerSummary(),rows=visibleOfferRows(),others=offerPicker.customCount;
+ const customNote=others===1?'One service outside this catalog stays in your menu. Edit it in Offers.':others+' services outside this catalog stay in your menu. Edit them in Offers.';
+ modal(`<div class="offer-picker"><header><h2 id="dialog-title" tabindex="-1">Choose services for your menu</h2>
+ <p>Select packages to add, or uncheck services you want to remove.</p>${others?`<p class="picker-custom-note">${customNote}</p>`:''}${pickerFilters()}
+ <div class="picker-view"><label class="picker-view-selected"><input type="checkbox" id="offer-selection-only" ${offerPicker.selectionOnly?'checked':''}>Show selected packages</label>
+ <span id="offer-match-count" role="status">${offerResultCount(rows)}</span></div></header>
+ <div id="catalog-results" class="offer-pick-results" role="region" aria-label="Service packages" tabindex="0">${serviceLibraryCards(rows)}</div>
+ <footer><div role="status" aria-live="polite" aria-atomic="true"><strong id="offer-selected-count">${summary.selectedText}</strong>
+ <small id="offer-pending">${summary.issue||summary.pending}</small></div>
+ <div class="picker-actions">${btn('Cancel','close')}${btn('Apply selection','apply-offer-selection','primary',`id="apply-offer-selection" ${summary.canApply?'':'disabled'}`)}</div></footer></div>`,focusId);
+}
+function refreshOfferPicker(list=true){
+ if(list){
+  const rows=visibleOfferRows();
+  $('#catalog-results').innerHTML=QQI18n.html(serviceLibraryCards(rows));
+  $('#catalog-results').scrollTop=0;
+  $('#offer-match-count').textContent=QQI18n.text(offerResultCount(rows));
+ }
+ const summary=offerPickerSummary();
+ $('#offer-selected-count').textContent=QQI18n.text(summary.selectedText);
+ $('#offer-pending').textContent=QQI18n.text(summary.issue||summary.pending);
+ $('#apply-offer-selection').disabled=!summary.canApply;
+ $('#modal-error').textContent='';
+}
+function stagePickerItem(el){
+ const row=offerPicker.rows.find(item=>item.key===el.dataset.pickerKey);
+ if(!row)return;
+ const changes=row.saved?offerPicker.removed:offerPicker.added;
+ const id=row.saved?row.service.id:row.entry.id;
+ if(row.saved?!el.checked:el.checked)changes.add(id);else changes.delete(id);
+ refreshOfferPicker(offerPicker.selectionOnly);
+ if(offerPicker.selectionOnly)$('#offer-selection-only').focus();
+}
+function restorePickerDetails(key){
+ offerPicker.evidenceKey=null;
+ serviceLibrary('catalog-results');
+ const detail=document.getElementById?.('details-'+key);
+ if(detail){detail.open=true;document.getElementById('evidence-'+key)?.focus();}
 }
 function catalogEconomics(service){
  const unit=serviceUnit(service);if(!unit)return '<p class="banner warn">Enter a complete price and valid work assumptions to preview costs.</p>';
@@ -1033,16 +1374,233 @@ function clearServiceRecords(id){
  for(const path of Object.keys(draft.assumptionRecords))if(path.startsWith(prefix))delete draft.assumptionRecords[path];
  if(!Object.keys(draft.assumptionRecords).length)delete draft.assumptionRecords;
 }
+function emptyCustomOffer(){
+ return {customOffer:true,name:'',deliverable:'',price:null,hours:null,review:null,print:null,supplierMode:'choose',recurring:false,audience:'all',color:'#647f9a'};
+}
+function pristineOfferStarter(config){
+ const [service]=config.services;
+ if(config.services.length!==1||service.weight!==100)return null;
+ const blank=emptyCustomOffer();
+ if(!Object.entries(blank).every(([key,value])=>service[key]===value)||
+    Object.keys(service).some(key=>key!=='id'&&key!=='weight'&&!Object.hasOwn(blank,key)))return null;
+ return Object.keys(config.assumptionRecords||{}).some(key=>key.startsWith('services.'+service.id+'.'))?null:service;
+}
+function originalOfferPackage(service){
+ const spec=service?.spec;
+ return spec&&QQServiceCatalog.SERVICES.find(row=>row.id===spec.packageId&&row.spec.catalogId===spec.catalogId&&row.spec.version===spec.version);
+}
+function catalogPackageId(service){return originalOfferPackage(service)?.id||null;}
+function currentClientMenu(config=draft,allowPartial=false){
+ const savedMenu=config.clientMenu;
+ if(!savedMenu||!Array.isArray(savedMenu.serviceIds))return null;
+ const profile=QQServiceCatalog.CLIENT_MENUS.find(menu=>menu.id===savedMenu.profileId);
+ const serviceIds=savedMenu.serviceIds;
+ if(!profile||serviceIds.length!==profile.slots.length||new Set(serviceIds).size!==serviceIds.length)return null;
+ const packageIds=serviceIds.map((id,i)=>{
+  const offer=config.services.find(s=>s.id===id&&s.weight>0);
+  const packageId=catalogPackageId(offer);
+  return profile.slots[i].options.some(o=>o.id===packageId)?packageId:null;
+ });
+ const present=packageIds.filter(Boolean);
+ if(!present.length||new Set(present).size!==present.length||(!allowPartial&&present.length!==serviceIds.length))return null;
+ return {profile,packageIds,serviceIds:serviceIds.map((id,i)=>packageIds[i]?id:null)};
+}
+function draftWithClientMenu(config,source){
+ const restored=QQ.clone(config);
+ if(source?.clientMenu){
+  const candidate={...restored,clientMenu:source.clientMenu};
+  if(currentClientMenu(candidate,true))return {...restored,clientMenu:QQ.clone(source.clientMenu)};
+ }
+ // A run keeps its modeled inputs. Reconnect a named client's menu only
+ // when the recorded offers identify one unambiguous service in every role.
+ const profile=QQServiceCatalog.CLIENT_MENUS.find(menu=>menu.id===config.clientDemand?.profileId);
+ if(profile){
+  const roles=profile.slots.map(slot=>restored.services.filter(s=>s.weight>0&&slot.options.some(o=>o.id===catalogPackageId(s))));
+  if(roles.every(matches=>matches.length===1)){
+   const clientMenu={profileId:profile.id,serviceIds:roles.map(([s])=>s.id)};
+   if(currentClientMenu({...restored,clientMenu}))restored.clientMenu=clientMenu;
+  }
+ }
+ return restored;
+}
+// Keep proposed identities across renders of the same draft menu. Applying
+// a menu changes its services array, so a later replacement gets a fresh ID
+// even when the customer chooses a package used in an earlier revision.
+const clientMenuPreviewIds=new WeakMap();
+function proposedMenuServiceId(packageId,reserved){
+ let ids=clientMenuPreviewIds.get(draft.services);
+ if(!ids){ids=new Map();clientMenuPreviewIds.set(draft.services,ids);}
+ if(!ids.has(packageId)){
+  const nonce=globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+  ids.set(packageId,'menu-'+nonce);
+ }
+ return newServiceId(reserved,ids.get(packageId));
+}
+function clientMenuCandidate(profile,packageIds,retainOtherOffers=true){
+ const config=QQ.clone(draft),previous=config.services,added=[],activated=[];
+ const result={config,added,activated,retained:[],removed:[],pristineRemoved:false,changed:false,error:'',unsegmented:!config.customerMix};
+ const menu=QQServiceCatalog.CLIENT_MENUS.find(value=>value.id===profile?.id);
+ if(!menu||!Array.isArray(packageIds)||menu.slots.length!==packageIds.length||
+    !menu.slots.every((slot,i)=>slot.options.some(option=>option.id===packageIds[i]))||new Set(packageIds).size!==packageIds.length){
+  result.error='Choose one different offer for each role.';return result;
+ }
+ const linked=currentClientMenu(config),sameProfile=linked?.profile.id===menu.id;
+ const reserved=new Set(),include=new Set();
+ const selected=packageIds.map(packageId=>{
+  const matches=previous.filter(s=>catalogPackageId(s)===packageId);
+  const linkedId=sameProfile?linked.serviceIds[linked.packageIds.indexOf(packageId)]:null;
+  const active=matches.filter(s=>s.weight>0);
+  // In particular, keep the user's named/edited copy when an unedited copy
+  // also exists. A known role always keeps its original instance.
+  let service=matches.find(s=>s.id===linkedId)||active.find(s=>QQServiceCatalog.auditService(s).edited.length)||active[0]||matches[0];
+  if(!service){
+   service=QQServiceCatalog.createService(packageId);
+   service.id=proposedMenuServiceId(packageId,reserved);reserved.add(service.id);service.weight=0;
+   if(!config.customerMix)service.audience='all';
+   added.push(service);
+  }else if(service.weight===0)activated.push(service);
+  if(!(service.weight>0))include.add(service.id);
+  return service;
+ });
+ const selectedIds=new Set(selected.map(s=>s.id));
+ const starter=pristineOfferStarter(config),retired=new Set();
+ if(sameProfile)linked.serviceIds.forEach((id,index)=>{
+  if(selectedIds.has(id))return;
+  retired.add(id);
+  // Preserve the inquiries previously assigned to this role. If its
+  // successor was already active elsewhere, consolidate both shares.
+  const successor=selected[index],original=previous.find(s=>s.id===id);
+  successor.weight=(successor.weight||0)+original.weight;
+  include.delete(successor.id);
+ });
+ result.removed=previous.filter(s=>s===starter||retired.has(s.id)||(!retainOtherOffers&&!selectedIds.has(s.id)));
+ result.pristineRemoved=Boolean(starter&&result.removed.includes(starter));
+ const removedIds=new Set(result.removed.map(s=>s.id));
+ config.services=retainOtherOffers?[...previous.filter(s=>!removedIds.has(s.id)),...added]:selected;
+ config.clientMenu={profileId:menu.id,serviceIds:selected.map(s=>s.id)};
+ const weights=allocatedOfferWeights(config.services,include);
+ for(const s of config.services)s.weight=weights.get(s.id);
+ result.retained=config.services.filter(s=>!reserved.has(s.id));
+ if(config.assumptionRecords){
+  for(const path of Object.keys(config.assumptionRecords)){
+   const [group,id]=path.split('.');
+   if(group==='services'&&removedIds.has(id))delete config.assumptionRecords[path];
+  }
+  if(!Object.keys(config.assumptionRecords).length)delete config.assumptionRecords;
+ }
+ result.changed=JSON.stringify(config)!==JSON.stringify(draft);
+ if(config.services.length>20)result.error='Your menu can hold up to 20 services.';
+ return result;
+}
+function clientMenuProjection(source){
+ const config=draftRunConfig(source),issues=issuesForDraft(source,config);
+ const estimate=issues.length?null:QQ.estimate(config);
+ return {valid:!issues.length,issues,days:validRunLength(config.months)?config.months*30:null,
+  profit:estimate?.profit??null,orders:estimate?.orders??null,productionHours:estimate?.hours??null,ownerHours:estimate?.owner??null,
+  surplus:estimate?.surplus??null,revenue:estimate?.revenue??null,unserved:estimate?.unserved??null,unservedShare:estimate?.unservedShare??null,
+  productionCapacity:estimate?.designCapacity??null,ownerCapacity:estimate?.ownerCapacity??null};
+}
+function applyClientMenu(profile,packageIds,retainOtherOffers=true){
+ const candidate=clientMenuCandidate(profile,packageIds,retainOtherOffers);
+ if(candidate.error)throw Error(candidate.error);
+ if(!candidate.changed)return candidate;
+ // A trial menu never becomes run state here. Undo also restores the exact
+ // role membership, recorded sources and unfinished values of the draft.
+ serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;
+ const config=candidate.config;
+ draft.services=config.services;draft.clientMenu=config.clientMenu;
+ if(config.assumptionRecords)draft.assumptionRecords=config.assumptionRecords;else delete draft.assumptionRecords;
+ expandedService=draft.services.findIndex(s=>s.id===(candidate.added[0]?.id||config.clientMenu.serviceIds[0]));
+ return candidate;
+}
+// Assign hundredths of a percentage point by largest remainder. A new offer
+// starts at the mean weight of the established offers. Explicit zeroes stay
+// parked; unfinished weights take an equal place among the new selections.
+function allocatedOfferWeights(offers,include=new Set(),percent=100){
+ const established=offers.filter(s=>!include.has(s.id)&&s.weight>0&&s.weight<=100);
+ const average=established.length?established.reduce((sum,s)=>sum+s.weight,0)/established.length:1;
+ const rows=offers.map(s=>({id:s.id,ratio:include.has(s.id)||s.weight===null||s.weight<0||s.weight>100?average:s.weight,units:0}));
+ const active=rows.filter(row=>row.ratio>0),sum=active.reduce((total,row)=>total+row.ratio,0);
+ const budget=Math.round(percent*100);
+ let used=0;
+ for(const row of active){
+  const exact=budget*row.ratio/sum;
+  row.units=Math.floor(exact);row.fraction=exact-row.units;used+=row.units;
+ }
+ const order=[...active].sort((a,b)=>b.fraction-a.fraction);
+ for(let i=0;i<budget-used&&i<order.length;i++)order[i].units++;
+ // Keep even a very small positive weight in the simulation.
+ if(budget>=active.length)for(const row of active)if(!row.units){
+  const donor=active.reduce((a,b)=>a.units>=b.units?a:b);donor.units--;row.units++;
+ }
+ return new Map(rows.map(row=>[row.id,row.units/100]));
+}
+function updateOfferMenu(added,removeIds,include,parkId=null){
+ const previous=draft.services,removed=new Set(removeIds);
+ if([...removed].some(id=>!previous.some(s=>s.id===id)))throw Error('This offer is no longer in the menu.');
+ const next=[...previous.filter(s=>!removed.has(s.id)),...added];
+ if(!next.length)throw Error('Keep at least one service.');
+ if(!parkId&&next.length>20&&(added.length||next.length>=previous.length))throw Error('This draft already contains 20 services.');
+ const weighted=parkId?next.map(s=>s.id===parkId?{...s,weight:0}:s):next;
+ const weights=allocatedOfferWeights(weighted,include);
+ if(![...weights.values()].some(weight=>weight>0)&&previous.some(s=>s.weight>0))throw Error('Keep at least one active offer or choose a replacement.');
+ // Commit once, after validating the complete selection. Run snapshots and
+ // other service records remain independent of these pending setup changes.
+ serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;
+ const opened=previous[expandedService]?.id;
+ for(const id of removed)clearServiceRecords(id);
+ draft.services=next.map(s=>s.weight===weights.get(s.id)?s:{...s,weight:weights.get(s.id)});
+ if(added.some(s=>s.audience!=='all')&&!draft.customerMix){
+  draft.customerMix=QQ.clone(QQ.DEFAULT.customerMix);draft.profileStrength=QQ.DEFAULT.profileStrength;draft.focusType='none';
+ }
+ expandedService=next.findIndex(s=>s.id===(added[0]?.id||opened));
+ return {added:added.map(s=>s.id),removed:[...removed]};
+}
+function applyCatalogSelection(addPackageIds,removeServiceIds=[]){
+ const requested=new Set(addPackageIds),removed=new Set(removeServiceIds),added=[],reserved=new Set();
+ const existing=new Set(draft.services.filter(s=>!removed.has(s.id)).map(catalogPackageId));
+ for(const id of requested){
+  if(existing.has(id)&&id!==null)continue;
+  const service=QQServiceCatalog.createService(id);
+  service.id=newServiceId(reserved);reserved.add(service.id);added.push(service);
+ }
+ if(!added.length&&!removed.size)return {added:[],removed:[]};
+ const placeholder=added.length&&pristineOfferStarter(draft);
+ if(placeholder)removed.add(placeholder.id);
+ return updateOfferMenu(added,removed,reserved);
+}
+function includeDraftOffer(id){
+ const offer=draft.services.find(s=>s.id===id);
+ if(!offer)throw Error('This offer is no longer in the menu.');
+ if(offer.weight>0)return false;
+ updateOfferMenu([],[],new Set([id]));return true;
+}
+function canFinishOfferLater(index){
+ const offer=draft.services[index];
+ if(!offer?.customOffer||!(offer.weight>0)||!draft.services.some(s=>s!==offer&&s.weight>0))return false;
+ const prefix='services.'+index+'.';
+ return draftValidationIssues().some(issue=>issue.path.startsWith(prefix)&&issue.path!==prefix+'weight');
+}
 function removeDraftService(index){
  const offers=draft.services, service=offers[index];
  if(!service)throw Error('Choose a service first.');
  if(offers.length===1)throw Error('Keep at least one service.');
  const records=Object.entries(draft.assumptionRecords||{}).filter(([path])=>path.startsWith('services.'+service.id+'.'));
  const history=removedServices.get(offers)||[];
- history.push({service,index,records});
+ const remaining=offers.filter(s=>s!==service);
+ if(service.weight>0&&remaining.every(s=>s.weight===0)){
+  document.querySelector('[data-action="include-offer"][data-id="'+remaining[0].id+'"]')?.focus();
+  throw Error('Choose Include in simulation on another service before removing the last active offer.');
+ }
+ const valid=offers.every(s=>Number.isFinite(s.weight)&&s.weight>=0&&s.weight<=100)&&Math.abs(offers.reduce((sum,s)=>sum+s.weight,0)-100)<=.01;
+ const weights=valid&&service.weight>0?allocatedOfferWeights(remaining):null;
+ const before=weights?new Map(remaining.map(s=>[s.id,s.weight])):null;
+ presetUndoDraft=null;serviceUndoDraft=null;
+ history.push({service,index,records,before,weights});
  removedServices.set(offers,history);
  clearServiceRecords(service.id);
  offers.splice(index,1);
+ if(weights)for(const s of offers)s.weight=weights.get(s.id);
  if(expandedService===index)expandedService=-1;
  else if(expandedService>index)expandedService--;
  renderListChange('.offer-card,.offer-recovery[data-render-key]');
@@ -1052,11 +1610,23 @@ function restoreDraftService(){
  const offers=draft.services,history=removedServices.get(offers),entry=history?.at(-1);
  if(!entry)throw Error('No removed service to restore.');
  if(offers.length>=20)throw Error('This draft already contains 20 services.');
- const {index,service,records}=entry;
+ const {index,service,records,before,weights}=entry;
  if(records.length){
   const combined={...draft.assumptionRecords,...Object.fromEntries(records)};
   if(!QQ.validAssumptionRecords(combined))throw Error('There is no room for the restored assumption records.');
   draft.assumptionRecords=combined;
+ }
+ if(weights){
+  const fixed=offers.filter(s=>weights.get(s.id)!==s.weight);
+  const unchanged=offers.filter(s=>weights.get(s.id)===s.weight&&before.has(s.id));
+  const available=100-fixed.reduce((total,s)=>total+s.weight,0);
+  if(!fixed.length&&unchanged.length===before.size){
+   for(const s of unchanged)s.weight=before.get(s.id);
+  }else if(fixed.every(s=>Number.isFinite(s.weight)&&s.weight>=0)&&available>=0){
+   const restored=allocatedOfferWeights([...unchanged.map(s=>({...s,weight:before.get(s.id)})),service],new Set(),available);
+   for(const s of unchanged)s.weight=restored.get(s.id);
+   service.weight=restored.get(service.id);
+  }
  }
  offers.splice(index,0,service);
  history.pop();
@@ -1067,7 +1637,7 @@ function restoreDraftService(){
 }
 function appendCatalogService(id,price){
  if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');
- const s=id?QQServiceCatalog.createService(id):{customOffer:true,name:'',deliverable:'',price:null,hours:null,review:null,print:null,supplierMode:'choose',recurring:false,audience:'all',color:'#647f9a'};
+ const s=id?QQServiceCatalog.createService(id):emptyCustomOffer();
  if(price!==undefined){if(!Number.isFinite(price)||price<0||price>1e6)throw Error('Enter a valid customer price.');s.price=price;}
  s.id=newServiceId();s.weight=draft.services.length?0:100;draft.services.push(s);serviceUndoDraft=null;presetUndoDraft=null;
  if(s.audience!=='all'&&!draft.customerMix){draft.customerMix=QQ.clone(QQ.DEFAULT.customerMix);draft.profileStrength=QQ.DEFAULT.profileStrength;draft.focusType='none';}
@@ -1082,6 +1652,176 @@ function priceExperiment(index){
  const rows=[['Current',s.price],['Lower starting price',Math.max(range[0],s.fulfillment?.designOnlyPrice||0)],[audit.compatible?'Catalog starting price':'Current custom price',Math.max(typical,s.fulfillment?.designOnlyPrice||0)],['Higher starting price',Math.max(range[1],s.fulfillment?.designOnlyPrice||0)]];
  modal(`<h2 id="dialog-title">Experiment with ${serviceName(s)}</h2><p>Keep the same scope and workload while comparing prices. Changing price does not automatically change inquiry volume or acceptance; test those assumptions separately.</p><div class="tablewrap"><table><thead><tr><th>Price case</th><th>Managed / offered price</th><th>Expected direct cost</th><th>Contribution</th><th>After owner time</th><th></th></tr></thead><tbody>${rows.map(([label,price],n)=>{const candidate=serviceUnit({...s,price});return `<tr><th>${label}</th><td>${money(price)}</td><td>${candidate?money(candidate.directCost):'—'}</td><td>${candidate?money(candidate.contribution):'—'}</td><td class="${candidate&&candidate.afterOwnerTime<0?'negative':''}">${candidate?money(candidate.afterOwnerTime):'—'}</td><td>${n&&candidate?btn('Use '+money(price),'use-service-price','small',`data-index="${index}" data-price="${price}"`):n?'Outside valid range':'Current draft'}</td></tr>`;}).join('')}</tbody></table></div><p class="helper">With customer print choice, results are weighted across both routes; the design-only fee stays fixed. Direct cost = designer labor + the supplier batch allowance. Owner time includes one quote, review and delivery; shared overhead and additional work are excluded.</p><div class="actions">${btn('Keep current price','close')}</div>`);
 }
+let clientMenuBuilder=null;
+function openClientMenuBuilder(){
+ const previous=currentClientMenu(draft,true);
+ clientMenuBuilder={draft,profile:previous?.profile||null,selections:new Map(),picking:!previous,
+  retain:true,retainByProfile:new Map(),swap:null,compare:'current',lastSwap:null,current:clientMenuProjection(draft)};
+ if(previous){
+  const defaults=previous.profile.slots.map(slot=>slot.options[0].id);
+  const packages=previous.packageIds.map((id,i)=>id||defaults[i]);
+  clientMenuBuilder.selections.set(previous.profile.id,new Set(packages).size===packages.length?packages:defaults);
+ }
+ renderClientMenu('dialog-title');
+}
+function clientMenuChoice(profile){
+ clientMenuBuilder.profile=profile;
+ if(!clientMenuBuilder.selections.has(profile.id))clientMenuBuilder.selections.set(profile.id,profile.slots.map(s=>s.options[0].id));
+ Object.assign(clientMenuBuilder,{picking:false,swap:null,lastSwap:null,retain:clientMenuBuilder.retainByProfile.get(profile.id)??true});
+ renderClientMenu('dialog-title');
+}
+function clientMenuClientList(){
+ const active=clientMenuBuilder.profile;
+ const audiences={food:'Restaurants and cafés',retail:'Retail and brands',services:'Local services',all:'Small businesses'};
+ const card=profile=>{
+  const selected=active?.id===profile.id;
+  return `<button type="button" class="cm-client-card" id="cm-client-${profile.id}" data-action="choose-menu-client" data-profile="${profile.id}">
+   <strong>${esc(profile.name)}</strong><span class="cm-client-description">${esc(profile.description)}</span>
+   ${selected?'<small class="cm-client-resume">Resume menu</small>':''}<i class="cm-client-open" aria-hidden="true">${icon('arrow')}</i></button>`;
+ };
+ const cards=Object.entries(audiences).map(([id,label])=>{
+  const profiles=QQServiceCatalog.CLIENT_MENUS.filter(p=>p.audience===id);
+  return profiles.length?`<section class="cm-client-group" data-client-sector="${id}"><h3><span>${label}</span></h3>${profiles.map(card).join('')}</section>`:'';
+ }).join('');
+ return `<header class="cm-heading cm-intro"><h2 id="dialog-title" tabindex="-1">Who do you want to serve?</h2>
+  <p>Choose a client to explore three offers that work together.</p></header>
+  <div class="cm-scroll" id="client-menu-scroll" role="region" aria-label="Choose a client" tabindex="0"><div class="cm-client-grid">${cards}</div></div>
+  <footer class="cm-footer cm-choose-footer">${btn('Cancel','close')}</footer>`;
+}
+function clientMenuNumber(value,unit){
+ if(!Number.isFinite(value))return '—';
+ if(unit==='money')return offerAmount(value);
+ if(unit==='matched')return inquiryShare(1-value);
+ const figure=new Intl.NumberFormat(QQI18n.language,{maximumFractionDigits:1}).format(value);
+ return unit==='hours'?figure+(QQI18n.language==='zh-CN'?' 小时':' h'):figure;
+}
+function clientMenuDifference(value){
+ if(!Number.isFinite(value))return '—';
+ const rounded=QQ.round(value);
+ return (rounded>0?'+':rounded<0?'−':'')+offerAmount(Math.abs(rounded));
+}
+function clientMenuOffer(candidate,index,id){
+ const serviceId=candidate.config?.clientMenu?.serviceIds[index];
+ return candidate.config?.services.find(s=>s.id===serviceId)||QQServiceCatalog.SERVICES.find(s=>s.id===id);
+}
+function clientMenuFee(service){
+ if(service.price==null)return '<span>Price needed</span>';
+ const label=service.fulfillment?(service.campaign?'Managed print per cycle':'With managed print'):(service.campaign?'Per cycle':'Per project');
+ return `<span>${offerAmount(service.price)}</span> <small>${label}</small>`;
+}
+function clientMenuAlternatives(profile,ids,index,shown){
+ const b=clientMenuBuilder,slot=profile.slots[index];
+ return `<div class="cm-alternatives" id="cm-options-${index}" role="group" aria-label="Offer alternatives">${slot.options.map((option,n)=>{
+  const checked=ids[index]===option.id;
+  const previewIds=ids.map((id,i)=>i===index?option.id:id);
+  const next=clientMenuCandidate(profile,previewIds,b.retain),service=clientMenuOffer(next,index,option.id);
+  const projection=checked?shown:next.error?null:clientMenuProjection(next.config);
+  const effect=shown.valid&&projection?.valid?QQ.round(projection.profit-shown.profit):null;
+  const coverage=effect!==null&&Math.abs(projection.unservedShare-shown.unservedShare)>.0001?
+   `<small class="cm-match-impact"><span>Inquiries matched</span> ${clientMenuNumber(shown.unservedShare,'matched')} → ${clientMenuNumber(projection.unservedShare,'matched')}</small>`:'';
+  return `<button class="cm-alternative" type="button" data-action="swap-menu-offer" data-slot="${index}" data-id="${option.id}" aria-pressed="${checked}"${checked?' aria-current="true"':''}>
+   <span class="cm-radio" aria-hidden="true"></span><span class="cm-option-content"><strong>${serviceName(service)}</strong>
+   <span>${esc(option.why)}</span><span class="cm-option-facts">${clientMenuFee(service)} <i>·</i> ${clientMenuNumber(service.hours,'hours')}${draft.customerMix&&service.audience==='all'?' <i>·</i> <span>All client groups</span>':''}</span>
+   ${checked?'<small>Selected</small>':effect!=null?`<small><span>Run result change</span> ${clientMenuDifference(effect)}</small>${coverage}`:n===0?'<small>Recommended offer</small>':''}</span></button>`;
+ }).join('')}</div>`;
+}
+function clientMenuSlots(profile,ids,candidate,proposed){
+ return profile.slots.map((slot,i)=>{
+  const option=slot.options.find(v=>v.id===ids[i]),service=clientMenuOffer(candidate,i,option.id);
+  const open=clientMenuBuilder.swap===i;
+  return `<article class="cm-slot"><div class="cm-slot-label">${esc(slot.label)}</div>
+   <div class="cm-slot-title"><h3>${serviceName(service)}</h3><div class="cm-fee">${clientMenuFee(service)}</div></div>
+   <p>${esc(option.why)}</p><div class="cm-slot-tools"><span>${icon('clock')}<b>${clientMenuNumber(service.hours,'hours')}</b> <span>production</span>${draft.customerMix&&service.audience==='all'?'<i aria-hidden="true">·</i><span>All client groups</span>':''}</span>
+   ${btn('<span>'+(open?'Close choices':'Swap offer')+'</span>'+icon('compare'),'show-menu-swaps','cm-swap',`id="cm-swap-${i}" data-slot="${i}" aria-expanded="${open}"${open?' aria-controls="cm-options-'+i+'"':''} aria-label="${open?'Close choices':'Swap offer'} · ${serviceName(service)}"`)}</div>
+   ${open?clientMenuAlternatives(profile,ids,i,proposed):''}</article>`;
+ }).join('');
+}
+function clientMenuReview(candidate){
+ const slotIds=new Set(candidate.config?.clientMenu?.serviceIds||[]);
+ const retained=candidate.retained.filter(s=>!slotIds.has(s.id));
+ const removed=candidate.removed.filter(s=>!(candidate.pristineRemoved&&s.id===pristineOfferStarter(draft)?.id));
+ const bound=currentClientMenu(draft);
+ const boundIds=new Set(bound?.profile.id===clientMenuBuilder.profile.id?bound.serviceIds:[]);
+ const others=retained.length||removed.some(s=>!boundIds.has(s.id));
+ if(!others&&!removed.length)return '';
+ const names=rows=>rows.map(s=>'<li>'+(s.name?.trim()?serviceName(s):'Unnamed custom offer')+'</li>').join('');
+ return `<section class="cm-existing"><h3 id="cm-existing-title" tabindex="-1">Existing offers</h3>
+  ${others?`<label><input id="client-menu-retain" type="checkbox" ${clientMenuBuilder.retain?'checked':''}><span>Keep my other offers</span></label>`:''}
+  ${retained.length?`<details><summary><span>Also in your menu</span> <b>${retained.length}</b></summary><ul>${names(retained)}</ul></details>`:''}
+  ${removed.length?`<div class="cm-removals"><strong>Leaves your menu on Apply</strong><ul>${names(removed)}</ul></div>`:''}
+ </section>`;
+}
+function clientMenuEstimate(projection,reference,referenceLabel,current,comparePossible,baseline,config){
+ const profile=clientMenuBuilder.profile;
+ const title=projection.days?projection.days+'-day estimate':'Run estimate';
+ const difference=reference?.valid&&projection.valid?QQ.round(projection.profit-reference.profit):null;
+ const metrics=[['Inquiries matched','unservedShare','matched'],['Expected first orders','orders','count'],['Production hours','productionHours','hours'],['Owner hours','ownerHours','hours'],['After owner time','surplus','money']];
+ const tabs=[['current','Current menu',current.valid],['recommended','Recommended menu',baseline.valid]];
+ const customerGroup={food:'Food businesses',retail:'Retail businesses',services:'Local services'}[profile.audience];
+ const groupShare=config.customerMix||config.clientDemand?.share>0?QQ.effectiveCustomerMix(config)?.[profile.audience]:null;
+ const labor=[];
+ if(projection.valid&&projection.productionHours>projection.productionCapacity+.01)labor.push('<span>Production capacity exceeded by</span> '+clientMenuNumber(projection.productionHours-projection.productionCapacity,'hours'));
+ if(projection.valid&&projection.ownerHours>projection.ownerCapacity+.01)labor.push('<span>Owner capacity exceeded by</span> '+clientMenuNumber(projection.ownerHours-projection.ownerCapacity,'hours'));
+ const controls=comparePossible?`<div class="cm-compare" role="group" aria-label="Compare the estimate against"><span>Compare with</span><div>${tabs.map(([id,label,valid])=>btn(label,'menu-compare-with','',`id="cm-reference-${id}" data-reference="${id}" aria-pressed="${referenceLabel===label}" ${valid?'':'disabled'}`)).join('')}</div></div>`:'';
+ const startingMenu=!current.valid&&reference===projection;
+ const reads=startingMenu?`<dl class="cm-starting-metrics">${metrics.map(([label,key,unit])=>`<div><dt>${label}</dt><dd>${clientMenuNumber(projection[key],unit)}</dd></div>`).join('')}</dl>`:
+  `<table><thead><tr><th><span class="picker-sr">Estimate measure</span></th><th scope="col">${referenceLabel}</th><th scope="col">Proposed menu</th></tr></thead>
+   <tbody>${[['Operating result','profit','money'],...metrics].map(([label,key,unit])=>`<tr><th scope="row">${label}</th><td>${clientMenuNumber(reference?.valid?reference[key]:null,unit)}</td><td>${clientMenuNumber(projection[key],unit)}</td></tr>`).join('')}</tbody></table>`;
+ return `<aside class="cm-estimate" id="client-menu-estimate" tabindex="-1"><h3>${title}</h3>
+  ${projection.valid?`<div class="cm-result"><span>Operating result</span><strong>${offerAmount(projection.profit)}</strong>
+  ${difference!==null&&!startingMenu?`<small class="cm-difference"><b>${clientMenuDifference(difference)}</b> <span>${referenceLabel==='Current menu'?'vs. current menu':'vs. recommended menu'}</span></small>`:''}</div>
+  ${controls}
+  ${reads}
+  ${!current.valid?`<p class="cm-note">${startingMenu?'Swap an offer to compare it with this starting estimate.':'Your current setup is incomplete. The recommended menu is the starting comparison.'}</p>`:''}
+  ${labor.length?`<p class="cm-capacity">${labor.join('<br>')}</p>`:''}
+  <p class="cm-note">${Number.isFinite(groupShare)?`<span>${customerGroup}</span> · <span>${groupShare}% of incoming inquiries</span>`:'Your setup uses a single pool of inquiries.'}</p>
+  <details class="cm-method"><summary>Estimate assumptions</summary>
+  <p>Each offer is quoted separately. This estimate uses first orders over the run period, before repeat campaigns or delivery delays.</p></details>`:
+  `<div class="cm-incomplete"><b>Estimate needs more inputs</b><p>${esc(issueText(projection.issues?.[0])||'Complete the missing setup inputs to see the run estimate.')}</p><p>You can apply this menu and finish your inputs in setup.</p></div>`}
+ </aside>`;
+}
+function clientMenuWorkspace(){
+ const b=clientMenuBuilder,profile=b.profile,ids=b.selections.get(profile.id);
+ const candidate=clientMenuCandidate(profile,ids,b.retain);
+ const defaults=profile.slots.map(slot=>slot.options[0].id);
+ const baselineConfig=clientMenuCandidate(profile,defaults,b.retain);
+ const unavailable={valid:false,issues:[],days:b.current.days};
+ const proposed=candidate.error?unavailable:clientMenuProjection(candidate.config);
+ const recommended=ids.every((id,i)=>id===defaults[i])?proposed:baselineConfig.error?unavailable:clientMenuProjection(baselineConfig.config);
+ const current=b.current;
+ const useCurrent=current.valid&&(b.compare==='current'||!recommended.valid);
+ const reference=useCurrent?current:recommended,referenceLabel=useCurrent?'Current menu':'Recommended menu';
+ const changed=b.lastSwap;
+ const focusChange=changed?.profile===profile.id&&Number.isFinite(changed.from)&&proposed.valid?clientMenuDifference(proposed.profit-changed.from):null;
+ const result=proposed.valid?offerAmount(proposed.profit):'—';
+ const departures=candidate.removed.length-(candidate.pristineRemoved?1:0);
+ const reviewLabel=departures?(departures===1?'Review 1 removal':'Review '+departures+' removals'):candidate.error?'Review existing offers':'';
+ const reviewLink=reviewLabel?btn(reviewLabel,'menu-review-existing','cm-review-link','aria-controls="cm-existing-title"'):'';
+ return `<header class="cm-heading" data-client-sector="${profile.audience}">${btn('<i aria-hidden="true">←</i><span>Change client</span>','menu-client-list','cm-back')}
+   <h2 id="dialog-title" tabindex="-1">${esc(profile.name)}</h2><p>${esc(profile.description)}</p></header>
+  <div class="cm-scroll" id="client-menu-scroll"><div class="cm-layout"><section class="cm-menu" aria-label="Starter menu">
+   <div class="cm-menu-heading"><h3>Starter menu</h3><span>3 complementary offers</span></div>
+   ${clientMenuSlots(profile,ids,candidate,proposed)}${clientMenuReview(candidate)}</section>
+   ${candidate.error?`<aside class="cm-estimate" id="client-menu-estimate" tabindex="-1"><h3>Run estimate</h3><p class="cm-incomplete">${esc(candidate.error)}</p></aside>`:clientMenuEstimate(proposed,reference,referenceLabel,current,current.valid&&recommended.valid,recommended,candidate.config)}
+  </div></div>
+  <footer class="cm-footer"><div class="cm-feedback" aria-live="polite" aria-atomic="true">
+   ${candidate.error?`<span>${esc(candidate.error)}</span>`:focusChange!==null?`<span>Last swap</span> <b>${focusChange}</b> <span>in operating result</span>`:candidate.changed?'<span>Ready to apply to your setup</span>':'<span>This menu matches your setup.</span>'}${reviewLink}</div>
+   <button type="button" class="cm-mobile-estimate" data-action="menu-view-estimate"><span>Run estimate</span><strong>${result}</strong><i aria-hidden="true">↗</i></button>
+   <div class="cm-actions">${btn('Cancel','close')}${btn('Apply menu','apply-client-menu','primary',`id="apply-client-menu" ${candidate.error||!candidate.changed?'disabled':''}`)}</div></footer>`;
+}
+function renderClientMenu(focusId,keepPosition=false){
+ const b=clientMenuBuilder;
+ if(!b||b.draft!==draft)return;
+ const html=b.picking?clientMenuClientList():clientMenuWorkspace();
+ const shell=document.querySelector('#modal .client-menu-builder');
+ if(!shell?.matches?.('.client-menu-builder')){modal('<div class="client-menu-builder">'+html+'</div>',focusId);return;}
+ const top=keepPosition?$('#client-menu-scroll').scrollTop:0;
+ shell.innerHTML=QQI18n.html(html);
+ $('#client-menu-scroll').scrollTop=top;
+ const target=focusId&&document.getElementById(focusId);
+ if(target){target.focus({preventScroll:true});if(focusId.startsWith('cm-client-')||focusId.startsWith('cm-swap-'))target.scrollIntoView({block:'nearest',inline:'nearest'});}
+}
+
 function starterDialog(){
  modal(`<h2 id="dialog-title">Start with a focused service mix</h2><p>Each starter set has complementary services and explicit inquiry shares. Adding keeps your current mix; replacing requires review.</p><div class="starter-grid">${QQServiceCatalog.BUNDLES.map(b=>`<article class="catalog-card"><h3>${esc(b.name)}</h3><p>${esc(b.note||b.description||'')}</p><ul>${QQServiceCatalog.starterServices(b.id).map(s=>`<li>${serviceName(s)} · ${money(s.price)} · ${s.weight}%</li>`).join('')}</ul><div class="actions">${btn('Add services','add-starter','soft',`data-id="${esc(b.id)}"`)}${btn('Replace offerings…','review-starter','small',`data-id="${esc(b.id)}"`)}</div></article>`).join('')}</div><div class="actions">${btn('Close','close')}</div>`);
 }
@@ -1089,7 +1829,7 @@ const serviceDollars=new Intl.NumberFormat('en-US',{style:'currency',currency:'U
 const offerAmount=value=>Number.isFinite(value)?(QQI18n.language==='zh-CN'?QQI18n.yuan(value):serviceDollars.format(value)):'—';
 const inquiryShare=value=>QQ.round(value*100)+'%';
 
-function serviceEditor(s,i,row){
+function serviceEditor(s,i,row,standalone){
  const path=key=>'services.'+i+'.'+key;
  const input=(label,key,options={})=>field(label,key,options.text?serviceCopy(s,key):s[key],{...options,path:path(key)});
  const unit=row?.perProject||serviceUnit(s);
@@ -1103,12 +1843,12 @@ function serviceEditor(s,i,row){
  const costField=s.fulfillment||supplierMode==='print'?input('Printing + shipping cost','print',{step:0.01,suffix:'$ / batch',help:basis('print')+' · total for one project, including any freight.'}):'';
  const quoteFacts=s.spec?.printQuantity?`<p class="helper"><b>Published comparison · original package</b> · ${esc(s.spec.printCostBasis)}</p>`:'';
  const fields=`<div class="formgrid service-basics">
-  ${input('Service name','name',{text:true})}${input(priceLabel,'price',{step:.01,suffix:'$ / project',help:basis('price')})}
-  ${input('What the client receives','deliverable',{text:true,maxlength:500,help:'Describe one priced unit, including its scope.'})}</div>`;
- const delivery=`<div class="formgrid">
-  ${input('Designer work per project','hours',{max:500,step:.25,suffix:'hours',help:basis('hours')+' · include the promised feedback rounds.'})}
-  ${input('Your review work per project','review',{max:100,step:.25,suffix:'hours',help:basis('review')})}
-  ${supplier}${costField}</div>${serviceFulfillment(s,i,routes)}${quoteFacts}`;
+  ${input('Service name','name',{text:true,placeholder:'e.g. Menu design'})}${input(priceLabel,'price',{step:.01,suffix:'$ / project',help:s.price==null?'':basis('price')})}
+  ${input('What the client receives','deliverable',{text:true,multiline:true,maxlength:500,placeholder:'e.g. A two-page menu and one revision',help:'Describe one priced unit, including its scope.'})}</div>`;
+ const workFields=`<div class="formgrid offer-work-hours">${input('Production time per project','hours',{max:500,step:.25,suffix:'hours',help:(s.hours==null?'':'<span>'+basis('hours')+'</span> · ')+'<span>Include revisions. Paid at the designer rate in People.</span>'})}
+  ${input('Your review work per project','review',{max:100,step:.25,suffix:'hours',help:s.review==null?'':basis('review')})}</div>`;
+ const delivery=`<div class="formgrid">${supplier}${costField}</div>${serviceFulfillment(s,i,routes)}${quoteFacts}`;
+ const margin=unit?`<div class="offer-unit-result"><div><strong>After direct costs</strong><small>Per project, before your time and overhead.</small></div><b>${offerAmount(unit.contribution)}</b></div>`:'';
  const advanced=`<div class="formgrid">${field('Suitable for','audience',s.audience||'all',{path:path('audience'),options:[['all','All local businesses'],['food','Restaurants and food shops'],['retail','Retail shops'],['services','Local services']]})}
   ${field('Purchase pattern','recurring',String(s.recurring),{path:path('recurring'),options:[['false','One-off project'],['true','Repeat campaign']]})}
   ${s.campaign?field('Campaign rhythm','cadenceDays',s.campaign.cadenceDays,{path:path('campaign.cadenceDays'),options:[['30','Monthly · every 30 days'],['90','Seasonal · every 90 days']]}):''}
@@ -1126,19 +1866,25 @@ function serviceEditor(s,i,row){
   <div><span>Design capacity</span><b>${pct(row.designCapacityShare)}</b></div><div><span>Your service capacity</span><b>${pct(row.ownerCapacityShare)}</b></div></div></details>`:'';
  const more=`${advanced}${economics}${totals}${evidenceControls('service',s.id)}
   <div class="service-actions">${btn('Compare prices','price-experiment','soft',`data-index="${i}" ${unit?'':'disabled'}`)}${btn('Duplicate','duplicate','small',`data-index="${i}"`)}</div>`;
- const weight=s.weight==null?'Set inquiry weight':s.weight===0?'Outside mix':QQ.round(s.weight)+'% inquiry weight';
+ if(standalone){
+  return `<article class="first-offer" data-render-key="offer-${s.id}">
+   <section class="input-section"><h2>Scope and price</h2>${fields}</section>
+   <section class="input-section"><h2>Delivery time and costs</h2>${workFields}${delivery}${margin}</section>
+   ${advancedBlock('service-'+s.id,'Service options and estimates',more)}</article>`;
+ }
+ const weight=s.weight==null?'Set inquiry weight':s.weight===0?'Draft only':QQ.round(s.weight)+'% inquiry weight';
  const meter=`<span class="offer-weight-track" aria-hidden="true"><i style="width:${Math.max(0,Math.min(100,s.weight||0))}%"></i></span>`;
  const tools=`<div class="offer-card-tools">${btn(meter+'<span>'+weight+'</span>','edit-inquiry-weight','offer-weight',`data-index="${i}" aria-label="Edit inquiry weight for ${title}"`)}
-  ${draft.services.length>1?btn('Remove','remove-service','offer-remove',`data-id="${s.id}" aria-label="Remove ${title} from draft"`):'<small>Keep one service in the draft.</small>'}</div>`;
- return `<article class="offer-card" data-render-key="offer-${s.id}"><details class="service-editor" ${setupMode==='guided'?'name="offer-editors"':''} data-disclosure="service-${s.id}" ${i===expandedService?'open':''}>${summary}<div class="service-fields">${fields}
-  ${advancedBlock('delivery-'+s.id,'Delivery time and costs',delivery)}
+  ${s.weight===0?btn('Include in simulation','include-offer','offer-include',`data-id="${s.id}"`):''}${canFinishOfferLater(i)?btn('Finish later','park-offer','offer-include',`data-id="${s.id}"`):''}${draft.services.length>1?btn('Remove','remove-service','offer-remove',`data-id="${s.id}" aria-label="Remove ${title} from draft"`):'<small>Keep one service in the draft.</small>'}</div>`;
+ return `<article class="offer-card" data-render-key="offer-${s.id}"><details class="service-editor" ${setupMode==='guided'?'name="offer-editors"':''} data-disclosure="service-${s.id}" ${i===expandedService?'open':''}>${summary}<div class="service-fields">${fields}${workFields}${margin}
+  ${advancedBlock('delivery-'+s.id,'Print and supplier costs',delivery)}
   ${advancedBlock('service-'+s.id,'Service options and estimates',more)}
   </div></details>${tools}</article>`;
 }
 
 function inquiryMix(rows,estimate){
  const total=QQ.round(draft.services.reduce((a,s)=>a+(s.weight||0),0)),gap=QQ.round(100-total);
- const included=draftRunConfig().services;
+ const included=draft.services.filter(s=>s.weight!==0);
  const status=gap>0?gap+'% left to assign':gap<0?Math.abs(gap)+'% over allocation':'Weights total 100%';
  const groups={all:'All businesses',food:'Food businesses',retail:'Retail businesses',services:'Local services'};
  const recipients=[];
@@ -1154,18 +1900,19 @@ function inquiryMix(rows,estimate){
  return `<details class="inquiry-mix" data-disclosure="setup-advanced-mix" ${gap||setupMode==='analyst'?'open':''}><summary><strong>Inquiry mix</strong><span class="mix-status ${gap?'negative':''}" id="mix-status" role="status">${status}</span><span class="disclosure-chevron" aria-hidden="true"></span></summary>
   <div class="mix-body"><p class="helper">Give more weight to services you expect people to ask for more often. Use 0% to leave a service out.</p>${items}
   ${recipients.length?`<div class="mix-correction"><label for="mix-recipient">${gap>0?'Assign remaining weight to':'Remove excess weight from'}</label><select id="mix-recipient">${recipients.join('')}</select>${btn('Apply','assign-remainder','small')}</div>`:''}
-  <div class="mix-tools">${btn('Balance shares equally','balance','small',included.length?'':'disabled')}<small>Weights apply within each customer group.</small></div>
-  ${included.length<draft.services.length?'<p class="helper">Give a custom service a weight above zero to include it in the equal split.</p>':''}
+  <div class="mix-tools">${btn('Balance shares equally','balance','small',included.length?'':'disabled')}${btn('Load a preset mix','service-starters','small','aria-haspopup="dialog"')}<small>Weights apply within each customer group.</small></div>
+  ${included.length<draft.services.length?'<p class="helper">To add a service at 0% to the split, choose Include in simulation.</p>':''}
   ${estimate?.unservedShare>0?`<p class="helper">${inquiryShare(estimate.unservedShare)} of new inquiries have no matching offer.</p>`:''}</div></details>`;
 }
 function serviceInputs(){
  const estimate=draftValidationIssues().length?null:getDraftEstimate();
  const rows=new Map((estimate?.services||[]).map(r=>[r.id,r]));
- const analyst=setupMode==='analyst'?`<div class="tablewrap service-overview"><table><thead><tr><th>Offering</th><th>Expected price</th><th>Designer cost</th><th>Expected supplier</th><th>Expected contribution</th><th>After owner time</th><th>All new inquiries</th></tr></thead><tbody>${draft.services.map((s,i)=>{
+ const singleCustom=draft.services.length===1&&draft.services[0].customOffer===true;
+ const analyst=setupMode==='analyst'&&!singleCustom?`<details class="guided-options" data-disclosure="compare-offer-economics"><summary>Compare offer economics</summary><div class="tablewrap service-overview" tabindex="0" role="region" aria-label="Offer economics"><table><thead><tr><th>Offering</th><th>Expected price</th><th>Designer cost</th><th>Expected supplier</th><th>Expected contribution</th><th>After owner time</th><th>All new inquiries</th></tr></thead><tbody>${draft.services.map((s,i)=>{
   const row=rows.get(s.id),u=row?.perProject||serviceUnit(s);
   return `<tr><th>${btn((s.name?serviceName(s):'New service'),'inspect-service','table-link',`data-index="${i}"`)}</th><td>${offerAmount(u?.price)}</td><td>${offerAmount(u?.designerCost)}</td><td>${offerAmount(u?.printCost)}</td><td>${offerAmount(u?.contribution)}</td><td>${offerAmount(u?.afterOwnerTime)}</td><td>${row?inquiryShare(row.effectiveShare):'—'}</td></tr>`;
- }).join('')}</tbody></table></div>`:'';
- const cards=draft.services.map((service,index)=>serviceEditor(service,index,rows.get(service.id)));
+ }).join('')}</tbody></table></div></details>`:'';
+ const cards=draft.services.map((service,index)=>serviceEditor(service,index,rows.get(service.id),singleCustom&&service.weight!==0));
  const removed=removedServices.get(draft.services)?.at(-1);
  if(removed){
   const service=removed.service;
@@ -1174,31 +1921,279 @@ function serviceInputs(){
   const undo=btn('Undo','restore-service','small','id="undo-service-removal"'+(draft.services.length>=20?' disabled title="This draft already contains 20 services."':''));
   cards.splice(removed.index,0,`<div class="offer-recovery" data-render-key="removed-${service.id}"><span role="status">Removed from draft · <b>${service.name.trim()?serviceName(service):'New service'}</b></span>${fix}${undo}</div>`);
  }
- return `<div class="section-heading menu-heading"><div><h2>Build your service menu</h2><p>${draft.services.length===1&&!draft.services[0].name?'Start with the name, price and deliverable for one service.':'Edit your offers here. Review the draft to apply changes to the run.'}</p></div></div>
-  ${serviceUndoDraft?`<div class="preset-undo"><span>Previous service mix available.</span>${btn('Undo service mix','undo-services','small')}</div>`:''}${analyst}
-  ${cards.join('')}
-  <div class="menu-tools">${btn(icon('plus')+'Add my service','add-blank-service','soft',draft.services.length>=20?'disabled':'')}${draft.services.length>=20?'<small>This draft already contains 20 services.</small>':''}
-  <details data-disclosure="offer-examples"><summary>Use an example</summary><div class="actions">${btn('Browse examples','service-library','small')}${btn('Choose a starter mix','service-starters','small')}</div></details></div>
-  ${inquiryMix(rows,estimate)}`;
+ const starter=pristineOfferStarter(draft);
+ const menu=currentClientMenu(draft,true);
+ const invitation=`<section class="client-menu-invitation" aria-labelledby="client-menu-entry-title"><div>
+  <h2 id="client-menu-entry-title">${menu?esc(menu.profile.name):'Find offers that work together'}</h2>
+  <p>${menu?'Revisit your client menu and compare a swap against your current estimate.':'Choose the client you want to serve. See which three offers fit, then try a swap before you commit.'}</p></div>
+  <div class="client-menu-entry-actions">${btn(menu?'Adjust client menu':'Choose a client','build-client-menu',menu?'soft':'primary','id="client-menu-entry" aria-haspopup="dialog"')}
+  ${menu?btn('<span>Plan client outreach</span> <i aria-hidden="true">→</i>','setup-step','primary','data-step="1" id="plan-client-outreach"'):''}</div></section>`;
+ const toolbar=`<div class="offer-menu-heading"><h2>Your service menu</h2><div class="offer-menu-actions">${btn('Choose offerings','browse-offers','soft','id="choose-offerings" aria-haspopup="dialog"')}
+  ${btn(starter?'Write my own offer':'Add custom offer',starter?'write-first-offer':'add-blank-service','',draft.services.length>=20?'disabled':'')}</div></div>
+  ${draft.services.length>=20?'<small>This draft already contains 20 services.</small>':''}`;
+ return `${invitation}${toolbar}${featuredOfferPreview(singleCustom)}${serviceUndoDraft?`<div class="preset-undo" role="status"><span>Previous service mix available.</span>${btn('Undo service mix','undo-services','small')}</div>`:''}${cards.join('')}${inquiryMix(rows,estimate)}${analyst}`;
+}
+function featuredOfferPreview(firstOffer){
+ const ideas=[
+  ['menu-sales-mix','For restaurants','Find out which dishes are selling and which deserve a closer look.'],
+  ['wholesale-line-sheet','For product brands','Give a retailer the product details, wholesale prices and terms needed to place an order.'],
+  ['service-comparison-sheet','For service businesses','Help customers choose between packages before they ask for a quote.']
+ ];
+ return `<details class="offer-shortlist" data-disclosure="offer-shortlist-${firstOffer?'first':'menu'}"><summary>Three ideas to start with</summary><div>${ideas.map(([id,audience,reason])=>{
+  const entry=QQServiceCatalog.SERVICES.find(s=>s.id===id);
+  if(!entry)return '';
+  const name=serviceName(entry);
+  const index=draft.services.findIndex(s=>catalogPackageId(s)===id);
+  const action=index>=0?btn('Edit in menu','inspect-service','small',`data-index="${index}" aria-label="Edit ${serviceName(draft.services[index])}"`):
+   btn(icon('plus')+'<span>Add</span>','add-featured-offer','small',`data-id="${id}" aria-label="Add ${name}" ${draft.services.length>=20?'disabled':''}`);
+  return `<article><div><small>${audience}</small><strong>${name}</strong><p>${reason}</p></div>${action}</article>`;
+ }).join('')}</div></details>`;
+}
+function decisionMetric(label,value){
+ return `<div><dt>${label}</dt><dd>${value}</dd></div>`;
+}
+function demandProfile(id){return QQServiceCatalog.CLIENT_MENUS.find(profile=>profile.id===id);}
+function demandAudience(){
+ const menu=currentClientMenu(draft,true),saved=demandProfile(draft.clientDemand?.profileId);
+ return {menu,profile:saved||menu?.profile,saved};
+}
+function demandMenuLink(hasMenu){
+ return btn('<span>'+(hasMenu?'View client menu':'Choose a client menu')+'</span><i aria-hidden="true">→</i>','build-client-menu','demand-menu-link','id="demand-menu-entry" aria-haspopup="dialog"');
+}
+function demandReach(profile,menu){
+ const guide=QQServiceCatalog.clientReach(profile.id);
+ if(!guide)return '';
+ const linked=menu?.profile.id===profile.id;
+ return `<section class="demand-reach" aria-labelledby="demand-reach-title"><h3 id="demand-reach-title">Ways to reach this client</h3>
+  ${guide.channels.map((channel,i)=>{
+   const service=linked&&draft.services.find(s=>s.id===menu.serviceIds[channel.slot]);
+   return `<details class="reach-channel" data-disclosure="reach-${esc(profile.id)}-${esc(channel.id)}" ${i===0?'open':''}><summary><span>${esc(channel.title)}</span><i class="disclosure-chevron" aria-hidden="true"></i></summary>
+    <div class="reach-content"><p class="reach-where">${esc(channel.where)}</p><p>${esc(channel.approach)}</p>${service?`<p class="reach-offer"><span>Offer from your menu</span><strong>${serviceName(service)}</strong></p>`:''}</div></details>`;
+  }).join('')}
+  <aside class="reach-measure"><strong>What counts as an inquiry?</strong><p>${esc(guide.measurement)}</p></aside></section>`;
+}
+// Counts are a scratch calculation from the user's records. Only the chosen
+// percentage belongs to the scenario and travels into a run or backup.
+const clientDemandCalculations=new WeakMap();
+function demandCalculation(profileId){
+ let saved=clientDemandCalculations.get(draft);
+ if(saved?.profileId!==profileId){
+  saved={profileId,target:'',total:'',error:'',applied:''};clientDemandCalculations.set(draft,saved);
+ }
+ return saved;
+}
+function demandRatioCalculator(profileId){
+ const calc=demandCalculation(profileId);
+ const field=(key,label,min)=>`<label for="client-demand-count-${key}"><span>${label}</span><input id="client-demand-count-${key}" type="number" inputmode="numeric" step="1" min="${min}" value="${esc(calc[key])}" aria-describedby="client-demand-count-feedback"></label>`;
+ return `<details class="demand-ratio" data-disclosure="demand-ratio-${esc(profileId)}"><summary>Calculate from my inquiry counts</summary><div><p>Use qualified inquiries recorded over the same period.</p>
+  <div class="demand-ratio-fields">${field('target','From this client',0)}${field('total','Total inquiries',1)}${btn('Use these counts','apply-client-demand-counts','small')}</div>
+  <p id="client-demand-count-feedback" role="status" class="${calc.error?'demand-error':''}">${esc(calc.error||calc.applied)}</p></div></details>`;
+}
+function demandMixEffect(config,counts,issues,share,quantity){
+ const estimate=issues.length?null:getDraftEstimate();
+ if(!share)return {estimate,delta:estimate?0:null,note:'At 0%, all inquiries follow your usual customer mix.'};
+ const untargeted={...config};delete untargeted.clientDemand;
+ const base=estimate?QQ.estimate(untargeted):null;
+ const delta=base?QQ.round(QQ.round(estimate.profit)-QQ.round(base.profit)):null;
+ const before=base?base.leads-base.unserved:QQ.estimateDemand(untargeted,issues).matched;
+ if(Number.isFinite(before)&&Number.isFinite(counts.matched)&&QQ.round(before)!==QQ.round(counts.matched)){
+  return {estimate,delta,note:`At the same inquiry volume, matching inquiries change from ${quantity(before)} to ${quantity(counts.matched)}.`};
+ }
+ if(!base)return {estimate,delta,note:'Complete the setup inputs to see the operating result.'};
+ if(!delta)return {estimate,delta,note:'At this share, the total matching inquiries and operating result stay the same.'};
+ const designer=e=>e.hours*config.designerRate;
+ const supplier=e=>e.expense-designer(e)-config.overhead*config.months;
+ const costs=[
+  {label:'Potential revenue',before:base.revenue,after:estimate.revenue},
+  {label:'Designer labor',before:designer(base),after:designer(estimate)},
+  {label:'Supplier charges',before:supplier(base),after:supplier(estimate)}
+ ];
+ const largest=costs.sort((a,b)=>Math.abs(b.after-b.before)-Math.abs(a.after-a.before))[0];
+ const note=`<span>With the same number of matching inquiries, the largest change is in</span> <strong>${largest.label}</strong> · ${offerAmount(QQ.round(largest.before))} → ${offerAmount(QQ.round(largest.after))}.`;
+ return {estimate,delta,note};
+}
+function clientDemandPanel(config,counts,issues,days,quantity){
+ const {menu,profile,saved}=demandAudience();
+ if(!profile)return `<section id="client-demand-panel" class="demand-prompt"><div><h2>Who do you want to reach?</h2><p>Choose a client menu to plan outreach and estimate how many inquiries it could bring.</p></div>${demandMenuLink(false)}</section>`;
+ const forecast=QQ.clientDemandForecast(config,issues),share=forecast.share??0;
+ const original=rerunFieldOrigin('clientDemand.share');
+ const originalHelp=original?' client-demand-origin':'';
+ const switchTarget=menu&&saved&&saved.id!==menu.profile.id;
+ const effect=demandMixEffect(config,counts,issues,share,quantity);
+ const metric=(key,label,value)=>`<div><dt>${label}</dt><dd data-client-demand-metric="${key}">${value}</dd></div>`;
+ const figure=value=>Number.isFinite(value)?quantity(value):'—';
+ return `<section id="client-demand-panel" class="demand-audience" aria-labelledby="demand-audience-title">
+ <header class="demand-audience-identity" data-client-sector="${esc(profile.audience)}"><div><p>${menu?.profile.id===profile.id?'Your client from Offers':'Your target client'}</p><h2 id="demand-audience-title">${esc(profile.name)}</h2>${demandMenuLink(!!menu)}</div></header>
+ ${switchTarget?`<div class="demand-target-switch"><p><span>Your Offers menu now serves</span> <strong>${esc(menu.profile.name)}</strong><span>. Your inquiry share still belongs to</span> <strong>${esc(profile.name)}</strong>.</p>${btn('Move this share to the new client','switch-client-demand','small')}</div>`:''}
+ <div class="demand-audience-body">
+ <section class="demand-share" aria-labelledby="demand-share-title"><h3 id="demand-share-title">How much demand will you target?</h3><p id="client-demand-help">Set the share of all new inquiries you expect from outreach to this client. The rest follow your usual customer mix.</p>
+ <div class="demand-share-controls"><div class="demand-range"><input type="range" id="client-demand-range" min="0" max="100" step="1" value="${share}" aria-label="Target share of new inquiries" aria-valuetext="${share}%" aria-describedby="client-demand-help${originalHelp}"><div aria-hidden="true"><span>0%</span><span>100%</span></div></div>
+ <label for="client-demand-share" class="demand-share-value"><span class="sr-only">Target share of new inquiries</span><input type="number" inputmode="numeric" id="client-demand-share" data-input="clientDemand.share" min="0" max="100" step="1" value="${share}" aria-describedby="client-demand-help client-demand-error${originalHelp}"><span aria-hidden="true">%</span></label></div>
+ ${original?`<small class="rerun-origin" id="client-demand-origin"><span>Original value</span> <b>${esc(original)}</b></small>`:''}<p id="client-demand-error" class="demand-error" role="status"></p>${demandRatioCalculator(profile.id)}</section>
+ <section class="demand-client-estimate" aria-labelledby="demand-forecast-title"><h3 id="demand-forecast-title">${days?'Expected over '+days+' days':'Expected over the run'}</h3>
+ <dl class="demand-split">${metric('targeted','From targeted outreach',figure(forecast.targeted))}${metric('other','Other inquiries',figure(forecast.other))}${metric('matched','Target inquiries with an offer',figure(forecast.matched))}${metric('orders','First orders from outreach',figure(forecast.orders))}</dl>
+ <dl class="demand-result">${metric('result','Operating result',effect.estimate?setupResultAmount(effect.estimate.profit):'—')}${metric('delta','Change from 0% targeted',clientMenuDifference(effect.delta))}</dl>
+ <p data-client-demand-driver>${effect.note}</p>
+ ${saved&&share>0?btn('Reset targeted share','clear-client-demand','demand-reset'):''}</section>
+ ${demandReach(profile,menu)}</div></section>`;
 }
 function customerInputs(){
- const c=draft;
- const advanced=`<div class="formgrid">${field('Returning campaign quotes accepted','retention',c.retention,{max:100,percent:true,suffix:'%',help:'Each follow-up campaign is a fresh decision. A declined campaign skips one cycle; offers continue within the year. Legacy subscriptions use this as renewal likelihood.'})}${field('One-off clients who order again','repeat',c.repeat,{max:100,percent:true,suffix:'%',help:'Returning requests arrive 30 days after final payment.'})}</div>${customerMixInputs()}`;
- const fixed=c.acquisition==='preset';
+ const c=draft,fixed=c.acquisition==='preset';
+ const config=draftRunConfig(),issues=draftValidationIssues(),counts=QQ.estimateDemand(config,issues);
+ const days=validRunLength(c.months)?30*c.months:null;
+ const quantity=value=>value===null?'—':value>0&&value<.01?'&lt;0.01':QQ.round(value).toLocaleString(QQI18n.language);
+ const readout=(label,value)=>decisionMetric(label,quantity(value));
+ const source=field('How do inquiries arrive?','acquisition',c.acquisition,{options:[['sales','Estimate from outreach'],['preset','Enter monthly inquiries']]});
+ // A saved invalid value can need repair even while its mode is inactive.
  const show=(path,active)=>active||setupRepairPath===path;
- const observed=show('inquiries',fixed)?field('New inquiries each month','inquiries',c.inquiries,{max:500,suffix:'requests',step:0.01,help:fixed?'Qualified new inquiries per 30 days. Enter a known volume or use the suggested outreach estimate.':'Used only in fixed-volume mode.'}):'';
- const outreach=show('outreachHours',!fixed)?field('Your weekly outreach time','outreachHours',c.outreachHours,{max:120,step:0.5,suffix:'hours',help:fixed?'Used only in outreach mode.':'Uses part of your total weekly availability.'}):'';
+ const observed=show('inquiries',fixed)?field('New inquiries each month','inquiries',c.inquiries,{max:500,suffix:'requests',step:0.01,help:fixed?'Use your typical number of qualified inquiries per 30 days.':'Used only in fixed-volume mode.'}):'';
+ const outreach=show('outreachHours',!fixed)?field('Your weekly outreach time','outreachHours',c.outreachHours,{max:120,step:0.5,suffix:'hours / week',help:fixed?'Used only in outreach mode.':'Uses part of your total weekly availability.'}):'';
  const response=show('leadsPerHour',!fixed)?field('Inquiries per outreach hour','leadsPerHour',c.leadsPerHour,{max:100,step:0.01,suffix:'requests',help:inputBasis('leadsPerHour')+(fixed?' · Used only in outreach mode.':' · Divide recorded qualified inquiries by outreach hours.')}):'';
- return `<div class="eyebrow">STEP 2 / WHERE WORK COMES FROM</div><h2>Choose a workload</h2><p class="helper">Pricing and acceptance are separate inputs. ${c.acquisition==='sales'?'Current outreach implies '+(outreachVolume(c)===null?'an unknown number of':num(outreachVolume(c)))+' qualified inquiries per model month on average.':'Fixed volume is '+(Number.isFinite(c.inquiries)?num(c.inquiries):'—')+' per model month. The outreach settings imply an average of '+(outreachVolume(c)===null?'an unknown volume':num(outreachVolume(c)))+' per model month.'}</p><div class="formgrid essentials-grid">${field('How do inquiries arrive?','acquisition',c.acquisition,{options:[['preset','I set the number of inquiries'],['sales','My outreach generates inquiries']]})}${observed}${outreach}${response}${field('Quotes that become paid work','conversion',c.conversion,{max:100,percent:true,suffix:'%',help:inputBasis('conversion')+' · Accepted quotes divided by all decided quotes.'})}</div>${advancedBlock('customers','Repeat business and customer mix',advanced)}${evidenceControls('demand')}`;
+ let volumeNote='';
+ if(!days)volumeNote='Choose a run length to estimate inquiry volume.';
+ else if(counts.leads===null)volumeNote=fixed?'Enter monthly inquiries to estimate demand.':'Enter weekly availability, outreach time and inquiries per hour to estimate demand.';
+ else if(!fixed)volumeNote=`${quantity(Math.min(c.outreachHours,c.ownerHours))} outreach hours/week × ${quantity(QQ.workingDays(days)/5)} working weeks × ${quantity(c.leadsPerHour)} inquiries/hour.`;
+ const limit=!fixed&&counts.leads!==null&&c.outreachHours>c.ownerHours?`<p>Your available hours limit the time you can spend on outreach. ${btn('Edit available time','setup-step','small','data-step="2"')}</p>`:'';
+ const intake=`<section class="assumption-section"><h2>Plan incoming inquiries</h2><p class="decision-note">Use a typical monthly volume from your records or estimate it from time spent on outreach.</p>
+  <div class="formgrid essentials-grid demand-inputs">${source}${observed}${outreach}${response}</div>
+  <div class="decision-readout" data-demand="volume"><dl>${readout('Average new inquiries / month',counts.leads===null?null:counts.leads/c.months)}${readout(days?'New inquiries over '+days+' days':'New inquiries over the run',counts.leads)}</dl>${volumeNote?`<p>${volumeNote}</p>`:''}${limit}</div></section>`;
+
+ let orderNote;
+ if(counts.leads===null)orderNote='Complete the inquiry volume to estimate new orders.';
+ else if(counts.matched===null)orderNote='Check service weights and customer mix to estimate how many inquiries match an offer.';
+ else if(counts.orders===null)orderNote='Enter your quote acceptance rate to estimate new orders.';
+ else if(counts.leads===0)orderNote='These inputs generate zero new inquiries.';
+ else if(counts.unserved>0)orderNote=`${quantity(counts.unserved)} inquiries have no matching offer.`;
+ else orderNote='Every inquiry matches an offer in this setup.';
+ const acceptedShare=counts.matched>0&&counts.orders!==null?`<meter class="decision-meter" aria-label="Share of matching inquiries accepted" min="0" max="100" value="${QQ.round(c.conversion*100)}"></meter>`:'';
+ const acceptance=`<section class="assumption-section"><h2>Estimate accepted quotes</h2><p class="decision-note">Choose the share of matching inquiries that turn into a first order.</p>
+  <div class="formgrid essentials-grid">${field('Quotes that become paid work','conversion',c.conversion,{max:100,percent:true,suffix:'%',help:inputBasis('conversion')+' · Accepted quotes divided by all decided quotes.'})}</div>
+  <div class="decision-readout" data-demand="orders"><dl>${readout('Inquiries with a matching offer',counts.matched)}${readout(days?'Expected new orders over '+days+' days':'Expected new orders',counts.orders)}</dl>${acceptedShare}<p>${orderNote}</p></div></section>`;
+ const advanced=`<p class="decision-note">The simulation adds returning work after delivery and payment. The estimate above counts first orders.</p>
+  <div class="formgrid">${field('Returning campaign quotes accepted','retention',c.retention,{max:100,percent:true,suffix:'%',help:'Each follow-up campaign is a fresh decision. A declined campaign skips one cycle; offers continue within the year. Legacy subscriptions use this as renewal likelihood.'})}${field('One-off clients who order again','repeat',c.repeat,{max:100,percent:true,suffix:'%',help:'Returning requests arrive 30 days after final payment.'})}</div>${customerMixInputs()}`;
+ return clientDemandPanel(config,counts,issues,days,quantity)+intake+acceptance+advancedBlock('customers','Repeat business and customer mix',advanced)+evidenceControls('demand');
 }
 function customerMixInputs(){
- const mix=draft.customerMix;
+ const mix=draft.customerMix,targeted=draft.clientDemand?.share>0;
+ const mixLabel=targeted?'Customer mix for other inquiries':'Who contacts you';
+ if(!mix&&targeted)return `<section class="customer-profiles"><h3>${mixLabel}</h3><p class="helper">Other inquiries use generic customers. Add business types to give those clients a mix of identities.</p>${btn('Use varied businesses','enable-profiles','small')}</section>`;
  if(!mix)return `<section class="customer-profiles"><h3>Business types</h3><p class="helper">This earlier run uses generic customers. Add business types to future inquiries without changing existing projects.</p>${btn('Use varied businesses','enable-profiles','small')}</section>`;
  const total=Object.values(mix).reduce((n,v)=>n+v,0);
- return `<section class="customer-profiles"><h3>Who contacts you</h3><p class="helper">Share of inquiries by business type. New clients get a specific identity and context; returning clients keep theirs. Offerings targeted to another group cannot serve that inquiry.</p><div class="formgrid">${field('Restaurants and food shops','food',mix.food,{path:'customerMix.food',max:100,suffix:'%',step:1})}${field('Retail shops','retail',mix.retail,{path:'customerMix.retail',max:100,suffix:'%',step:1})}${field('Local services','services',mix.services,{path:'customerMix.services',max:100,suffix:'%',step:1})}${field('Workflow variation','profileStrength',draft.profileStrength,{options:[['0','Names and contexts only'],['0.5','Moderate differences'],['1','Stronger differences']],help:'Illustrative differences in work, approval time and return frequency.'})}${field('Focus on one niche','focusType',draft.focusType||'none',{options:[['none','Even mix within groups'],...QQ.CUSTOMER_TYPES.map(t=>[t.id,t.label])],help:'The selected type receives half of its group’s inquiries.'})}</div><p class="helper">Total: <b id="customer-mix-total">${Number.isFinite(total)?total:'—'}%</b> / 100%. The catalog includes ${QQ.CUSTOMER_TYPES.length} types, including bakeries, tea shops, noodle shops, cafés, restaurants and food trucks. These patterns are modeling assumptions, not measured local rates.</p></section>`;
+ return `<section class="customer-profiles"><h3>${mixLabel}</h3><p class="helper">${targeted?'These weights divide the inquiries left after your target share. Each business can request the offers available to its group.':'Share of inquiries by business type. New clients get a specific identity and context; returning clients keep theirs. Offerings targeted to another group cannot serve that inquiry.'}</p><div class="formgrid">${field('Restaurants and food shops','food',mix.food,{path:'customerMix.food',max:100,suffix:'%',step:1})}${field('Retail shops','retail',mix.retail,{path:'customerMix.retail',max:100,suffix:'%',step:1})}${field('Local services','services',mix.services,{path:'customerMix.services',max:100,suffix:'%',step:1})}${field('Workflow variation','profileStrength',draft.profileStrength,{options:[['0','Names and contexts only'],['0.5','Moderate differences'],['1','Stronger differences']],help:'Illustrative differences in work, approval time and return frequency.'})}${field('Focus on one niche','focusType',draft.focusType||'none',{options:[['none','Even mix within groups'],...QQ.CUSTOMER_TYPES.map(t=>[t.id,t.label])],help:'The selected type receives half of its group’s inquiries.'})}</div><p class="helper">Total: <b id="customer-mix-total">${Number.isFinite(total)?total:'—'}%</b> / 100%. The catalog includes ${QQ.CUSTOMER_TYPES.length} types, including bakeries, tea shops, noodle shops, cafés, restaurants and food trucks. These patterns are modeling assumptions, not measured local rates.</p></section>`;
 }
-function teamInputs(){const c=draft,advanced=`<div class="formgrid">${field('Value of your time','ownerTarget',c.ownerTarget,{max:1000,suffix:'$ / hour',help:'An economic target; no cash is paid to you.'})}${field('Your work to prepare a quote','quoteHours',c.quoteHours,{max:24,step:0.1,suffix:'hours / inquiry'})}${field('Your work to deliver a project','deliveryHours',c.deliveryHours,{max:24,step:0.1,suffix:'hours / delivery'})}${field('When work is waiting, handle…','priority',c.priority,{options:[['deadline','Earliest deadline first'],['fifo','Oldest project first']]})}</div>`;return `<div class="eyebrow">STEP 3 / WHO DOES THE WORK</div><h2>Set time and labor costs</h2><p class="helper">A five-day working week. Your time is shared across outreach, quoting, review and delivery.</p><div class="formgrid essentials-grid">${field('Your available time','ownerHours',c.ownerHours,{max:120,step:0.5,suffix:'hours / week'})}${field('Number of designers','designers',c.designers,{max:50,suffix:'people'})}${field('Availability of each designer','designerHours',c.designerHours,{max:120,step:0.5,suffix:'hours / week'})}${field('Designer labor cost','designerRate',c.designerRate,{max:1000,step:0.5,suffix:'$ / hour',help:inputBasis('designerRate')+' · Enter the paid rate from a contractor quote or invoice.'})}</div>${advancedBlock('team','Owner-time and queue assumptions',advanced)}${evidenceControls('people')}`;}
-function cashInputs(){const c=draft,advanced=`<div class="formgrid">${field('Final balance due after delivery','paymentDays',c.paymentDays,{max:90,suffix:'calendar days'})}${field('Client approval time','approvalDays',c.approvalDays,{max:30,suffix:'calendar days'})}${field('Print supplier turnaround','printDays',c.printDays,{max:90,suffix:'calendar days'})}</div><section class="advanced"><h3>Optional uncertainty & repeatability</h3><p class="helper">Choose which delays and extra work may occur during the run.</p>${checkbox('Enable uncertain project outcomes','realism',c.realism)}<div class="uncertainty-grid">${[['complexity','Different design complexity'],['revisions','Extra client revision'],['approval','Slower client approval'],['supplier','Print supplier delays'],['payment','Late final payments']].map(([k,l])=>checkbox(l,'uncertainty.'+k,c.uncertainty[k])).join('')}</div>${field('Workload seed','seed',c.seed,{max:1e9,help:'Same seed + same settings = same replay. Changing it requires a new run.'})}</section>`;return `<div class="eyebrow">STEP 4 / MONEY AND COMMITMENTS</div><h2>Set payments and deadlines</h2><div class="formgrid essentials-grid">${field('Starting cash','startingCash',c.startingCash,{max:1e8,suffix:'$',help:state.day?'Requires a new run. Use Add funding for current cash.':'Cash available on day 0.'})}${field('Software and other overhead','overhead',c.overhead,{max:1e7,suffix:'$ / month'})}${field('Client deposit','deposit',c.deposit,{percent:true,max:100,suffix:'%',help:'Received when a quote is accepted.'})}${field('Promise delivery within','leadDays',c.leadDays,{min:1,max:180,suffix:'calendar days',help:'Measured from acceptance of the quote.'})}${field('Scenario name','name',c.name,{text:true})}</div><p class="helper">${c.realism?Object.values(c.uncertainty).filter(Boolean).length+' routine uncertainties and '+Object.values(c.disruptions||{}).filter(Boolean).length+' disruption types enabled.':'Project uncertainty is off.'}</p>${advancedBlock('cash','Payment timing and uncertainty',advanced+disruptionInputs())}${evidenceControls('cash')}`;}
+function teamInputs(){
+ const c=draft,issues=draftValidationIssues();
+ const valid=(...paths)=>paths.every(path=>Number.isFinite(c[path])&&!issues.some(issue=>issue.path===path));
+ const capacity=QQ.workCapacity(c),fixed=c.acquisition==='preset';
+ const ownerKnown=valid('ownerHours')&&(fixed||c.acquisition==='sales'&&valid('outreachHours'));
+ const clientWeek=ownerKnown?capacity.owner*5:null;
+ const outreachWeek=fixed?0:ownerKnown?Math.max(0,c.ownerHours-clientWeek):null;
+ const designWeek=valid('designers','designerHours')?capacity.design*5:null;
+ const estimate=issues.length?QQ.estimateWorkload(draftRunConfig()):getDraftEstimate();
+ const weeks=estimate.workdays/5;
+ const clientNeed=estimate.owner===null?null:(estimate.owner-estimate.outreach)/weeks;
+ const designNeed=estimate.hours===null?null:estimate.hours/weeks;
+ const designCost=estimate.hours!==null&&valid('designerRate')?estimate.hours*c.designerRate:null;
+ const hours=value=>Number.isFinite(value)?effortHours(value)+' h':'—';
+ const ownerHelp=fixed?'With fixed inquiry volume, the simulator assigns your full working week to client work.':'The simulator reserves outreach time from Demand first. The remaining hours cover quotes, reviews and delivery.';
+ const outreachMeter=ownerKnown&&c.ownerHours>0&&!fixed?`<meter class="decision-meter" aria-label="Weekly owner time reserved for outreach" min="0" max="${c.ownerHours}" value="${outreachWeek}"></meter>`:'';
+ const ownerNotes=[];
+ if(clientNeed!==null){
+  if(valid('ownerTarget'))ownerNotes.push(`<span>Value of your expected time over the run</span> <strong>${offerAmount(estimate.owner*c.ownerTarget)}</strong>`);
+  if(clientWeek!==null&&clientNeed>clientWeek+1e-8)ownerNotes.push('Average client work exceeds your available hours.');
+ }
+ const designNotes=[];
+ if(designNeed!==null){
+  if(designWeek!==null){
+   const gap=designNeed-designWeek,short=gap>1e-8;
+   designNotes.push(`<span>${short?'Additional design time needed / week':'Spare design time / week'}</span> <strong>${hours(Math.abs(gap)<1e-8?0:Math.abs(gap))}</strong>`);
+   if(short)designNotes.push('Expected design work exceeds team capacity. Some work can remain unfinished.');
+  }
+  designNotes.push('Estimated labor assumes delivery of all expected new orders. The run charges for hours worked.');
+ }else{
+  if(designWeek!==null&&valid('designerRate'))designNotes.push(`<span>One week at full design capacity would cost</span> <strong>${offerAmount(designWeek*c.designerRate)}</strong>.`);
+  designNotes.push('The workload and labor estimate appear when the remaining inputs are ready.');
+ }
+ const owner=`<section class="assumption-section"><h2>Set your working week</h2><p class="decision-note">${ownerHelp}</p>
+  <div class="formgrid essentials-grid">${field('Your available time','ownerHours',c.ownerHours,{max:120,step:.5,suffix:'hours / week'})}
+  ${field('Value of your time','ownerTarget',c.ownerTarget,{max:1000,suffix:'$ / hour',help:'Used to calculate the result after owner time.'})}</div>
+  <div class="decision-readout"><dl>${decisionMetric('Outreach / week',hours(outreachWeek))}${decisionMetric('Available for clients / week',hours(clientWeek))}${decisionMetric('Average client work / week',hours(clientNeed))}</dl>${outreachMeter}${ownerNotes.map(n=>`<p>${n}</p>`).join('')}</div></section>`;
+ const design=`<section class="assumption-section"><h2>Staff the design work</h2><p class="decision-note">Each project can use one designer’s hours per day. Additional designers can work on other projects in parallel.</p>
+  <div class="formgrid essentials-grid">${field('Number of designers','designers',c.designers,{max:50,suffix:'people'})}
+  ${field('Availability of each designer','designerHours',c.designerHours,{max:120,step:.5,suffix:'hours / week'})}
+  ${field('Designer labor cost','designerRate',c.designerRate,{max:1000,step:.5,suffix:'$ / hour',help:inputBasis('designerRate')})}</div>
+  <div class="decision-readout"><dl>${decisionMetric('Design capacity / week',hours(designWeek))}${decisionMetric('Average design work / week',hours(designNeed))}
+  ${decisionMetric('Design labor over the run',offerAmount(designCost))}</dl>${designNotes.map(n=>`<p>${n}</p>`).join('')}</div></section>`;
+ const advanced=`<div class="formgrid">${field('Your work to prepare a quote','quoteHours',c.quoteHours,{max:24,step:.1,suffix:'hours / inquiry'})}
+  ${field('Your work to deliver a project','deliveryHours',c.deliveryHours,{max:24,step:.1,suffix:'hours / delivery'})}
+  ${field('When work is waiting, handle…','priority',c.priority,{options:[['deadline','Earliest deadline first'],['fifo','Oldest project first']],help:'Sets the order in which waiting projects receive time during the run.'})}</div>`;
+ return owner+design+advancedBlock('team','Owner-time and queue assumptions',advanced)+evidenceControls('people');
+}
+// Keep partial cash previews usable while unrelated offers or inputs are unfinished.
+function cashQuoteExample(issues){
+ for(const [index,service] of draft.services.entries()){
+  const path='services.'+index;
+  if(!(service.weight>0)||!Number.isFinite(service.price)||issues.some(i=>i.path===path+'.weight'||i.path===path+'.price'||i.path.startsWith(path+'.fulfillment')))continue;
+  let price=service.price,route='';
+  if(service.fulfillment){
+   const filesOnly=service.fulfillment.managedShare<.5;
+   price=filesOnly?service.fulfillment.designOnlyPrice:service.price;
+   route=filesOnly?'Files only':'Managed printing';
+  }
+  return {name:typeof service.name==='string'&&service.name.trim()?serviceName(service):'Your service',price:QQ.round(price),route};
+ }
+ return null;
+}
+function cashInputs(){
+ const c=draft,issues=draftValidationIssues();
+ const valid=key=>Number.isFinite(c[key])&&!issues.some(issue=>issue.path===key);
+ const dayCount=n=>n===1?'1 day':n+' days';
+ const charge=valid('overhead')?QQ.round(c.overhead):null;
+ const remaining=charge!==null&&valid('startingCash')?QQ.round(QQ.round(c.startingCash)-charge):null;
+ const shortfall=remaining!==null&&remaining<0;
+ const total=charge!==null&&validRunLength(c.months)?QQ.round(charge*c.months):null;
+ const leadDays=c.leadDays===undefined?QQ.DEFAULT.leadDays:c.leadDays;
+ const validLead=Number.isInteger(leadDays)&&!issues.some(issue=>issue.path==='leadDays');
+ const example=cashQuoteExample(issues),depositValid=valid('deposit');
+ const paid=example&&depositValid?QQ.round(example.price*c.deposit):null;
+ const balance=paid!==null?QQ.round(example.price-paid):null;
+ const paymentShare=f=>QQ.round(f*100)+'%';
+ const upfrontValue=example?offerAmount(paid):depositValid?paymentShare(c.deposit):'—';
+ const finalValue=example?offerAmount(balance):depositValid?paymentShare(1-c.deposit):'—';
+ const prepaid=balance===0||c.deposit===1;
+ const dueLabel=prepaid||!valid('paymentDays')?'Final balance':c.paymentDays===0?'Due on delivery':c.paymentDays===1?'Due 1 day after delivery':'Due '+c.paymentDays+' days after delivery';
+ const splitMeter=depositValid?`<meter class="decision-meter" aria-label="Deposit share" min="0" max="100" value="${QQ.round(c.deposit*100)}">${paymentShare(c.deposit)}</meter>`:'';
+ const priceBasis=example?`<span>One accepted quote</span> · <strong>${example.name}</strong>${example.route?' · <span>'+example.route+'</span>':''} · ${offerAmount(example.price)}`:'Add an offer price to see the payment amounts.';
+ let dueNote='';
+ if(prepaid)dueNote='No balance remains after acceptance.';
+ else if(!depositValid||!validLead||!valid('paymentDays'))dueNote='Enter the deposit, delivery target and payment terms to see the collection schedule.';
+ else{
+  const days=leadDays+c.paymentDays;
+  dueNote=days===1?'If delivered on the target date, any balance is due 1 day after acceptance.':'If delivered on the target date, any balance is due '+days+' days after acceptance.';
+ }
+ const baseWait=validLead&&valid('approvalDays')?leadDays-c.approvalDays:null;
+ const printWindow=baseWait!==null&&valid('printDays')?baseWait-c.printDays:null;
+ const windowText=value=>value===null?'—':value<0?dayCount(-value)+' short':dayCount(value);
+ const reserve=`<section class="assumption-section"><h2>Opening cash and overhead</h2><div class="formgrid essentials-grid">
+  ${field('Starting cash','startingCash',c.startingCash,{max:1e8,suffix:'$',help:state.day&&!editingRerun?'Requires a new run. Use Add funding for current cash.':'Cash available on day 0.'})}
+  ${field('Software and other overhead','overhead',c.overhead,{max:1e7,suffix:'$ / month'})}</div>
+  <div class="decision-readout"><dl>${decisionMetric(shortfall?'Needed for the first charge':'Cash after the first charge',offerAmount(remaining===null?null:Math.abs(remaining)))}${decisionMetric('Overhead over the run',offerAmount(total))}</dl>
+  <p>${shortfall?'A new run pauses on day 1 until this shortfall is funded.':'In a new run, overhead is charged on day 1 and every 30 days thereafter, before new work starts.'}</p></div></section>`;
+ const payments=`<section class="assumption-section"><h2>Client payment terms</h2><p class="decision-note">Choose how much to collect at acceptance and when the rest falls due. The run records revenue on delivery.</p><div class="formgrid essentials-grid">
+  ${field('Client deposit','deposit',c.deposit,{percent:true,max:100,suffix:'%'})}
+  ${field('Final balance due after delivery','paymentDays',c.paymentDays,{max:90,suffix:'calendar days'})}</div>
+  <div class="decision-readout"><p>${priceBasis}</p><dl>${decisionMetric('At acceptance',upfrontValue)}${decisionMetric(dueLabel,finalValue)}</dl>${splitMeter}</div></section>`;
+ const delivery=`<section class="assumption-section"><h2>Delivery promise</h2><div class="formgrid essentials-grid">
+  ${field('Promise delivery within','leadDays',leadDays,{min:1,max:180,suffix:'calendar days',help:'Measured from acceptance of the quote.'})}
+  ${field('Client approval time','approvalDays',c.approvalDays,{max:30,suffix:'calendar days'})}
+  ${field('Print supplier turnaround','printDays',c.printDays,{max:90,suffix:'calendar days'})}</div>
+  <div class="decision-readout"><p>Time left for design, review and delivery after the base waits.</p><dl>${decisionMetric('Files-only work window',windowText(baseWait))}${decisionMetric('Printed work window',windowText(printWindow))}</dl><p><span>${dueNote}</span> <span>Queues and delays can shift the actual dates.</span></p></div></section>`;
+ const uncertainty={...QQ.DEFAULT.uncertainty,...c.uncertainty};
+ const variability=`<p class="decision-note">${c.realism?Object.values(uncertainty).filter(Boolean).length+' routine uncertainties and '+Object.values(c.disruptions||{}).filter(Boolean).length+' disruption types enabled.':'Project uncertainty is off.'}</p>
+  ${checkbox('Enable uncertain project outcomes','realism',c.realism)}<div class="uncertainty-grid">${[['complexity','Different design complexity'],['revisions','Extra client revision'],['approval','Slower client approval'],['supplier','Print supplier delays'],['payment','Late final payments']].map(([k,l])=>checkbox(l,'uncertainty.'+k,uncertainty[k])).join('')}</div>
+  ${field('Workload seed','seed',c.seed,{max:1e9,help:'Same seed + same settings = same replay. Changing it requires a new run.'})}${disruptionInputs()}`;
+ return `${reserve}${payments}${delivery}${field('Scenario name','name',c.name,{text:true})}${advancedBlock('cash','Uncertainty and repeatability',variability)}${evidenceControls('cash')}`;
+}
 function mixValid(){return Math.abs(draft.services.reduce((n,s)=>n+s.weight,0)-100)<0.01;}
 function draftError(){return issueText(draftValidationIssues()[0]);}
 function setupIssueTarget(issue){
@@ -1214,6 +2209,7 @@ function setupIssueTarget(issue){
   return label?{step:0,path,label}:null;
  }
  if(path==='customerMix')return draft.customerMix?{step:1,path:'customerMix.food',label:'customer mix'}:{step:1,selector:'[data-action="enable-profiles"]',label:'customer mix'};
+ if(parts[0]==='clientDemand')return {step:1,path:'clientDemand.share',selector:'#client-demand-share',label:'target client inquiry share'};
  if(path==='months')return {step:stepIndex,path,label:'run length'};
  if(path.startsWith('disruptionRates.')||path.startsWith('uncertainty.')||path.startsWith('disruptions.'))return {step:3,path,label:DISRUPTION_LABELS[parts[1]]||'uncertainty setting'};
  const label=path==='leadsPerHour'?'inquiries per outreach hour':DIFF_LABELS[path]?.toLowerCase();
@@ -1222,17 +2218,167 @@ function setupIssueTarget(issue){
  if(['designers','ownerTarget','priority'].includes(path)||Object.hasOwn(QQ.ASSUMPTION_FIELDS.people,path))return {step:2,path,label};
  return {step:3,path,label};
 }
-function fixSetupIssue(){
- const target=setupIssueTarget(draftValidationIssues()[0]);
+function fixSetupIssue(path){
+ const issues=draftValidationIssues();
+ const target=setupIssueTarget(path?issues.find(issue=>issue.path===path):issues[0]);
  if(!target)return;
  setupRepairPath=target.path;stepIndex=target.step;render();
  revealSetupField(target);
 }
 function revealSetupField(target){
  const field=document.querySelector(target.selector||`[data-input="${target.path}"]`);
- if(!field)return;
+ if(!field)return false;
  for(let detail=field.closest?.('details');detail;detail=detail.parentElement?.closest('details'))detail.open=true;
- field.focus();
+ if(editingRerun){
+  field.focus({preventScroll:true});
+  field.scrollIntoView?.({block:'center',behavior:'instant'});
+ }else field.focus();
+ return true;
+}
+function focusRevisedAssumption(){
+ let path=rerunDraft.path;
+ if(rerunDraft.serviceId){
+  const index=draft.services.findIndex(service=>service.id===rerunDraft.serviceId);
+  if(index<0)return false;
+  path=path.replace(/^services\.\d+\./,'services.'+index+'.');
+ }
+ const target=setupIssueTarget({path});
+ return target?.step===stepIndex&&revealSetupField(target);
+}
+function focusResultAssumption(){
+ if(!rerunDraft)return false;
+ const links=[...document.querySelectorAll('#root [data-action="test-assumption"]')].filter(el=>rerunDraft.serviceId?
+  el.dataset.serviceId===rerunDraft.serviceId&&el.dataset.path.split('.').slice(2).join('.')===rerunDraft.path.split('.').slice(2).join('.'):
+  el.dataset.path===rerunDraft.path);
+ const target=links.find(el=>(el.dataset.variantInput!==undefined)===Boolean(rerunDraft.returnTab)&&
+  (Number(el.dataset.resultsMonth)||null)===(rerunDraft.resultsMonth||null))||links[0];
+ if(!target)return false;
+ target.focus({preventScroll:true});
+ target.scrollIntoView?.({block:'center',behavior:'instant'});
+ return true;
+}
+function rerunTarget({path,serviceId,comparisonId,keptVersion}){
+ return {path,...(serviceId!==undefined?{serviceId}:{}),...(comparisonId?{comparisonId,keptVersion}:{})};
+}
+function rerunStartingConfig(run){
+ return QQ.replayConfigAt(run,0);
+}
+function completedVariantPair(){
+ return rerunLink?.run===state?archivedVariantPair({state,rerunLink}):null;
+}
+function archivedVariantPair(workspace){
+ const revised=workspace?.state,link=workspace?.rerunLink,original=link?.original;
+ if(!revised||!original||original.day!==original.config.months*30||revised.day!==revised.config.months*30)return null;
+ return {original,revised,...rerunTarget(link)};
+}
+function canSimulateRerun(){
+ if(!editingRerun||rerunDraft?.run!==state||draftValidationIssues().length)return false;
+ return configDiff(rerunStartingConfig(state),draftRunConfig()).some(change=>modeledAssumption(change.path));
+}
+function modeledAssumption(path){
+ if(path==='name'||path.startsWith('assumptionRecords.'))return false;
+ return !/^services\..+?\.(?:name|deliverable|filesOnlyScope|spec(?:\..+)?)$/.test(path);
+}
+function parkRerunEditor(){
+ if(!editingRerun)return;
+ rerunDraft.draft=draft;draft=ordinaryDraft;ordinaryDraft=null;editingRerun=false;
+ serviceUndoDraft=null;presetUndoDraft=null;setupRepairPath=null;expandedService=-1;recipeOpen=false;
+}
+function activateRerunEditor(step){
+ if(!editingRerun){
+  ordinaryDraft=draft;draft=rerunDraft.draft;editingRerun=true;
+  serviceUndoDraft=null;presetUndoDraft=null;recipeOpen=false;
+ }
+ view='setup';stepIndex=step;setupRepairPath=rerunDraft.path;
+ if(rerunDraft.serviceId)expandedService=draft.services.findIndex(s=>s.id===rerunDraft.serviceId);
+}
+function editResultAssumption(path,serviceId,fromComparison=false,resultsMonth){
+ if(view!=='finances'||state.day!==state.config.months*30||!/^\w+(?:\.\w+)*$/.test(path||''))return;
+ const target=setupIssueTarget({path});
+ if(!target?.path)return;
+ const inputs=rerunDraft?.run===state?rerunDraft.draft:draftWithClientMenu(rerunStartingConfig(state),draft);
+ if(path==='clientDemand.share'&&!inputs.clientDemand){
+  const previous=rerunLink?.run===state?rerunStartingConfig(rerunLink.original).clientDemand:null;
+  const id=currentClientMenu(inputs)?.profile.id||previous?.profileId;
+  if(id)inputs.clientDemand={profileId:id,share:0};
+ }
+ if(path.startsWith('services.')){
+  const index=inputs.services.findIndex(service=>service.id===serviceId);
+  if(index<0){toast('This service has been removed from the revised setup.');return;}
+  path=path.replace(/^services\.\d+\./,'services.'+index+'.');
+  target.path=path;
+ }
+ stop();
+ rerunDraft={run:state,draft:inputs,path,...(fromComparison?{returnTab:analyticsTab}:{}),...(resultsMonth?{resultsMonth}:{}),...(serviceId?{serviceId}:{})};
+ setupEntryPath=null;setupReturnView=null;newScenarioRequested=false;
+ activateRerunEditor(target.step);save();render();revealSetupField(target);
+}
+function simulateRevisedRun(){
+ if(!canSimulateRerun())return;
+ const nextRun=QQ.fresh(draftRunConfig()),source=currentWorkspace(),nextArchives=[...archives];
+ // Build and size-check the entire change before replacing any live state.
+ // The source workspace retains its ordinary unfinished draft and former pair.
+ delete source.rerunDraft;
+ MEIQQWorkspace.archive(nextArchives,source);
+ const nextSaved=[...saved],nextInfo=checkpointInfo.map(info=>({...info}));
+ MEIQQWorkspace.checkpoint({state,saved:nextSaved,checkpointInfo:nextInfo},'manual');
+ const next={state:nextRun,saved:nextSaved,checkpointInfo:nextInfo,draft:QQ.clone(draft),recoveryFiles:source.recoveryFiles,
+  setupOrigin,rerunLink:{original:state,...rerunTarget(rerunDraft)}};
+ MEIQQWorkspace.serialize(next,nextArchives);
+ stop();installWorkspace({...next,archives:nextArchives});selection=null;inspectorTrail=[];
+ advanceRun('simulate');
+}
+function newComparisonId(){
+ const used=new Set(archives.map(item=>item.workspace.rerunLink?.comparisonId));
+ if(rerunLink?.comparisonId)used.add(rerunLink.comparisonId);
+ const nonce=globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+ const prefix='comparison-'+nonce;
+ let id=prefix;
+ for(let suffix=2;used.has(id);suffix++)id=prefix+'-'+suffix;
+ return id;
+}
+async function keepRunSetup(version){
+ const pair=completedVariantPair();
+ if(savingKeptSetup||savedComparisonReader||view!=='finances'||!pair||(version!=='original'&&version!=='revised'))return;
+ if(loading||recoveryRaw!==null||primaryReadFailed)throw Error('Resolve the current simulator save before starting another scenario.');
+ const source=currentWorkspace(),nextArchives=[...archives];
+ // A different decision about a previously kept pair has its own record.
+ if(pair.keptVersion&&pair.keptVersion!==version)MEIQQWorkspace.archive(nextArchives,source);
+ const id=pair.keptVersion===version?pair.comparisonId:newComparisonId();
+ const chosen=QQ.fresh(rerunStartingConfig(pair[version]));
+ source.rerunLink={...source.rerunLink,comparisonId:id,keptVersion:version};
+ MEIQQWorkspace.archive(nextArchives,source);
+ const next={state:chosen,draft:draftWithClientMenu(chosen.config,source.draft),saved,checkpointInfo,setupOrigin,
+  recoveryFiles:source.recoveryFiles,keptComparisonId:id};
+ // Keep the live comparison until the complete replacement is durable.
+ // A queued autosave of the prior screen must not supersede this write.
+ const text=MEIQQWorkspace.serialize(next,nextArchives);
+ const hash=routeReady?window.location.hash:null,root=document.querySelector('#root');
+ clearTimeout(saveTimer);saveTimer=null;savePreparationError=null;
+ savingKeptSetup=true;root.inert=true;root.setAttribute?.('aria-busy','true');
+ try{
+  writeWorkspaceText(text);
+  if(saveWriter&&!await saveWriter.flush())throw Error(storeReason||'The comparison could not be saved. Your results are still open.');
+  if(!saveWriter)persistenceStatus('saved');
+ }catch(error){
+  if(!storeError)persistenceStatus('error',error);
+  throw error;
+ }finally{
+  savingKeptSetup=false;root.inert=false;root.removeAttribute?.('aria-busy');
+  if(storeError&&hash!==null&&window.location.hash!==hash)readWorkspaceRoute();
+ }
+ const navigated=hash!==null&&window.location.hash!==hash;
+ if(!navigated){
+  try{rememberKeptComparison(id);}catch{/* A history limit cannot undo a committed setup choice. */}
+ }
+ stop();
+ installWorkspace({...next,archives:nextArchives});
+ selection=null;inspectorTrail=[];setupRepairPath=null;disclosureState.clear();
+ expandedService=pair.serviceId?draft.services.findIndex(service=>service.id===pair.serviceId):-1;
+ const target=setupIssueTarget({path:pair.path});
+ stepIndex=lastEditorStep=target?.step??0;
+ if(navigated)readWorkspaceRoute();
+ else{render();focusViewHeading();}
 }
 function workloadRow(label,used,available){const ratio=available?used/available:used?Infinity:0;return `<div class="capacity-row"><div><b>${label}</b><span>${num(used)} / ${num(available)} h</span></div><div class="track"><div class="fill ${ratio>1?'warn':''}" style="width:${Math.min(100,ratio*100)}%"></div></div><small>${available===0&&used>0?'No capacity available':ratio>1?num(used-available)+' hours over capacity':num(Math.max(0,available-used))+' hours spare'}</small></div>`;}
 function getDraftEstimate(){
@@ -1241,23 +2387,57 @@ function getDraftEstimate(){
  if(setupCache)setupCache.estimate=estimate;
  return estimate;
 }
+function offerReadiness(issues){
+ if(stepIndex!==0||draft.services.length!==1||!draft.services[0].customOffer||!draft.services[0].weight)return '';
+ const actions={name:'Enter a service name',price:'Enter a client price',deliverable:'Describe the deliverable',hours:'Enter production hours',review:'Enter review hours',supplierMode:'Choose a print route',print:'Enter printing cost'};
+ const groups=[['Scope and price',['name','price','deliverable']],['Project hours',['hours','review']],['Supplier costs',['supplierMode','print']]];
+ const rows=groups.map(([label,keys])=>{
+  const missing=keys.map(key=>issues.find(issue=>issue.path==='services.0.'+key)).find(Boolean);
+  return {label,missing};
+ });
+ const complete=rows.filter(row=>!row.missing).length;
+ if(complete===rows.length)return '';
+ return `<p class="estimate-intro">Complete these details to calculate the result for your service.</p>
+ <ol class="offer-readiness">${rows.map(({label,missing},i)=>`<li class="${missing?'pending':'ready'}"><span class="readiness-mark" aria-hidden="true">${missing?i+1:'✓'}</span><div><strong>${label}</strong>${missing?btn('<span>'+actions[missing.path.split('.').at(-1)]+'</span> <i aria-hidden="true">→</i>','fix-setup-issue','readiness-link',`data-path="${esc(missing.path)}"`):'<small>Ready</small>'}</div></li>`).join('')}</ol>`;
+}
 function draftSummary(){
- const issue=draftValidationIssues()[0],error=issueText(issue),changed=dirty(),e=error?null:getDraftEstimate();
- const target=setupIssueTarget(issue);
- const guidedServiceIssue=error&&setupMode==='guided'&&stepIndex===0&&issue.path.startsWith('services')&&target;
- const previewIssue=error&&stepIndex===0&&issue.path==='services'?'Complete the offer mix to see the run estimate.':error;
- const fix=target?btn('Fix '+esc(target.label),'fix-setup-issue','small'):'';
- let blocker='';
- if(e&&e.owner>e.outreach&&e.ownerCapacity<=e.outreach)blocker='No owner time remains for project work. Reduce outreach or add owner hours.';
- else if(e&&e.hours>0&&e.designCapacity===0)blocker='No design capacity. Add designer hours to deliver this workload.';
- const signed=value=>(value>0?'+':'')+money(value);
- const guidedOffers=setupMode==='guided'&&stepIndex===0;
- const detail=e?`<p class="preview-basis">Days 1–${e.days} · ${e.workdays} working days. Assumes delivery of all expected new orders and excludes queues, disruptions and returning work.</p><div class="minirow"><span>Expected new inquiries</span><b>${num(e.leads)}</b></div><div class="minirow"><span>Expected new orders</span><b>${num(e.orders)}</b></div>${e.unserved>0?`<p class="preview-unserved">${num(e.unserved)} inquiries have no matching offer.</p>`:''}<p class="preview-basis">Owner time valued at ${money(draft.ownerTarget)}/hour</p>${workloadRow('Your time',e.owner,e.ownerCapacity)}${workloadRow('Design team',e.hours,e.designCapacity)}<div class="minirow"><span>Potential revenue</span><b>${money(e.revenue)}</b></div>`:'';
- const figures=e?`${blocker?`<p class="banner warn" role="status">${blocker}</p>`:''}<div class="summary-numbers"><div><strong class="${e.profit<0?'negative':''}">${signed(e.profit)}</strong><small>Operating result</small></div><div><strong class="${e.surplus<0?'negative':''}">${signed(e.surplus)}</strong><small>After owner time</small></div></div>
-  ${guidedOffers?`<details class="estimate-detail" data-disclosure="offer-estimate"><summary>What goes into this estimate?</summary>${detail}</details>`:detail}`:'';
+ const issues=draftValidationIssues();
+ const issue=issues.find(item=>setupIssueTarget(item)?.step===stepIndex)||issues[0];
  const runDays=validRunLength(draft.months)?draft.months*30:null;
- const runAction=state.day===0?btn(runDays?'Simulate '+runDays+' days':'Simulate run','simulate',guidedOffers?'soft full':'primary full',error?'disabled':''):changed?btn('Review & apply changes','review','primary full',error?'disabled':''):btn('Resume run','view','primary full','data-view="map"');
- return `<section class="panel summary-card"><h2>${runDays?runDays+'-day estimate':'Run estimate'}</h2>${guidedServiceIssue?'<p class="helper">Complete your service details to see the run estimate.</p>':error?`<div class="banner danger"><span role="status">${esc(previewIssue)}</span> ${fix}</div>`:''}${figures}<div class="divider"></div>${runAction}${changed&&state.day===0?btn('Review setup only','review','ghost full',error?'disabled':''):''}${changed?btn('Cancel all draft changes','discard','ghost full'):''}</section>`;
+ const heading=`<h2>${runDays?runDays+'-day estimate':'Run estimate'}</h2>`;
+ const row=(label,value)=>`<div class="minirow"><span>${label}</span><b>${value}</b></div>`;
+ if(issue){
+  const target=setupIssueTarget(issue),readiness=offerReadiness(issues);
+  const fix=target?btn('Fix '+esc(target.label),'fix-setup-issue','soft small',`data-path="${esc(issue.path)}"`):'';
+  const location=target&&target.step!==stepIndex?`<strong>${steps[target.step]}</strong>`:'';
+  return `<section class="panel summary-card estimate-pending">${heading}${readiness||`<div class="estimate-issue">${location}<p>${esc(issueText(issue))}</p>${fix}</div>`}</section>`;
+ }
+ const e=getDraftEstimate(),changed=dirty();
+ let blocker='';
+ if(e.owner>e.outreach&&e.ownerCapacity<=e.outreach)blocker='No owner time remains for project work. Reduce outreach or add owner hours.';
+ else if(e.hours>0&&e.designCapacity===0)blocker='No design capacity. Add designer hours to deliver this workload.';
+ const detail=`<p class="preview-basis">Days 1–${e.days} · ${e.workdays} working days. Assumes delivery of all expected new orders and excludes queues, disruptions and returning work.</p>
+  ${row('Expected new inquiries',num(e.leads))}${row('Expected new orders',num(e.orders))}${e.unserved>0?`<p class="preview-unserved">${num(e.unserved)} inquiries have no matching offer.</p>`:''}<p class="preview-basis">Owner time valued at ${money(draft.ownerTarget)}/hour</p>${workloadRow('Your time',e.owner,e.ownerCapacity)}${workloadRow('Design team',e.hours,e.designCapacity)}${row('Potential revenue',money(e.revenue))}`;
+ const runAction=state.day===0?btn('Simulate '+runDays+' days','simulate','primary full'):changed?btn('Review & apply changes','review','primary full'):state.day>=runDays?btn('View results','review-latest-results','primary full'):btn('Resume run','finish-run','primary full');
+ // A step compares like periods. Keep the first complete estimate while its
+ // inputs are edited, including when a field is temporarily empty.
+ let comparison=null;
+ if(stepIndex>0){
+  if(!firstStepEstimate||firstStepEstimate.draft!==draft||firstStepEstimate.step!==stepIndex||firstStepEstimate.days!==e.days)firstStepEstimate={draft,step:stepIndex,days:e.days,profit:e.profit,surplus:e.surplus};
+  const change=key=>QQ.round(QQ.round(e[key])-QQ.round(firstStepEstimate[key]));
+  const profit=change('profit'),surplus=change('surplus');
+  if(profit||surplus)comparison={profit,surplus};
+ }
+ const metric=(label,key)=>{
+  const change=comparison?.[key];
+  const delta=comparison?`<span class="estimate-delta${change>0?' gain':change<0?' loss':''}">${change>0?'+':''}${offerAmount(change)}</span>`:'';
+  return `<div><small>${label}</small><strong class="${e[key]<0?'negative':''}"${key==='profit'?' data-run-estimate="profit"':''}>${setupResultAmount(e[key])}</strong>${delta}</div>`;
+ };
+ return `<section class="panel summary-card estimate-ready">${heading}${blocker?`<p class="banner warn" role="status">${blocker}</p>`:''}
+ <div class="summary-numbers step-estimate">${metric('Operating result','profit')}${metric('After owner time','surplus')}</div>
+ ${comparison?'<p class="comparison-basis">Changes from the first estimate on this step.</p>':''}
+ <details class="estimate-detail" data-disclosure="setup-advanced-estimate-${stepIndex}" ${setupMode==='analyst'?'open':''}><summary>What goes into this estimate?</summary>${detail}</details>
+ ${editingRerun?'':`<div class="estimate-actions">${runAction}${changed&&state.day===0?btn('Review setup only','review','ghost full'):''}</div>`}</section>`;
 }
 function updatePreview(){scheduleSave();}
 function workflowPath(){return `<div class="handoff-strip" aria-label="Project handoffs">${Object.entries(WORKFLOW_STAGES).filter(([,v])=>v.order>0&&v.order<8).sort((a,b)=>a[1].order-b[1].order).map(([id,v])=>btn(`<span>${v.order}</span><b>${esc(v.label)}</b><small>${esc(v.handoff)}</small>`,'stage','handoff-step '+(selection?.type==='stage'&&selection.id===id?'selected':''),`data-id="${id}"`)).join('')}</div>`;}
@@ -1400,6 +2580,32 @@ function jobsToWatch(ordered){
  const empty=block?'':state.day===0?'Your first job appears when an inquiry matches a service.':state.projects.length?'Every job so far has been completed or declined.':'No inquiries have entered a project queue yet.';
  const waiting=first.find(p=>workResource(p.stage)&&p.work[p.stage]>0);
  return `<section class="panel run-attention"><div class="panelhead"><h2>Jobs to watch</h2><span>Day ${state.day} · ${active.length} open</span></div>${funding}${rows?`<ul class="attention-list">${rows}</ul>`:`<p class="helper">${esc(empty)}</p>`}${active.length>first.length?btn('View all '+active.length+' open jobs','all-open-jobs','small'):''}${waiting&&!block&&!selection?replayPromptView(waiting):''}</section>`;
+}
+function setupResultAmount(value){
+ return (value>0?'+':'')+offerAmount(QQ.round(value));
+}
+function runPassageView(m){
+ const end=state.config.months*30,estimate=runPassage.estimate;
+ const original=rerunLink?.run===state?rerunLink.original:null;
+ const originalClose=original?.history[Math.min(state.day,original.day)-1];
+ const status=state.blocked?'Cash decision needed':running?'Running':'Paused';
+ const accepted=state.projects.reduce((count,p)=>count+(p.accepted!==undefined?1:0),0);
+ const field=(label,value)=>`<div><dt>${label}</dt><dd>${value}</dd></div>`;
+ const estimateLabel=estimate?.basis==='reconstructed'?'Reconstructed estimate':'Setup estimate';
+ const toggleLabel=state.blocked?'Resolve shortfall':running?'Pause simulation':'Continue simulation';
+ return `<section class="run-passage" aria-labelledby="sim-heading" data-render-key="run-passage">
+  <header class="passage-heading"><p>${scenarioName(state.config.name)}</p><h1 id="sim-heading" tabindex="-1">${original?'Revised '+end+'-day run':'Your '+end+'-day run'}</h1></header>
+  <div class="passage-layout"><section class="passage-progress" aria-labelledby="passage-day">
+   <div class="passage-position"><h2 id="passage-day">Day ${state.day} of ${end}</h2><span role="status">${status}</span></div>
+   <progress value="${state.day}" max="${end}" aria-labelledby="passage-day"></progress>
+   <dl class="passage-counts">${field('Accepted quotes',accepted)}${field('Delivered projects',m.delivered)}${field('Cash available',offerAmount(state.cash))}</dl>
+   ${state.blocked?`<p class="passage-shortfall"><span>Funding needed</span> <strong>${offerAmount(state.blocked.gap)}</strong> · <span>${esc(state.blocked.note)}</span></p>`:''}
+   <div class="passage-actions">${btn(icon(running?'pause':'play')+toggleLabel,'toggle-passage','primary','id="passage-toggle"')}${btn('Inspect run','inspect-run','ghost')}</div>
+  </section><section class="passage-estimate" aria-labelledby="passage-result"><h2 id="passage-result">Operating result</h2><dl>
+   ${estimate?`<div><dt><span>${estimateLabel}</span>${estimate.days!==end?' · <span>'+estimate.days+' days</span>':''}</dt><dd data-run-estimate="profit">${setupResultAmount(estimate.profit)}</dd></div>`:''}
+   <div><dt>Result so far</dt><dd${m.profit<0?' class="negative"':''}>${setupResultAmount(m.profit)}</dd></div>
+   ${originalClose?field('Original on day '+originalClose.day,setupResultAmount(originalClose.profit)):''}
+  </dl></section></div></section>`;
 }
 function mapView(m){
  const ordered=QQ.orderedProjects(state);
@@ -1549,6 +2755,41 @@ function comparedRuns(){
  const record=b>=0&&a>=0&&a!==b?(checkpointInfo[a]?.replays||[]).find(r=>r.baselineId===checkpointInfo[b]?.replayId&&(!comparisonSelection?.record||r===comparisonSelection.record)):null;
  return {b,a:alternative===state?-1:a,base:b>=0?saved[b]:null,alternative,record};
 }
+function savedComparisonArchive(id){
+ return id?archives.findLast(entry=>entry.workspace.rerunLink?.comparisonId===id&&archivedVariantPair(entry.workspace)):null;
+}
+function savedComparisonLibrary(){
+ const seen=new Set(),rows=[];
+ for(let index=archives.length-1;index>=0;index--){
+  const pair=archivedVariantPair(archives[index].workspace);
+  if(!pair||pair.comparisonId&&seen.has(pair.comparisonId))continue;
+  if(pair.comparisonId)seen.add(pair.comparisonId);
+  const changes=configDiff(rerunStartingConfig(pair.original),rerunStartingConfig(pair.revised)).filter(item=>modeledAssumption(item.path));
+  const source=pair.serviceId?pair.path.replace(/^services\.\d+\./,'services.'+pair.serviceId+'.'):pair.path;
+  const change=changes.find(item=>item.path===source)||changes[0];
+  const kept=pair.keptVersion==='original'?'Original setup kept':pair.keptVersion==='revised'?'Revised setup kept':'';
+  const detail=change?`<span class="saved-change"><span>${esc(change.label)}</span> <b>${esc(change.before)} → ${esc(change.after)}</b></span>`:'';
+  const locator=pair.comparisonId?'data-comparison-id="'+esc(pair.comparisonId)+'"':'data-index="'+index+'"';
+  rows.push(`<li><button type="button" class="saved-comparison-row" data-action="open-saved-comparison" ${locator} aria-haspopup="dialog">
+   <span><strong>${scenarioName(pair.revised.config.name)}</strong>${detail}</span><span class="saved-comparison-scope"><span>${daySpan(1,Math.min(pair.original.day,pair.revised.day))}</span>${kept?'<span>'+kept+'</span>':''}</span>${icon('arrow')}</button></li>`);
+ }
+ return rows.length?`<section class="panel padded saved-comparison-library"><h2>Saved comparisons</h2><ul>${rows.join('')}</ul></section>`:'';
+}
+function presentSavedComparison(pair,entry){
+ savedComparisonReader=entry;
+ const close=btn(icon('close')+'<span>Close comparison</span>','close','small');
+ modal(`<div class="saved-comparison-reader"><header><div><span>Saved comparison</span><h2 id="dialog-title">${scenarioName(pair.revised.config.name)}</h2></div>${close}</header>
+  ${variantResultsOverview(pair,{readOnly:true,kept:pair.keptVersion})}</div>`,'saved-variant-result-title');
+ if(entry.opener)modalFocus=entry.opener;
+}
+function openSavedComparisonFromArchive({comparisonId,index}){
+ const archive=comparisonId?savedComparisonArchive(comparisonId):/^\d+$/.test(index)?archives[Number(index)]:null;
+ const pair=archive&&archivedVariantPair(archive.workspace);
+ if(!pair)throw Error('This saved comparison is unavailable.');
+ const entry={id:pair.comparisonId,route:workspaceRoute(),tab:analyticsTab,opener:actionFocus||focusKey(document.activeElement)};
+ if(routeReady&&entry.id)window.history.pushState({...window.history.state,savedComparison:entry},'','#'+entry.route+'?comparison='+entry.id);
+ presentSavedComparison(pair,entry);
+}
 function savedExperiments(){
  const rows=[];
  checkpointInfo.forEach((info,index)=>(info.replays||[]).forEach((r,recordIndex)=>{
@@ -1594,7 +2835,9 @@ function scenariosTableView(compare=true){
   comparisonHtml=`<section class="panel padded comparison-summary"><h2>${header}</h2><div class="comparison-choices"><span>Baseline · <b>${esc(checkpointInfo[b].label)}</b></span><label>Comparison run <select id="compared-run">${options}</select></label></div>${totals}</section>`;
  }
  const verdict=compare&&record?savedReplayVerdict(base,alternative,record):'';
- const guided=compare?`${verdict}${replayComparisonCard()}${savedExperiments()}`:'';
+ const revision=compare&&completedVariantPair();
+ const latest=revision?(base?btn('View original and revised runs','review-latest-results','soft'):variantResultsOverview(revision)):'';
+ const guided=savedComparisonLibrary()+(compare?latest+verdict+replayComparisonCard()+savedExperiments():'');
  return `${guided}${comparisonHtml}<section class="panel"><div class="panelhead"><div><h2>${compare?'Choose a baseline':'Saved runs'}</h2><p class="helper">${compare?'Pin a checkpoint to compare against the current run.':'Open or manage checkpoints from this browser.'}</p></div><div class="actions">${compare?btn('Comparison report','comparison-report','soft',saved.length?'':'disabled'):btn('Compare runs','compare-runs','soft')}${btn('Save checkpoint','checkpoint','soft')}</div></div><div class="tablewrap"><table><thead><tr><th>Scenario</th><th>Day</th><th>Cash</th><th>Operating result</th><th>Owner hours</th><th>Delivered</th><th>Late</th><th></th></tr></thead><tbody>${row(state,-1)}${saved.map(row).join('')}</tbody></table></div></section>`;
 }
 function scenariosView(){return scenariosTableView(false)+preservationView();}
@@ -1673,7 +2916,7 @@ function clock(){
  const end=state.day>=state.config.months*30, disabled=end?'disabled':'';
  const runLabel=running?'Pause':firstExamplePending()?'Run restaurant example':'Run';
  return `<footer class="clock run-clock"><div class="clockday"><b>Day ${state.day} <span>/ ${state.config.months*30}</span></b><small>${state.blocked?'Cash decision needed':running?'Running':end?'Run complete':'Paused'}</small></div>
- <div class="clock-main">${btn(icon(running?'pause':'play')+runLabel,'play','primary',disabled)}${btn('1 day','step','',disabled)}${btn('Finish month','finish','',disabled)}</div>
+ <div class="clock-main">${end?btn('View results','review-latest-results','primary'):btn(icon(running?'pause':'play')+runLabel,'play','primary')}${btn('1 day','step','',disabled)}${btn('Finish month','finish','',disabled)}</div>
  <details class="run-options" data-disclosure="run-options"><summary>Controls</summary><div class="run-options-body"><label class="clock-select">Speed<select id="speed" aria-label="Simulation speed">${[1,2,4].map(n=>`<option value="${n}" ${speed===n?'selected':''}>${n}×</option>`).join('')}</select></label><label class="clock-select">Run length · applies now<select id="horizon" aria-label="Simulation horizon">${runLengthOptions(state.config.months,state.day)}</select></label>${btn('Finish run','finish-run','soft',disabled)}${btn('Restart run','restart','small')}</div></details></footer>`;
 }
 const replayChoices={
@@ -2109,15 +3352,22 @@ function saveCapacityReplay(){
  }
 }
 
-function newServiceId(){
+function newServiceId(reserved,base='service'+Date.now()){
  const used=new Set([...draft.services,...state.config.services].map(s=>s.id));
  for(const entry of removedServices.get(draft.services)||[])used.add(entry.service.id);
  for(const project of state.projects)used.add(project.serviceId);
- const base='service'+Date.now();let id=base,index=1;
- while(used.has(id))id=base+'_'+index++;
+ let id=base,index=1;
+ while(used.has(id)||reserved?.has(id))id=base+'_'+index++;
  return id;
 }
-function checkpoint(kind='automatic'){const snapshot=JSON.stringify(state);MEIQQWorkspace.checkpoint({state,saved,checkpointInfo},kind);return saved.findIndex(v=>JSON.stringify(v)===snapshot);}
+function checkpoint(kind='automatic'){
+ // Automatic checkpoints precede a run replacement. A bare checkpoint
+ // contains only the run, so keep its linked comparison or revision too.
+ if(kind==='automatic'&&(rerunDraft?.run===state||rerunLink?.run===state))archiveCurrent();
+ const snapshot=JSON.stringify(state);
+ MEIQQWorkspace.checkpoint({state,saved,checkpointInfo},kind);
+ return saved.findIndex(v=>JSON.stringify(v)===snapshot);
+}
 function modalTabStops(){return [...document.querySelectorAll('#modal button, #modal input, #modal select, #modal textarea, #modal summary, #modal a[href], #modal [tabindex]')].filter(el=>!el.disabled&&el.tabIndex>=0&&!el.closest('[hidden], [inert]')&&el.getClientRects().length>0);}
 function modal(html,focusId){
  stop();
@@ -2128,7 +3378,12 @@ function modal(html,focusId){
  const target=focusId?document.querySelector('#'+focusId):null;
  (target||modalTabStops()[0])?.focus();
 }
-function closeModal(){
+function closeModal(navigate=true){
+ if(navigate&&savedComparisonReader?.id&&routeReady&&window.history.state?.savedComparison?.id===savedComparisonReader.id){
+  window.history.back();return;
+ }
+ savedComparisonReader=null;
+ offerPicker=null;clientMenuBuilder=null;
  if(monthJobHistory){clearTimeout(monthJobHistory.timer);monthJobHistory=null;}
  if(replayDialog){clearTimeout(replayDialog.timer);replayDialog=null;}
  $('#modal').innerHTML='';$('#root').inert=false;
@@ -2142,7 +3397,19 @@ function closeModal(){
 function showError(message){const el=$('#modal-error');if($('#modal').firstChild&&el)el.textContent=QQI18n.text(message);else toast(message);}
 const DIFF_LABELS={name:'Scenario name',seed:'Workload seed',months:'Run length',startingCash:'Starting cash',ownerHours:'Your available time',ownerTarget:'Value of your time',designers:'Designer count',designerHours:'Designer availability',designerRate:'Designer labor cost',overhead:'Monthly overhead',inquiries:'New inquiries',conversion:'Conversion',deposit:'Deposit',paymentDays:'Payment terms',approvalDays:'Approval time',printDays:'Print turnaround',quoteHours:'Quote work',deliveryHours:'Delivery work',leadDays:'Delivery promise',priority:'Queue order',acquisition:'Inquiry source',outreachHours:'Outreach time',leadsPerHour:'Outreach response',retention:'Follow-up campaign acceptance / legacy renewal',repeat:'Repeat purchases',profileStrength:'Business-type variation',focusType:'Customer niche',realism:'Uncertainty'};
 const percentPaths=new Set(['conversion','deposit','retention','repeat']);
-function formatDiffValue(path,value){if(value===undefined)return 'not set';if(path==='months'&&Number.isInteger(value))return runLengthLabel(value);if(typeof value==='boolean')return value?'On':'Off';if((percentPaths.has(path)||path.startsWith('disruptionRates.')||path.endsWith('.fulfillment.managedShare')))return pct(value);if(path.startsWith('customerMix.')||/\.weight$/.test(path))return value+'%';if(['startingCash','ownerTarget','designerRate','overhead'].includes(path)||/\.(price|print|designOnlyPrice)$/.test(path))return money(value);if(/(Hours|hours|review)$/.test(path))return num(value)+' h';if(['paymentDays','approvalDays','printDays','leadDays'].includes(path)||/\.(cadenceDays|relationshipDays)$/.test(path))return value+' days';return String(value);}
+function formatDiffValue(path,value){
+ if(value===undefined||value===null)return 'not set';
+ if(path==='months'&&Number.isInteger(value))return runLengthLabel(value);
+ if(typeof value==='boolean')return value?'On':'Off';
+ if(path==='acquisition')return value==='sales'?'Estimate from outreach':'Enter monthly inquiries';
+ if(percentPaths.has(path)||path.startsWith('disruptionRates.')||path.endsWith('.fulfillment.managedShare'))return Number((value*100).toFixed(10))+'%';
+ if(path==='clientDemand.profileId')return QQI18n.text(QQServiceCatalog.CLIENT_MENUS.find(profile=>profile.id===value)?.name||String(value));
+ if(path==='clientDemand.share'||path.startsWith('customerMix.')||path.endsWith('.weight'))return value+'%';
+ if(['startingCash','ownerTarget','designerRate','overhead'].includes(path)||/\.(price|print|designOnlyPrice)$/.test(path))return offerAmount(value);
+ if(/(Hours|hours|review)$/.test(path))return value+' h';
+ if(['paymentDays','approvalDays','printDays','leadDays'].includes(path)||/\.(cadenceDays|relationshipDays)$/.test(path))return countDays(value);
+ return String(value);
+}
 function serviceChangeSummary(service){
  const terms=[money(service.price)+' per project',num(service.hours)+' designer h',num(service.review)+' review h',money(service.print)+' print allowance',service.weight+'% inquiry share'];
  if(service.fulfillment)terms.push(pct(service.fulfillment.managedShare)+' managed print',money(service.fulfillment.designOnlyPrice)+' files-only');
@@ -2158,6 +3425,12 @@ function scopeDiffValue(key,value){
 function configDiff(before,after){
  const out=[],push=(path,label,a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))out.push({path,label,before:formatDiffValue(path,a),after:formatDiffValue(path,b)});};
  for(const k of Object.keys(DIFF_LABELS))push(k,DIFF_LABELS[k],before[k],after[k]);
+ const aTarget=before.clientDemand,bTarget=after.clientDemand;
+ if(aTarget?.share>0&&bTarget?.share>0&&aTarget.profileId!==bTarget.profileId){
+  push('clientDemand.profileId','Target client',aTarget.profileId,bTarget.profileId);
+ }
+ const targetName=QQServiceCatalog.CLIENT_MENUS.find(profile=>profile.id===(bTarget?.share>0?bTarget.profileId:aTarget?.profileId))?.name;
+ push('clientDemand.share',targetName?QQI18n.text('Target client inquiry share')+' · '+QQI18n.text(targetName):'Target client inquiry share',aTarget?.share??0,bTarget?.share??0);
  for(const group of ['food','retail','services'])push('customerMix.'+group,'Customer mix · '+group,before.customerMix?.[group],after.customerMix?.[group]);
  for(const k of Object.keys(QQ.DEFAULT.uncertainty))push('uncertainty.'+k,'Uncertainty · '+k,before.uncertainty?.[k],after.uncertainty?.[k]);
  for(const [k,label] of Object.entries(DISRUPTION_LABELS))push('disruptions.'+k,label,before.disruptions?.[k]??false,after.disruptions?.[k]??false);
@@ -2196,56 +3469,152 @@ function review(intent=''){
  ${restartOnly?'<div class="banner warn">Starting cash, seed or the shorter horizon requires a new run.</div>':''}
  <div class="actions">${btn('Keep editing','close')}${restartOnly?'':future}${state.day?restart:''}</div>`);
 }
-function applyDraft(mode,intent=''){
+function commitDraft(mode){
  const error=draftError();if(error)throw Error(error);
  const next=draftRunConfig(),pin=state.day>0&&!checkpointInfo.some(v=>v.baseline);
  const updated=mode==='restart'?QQ.fresh(next):QQ.clone(state);
  if(mode!=='restart')QQ.applyConfig(updated,next);
  const i=checkpoint();
  if(pin&&i>=0){checkpointInfo[i].baseline=true;checkpointInfo[i].kind='manual';}
- state=updated;selection=null;inspectorTrail=[];view='map';
+ if(mode!=='restart'&&rerunLink?.run===state)rerunLink.run=updated;
+ if(mode!=='restart'&&keptSetupRun===state)keptSetupRun=updated;
+ state=updated;selection=null;inspectorTrail=[];
  removedServices.delete(draft.services);
+}
+function applyDraft(mode,intent=''){
+ commitDraft(mode);
+ view='map';
  closeModal();
  if(intent==='play')play();
  else if(intent==='step'){if(beginRun('step'))tick();}
  else if(['simulate','finish-run','finish','next-event'].includes(intent))advanceRun(intent);
  else render();
 }
-function beginRun(action){stop();if(dirty()){review(action);return false;}if(state.blocked){cashModal();return false;}if(state.day>=state.config.months*30)return false;if(firstExamplePending())rememberSetupChoice();view='map';return true;}
+function showRunResults(tab='overview',month=null){
+ view='finances';analyticsTab=tab;selectResultsMonth(month);
+ render();
+ const verdict=(completedVariantPair()&&document.querySelector('#variant-result-title'))||document.querySelector('#run-comparison-title');
+ if(verdict){verdict.focus({preventScroll:true});window.scrollTo?.({top:0,behavior:'instant'});}
+ else focusViewHeading();
+}
+function beginRun(action){
+ stop();
+ const full=action==='simulate'||action==='finish-run',fromSetup=view==='setup';
+ if(dirty()){
+  // Simulate is the explicit commit for a fresh setup. Preserve an existing
+  // run, funding decision or day-zero ledger behind its normal change review.
+  if(action==='simulate'&&fromSetup&&state.day===0&&!state.blocked&&!state.ledger.length){
+   commitDraft('future');
+  }else{review(action);return false;}
+ }
+ if(state.day>=state.config.months*30){if(full)showRunResults();return false;}
+ if(firstExamplePending())rememberSetupChoice();
+ if(full){
+  if(action==='simulate'&&state.day===0){QQ.captureRunLaunch(state);save();}
+  if(!runPassage||runPassage.run!==state){
+   runPassage={run:state,estimate:QQ.runLaunchEstimate(state)};
+  }
+  selection=null;inspectorTrail=[];
+ }else runPassage=null;
+ view='map';
+ if(state.blocked){cashModal();return false;}
+ return true;
+}
 function tick(){const advanced=QQ.step(state);save();if(!advanced||state.day>=state.config.months*30)stop();render();if(state.blocked)cashModal();}
 function play(){if(running){stop();render();return;}if(!beginRun('play'))return;running=true;timer=setInterval(tick,1000/speed);render();}
 function advanceRun(action){
+ const full=action==='simulate'||action==='finish-run',entering=full&&!runPassage;
+ if(full&&running&&runPassage)return;
  if(!beginRun(action))return;
  const end=state.config.months*30,untilEvent=action==='next-event';
  finishTarget=action==='finish'?Math.min(end,(Math.floor(state.day/30)+1)*30):end;
  running=true;
  const generation=++runGeneration;
+ const travel=full&&document.documentElement.dataset.uiMotion==='on';
+ const batchSize=full?Math.max(1,Math.ceil((end-state.day)/24)):5;
  const batch=()=>{
   if(generation!==runGeneration||!running||finishTarget===null)return;
   const started=performance.now(),target=finishTarget;let days=0,advanced=true,foundEvent=false;
-  while(state.day<target&&days<5&&performance.now()-started<8){
+  while(state.day<target&&days<batchSize&&(days===0||performance.now()-started<8)){
    advanced=QQ.step(state);if(!advanced)break;days++;
    if(untilEvent&&state.events[0]?.day===state.day){foundEvent=true;break;}
   }
   save();
   if(!advanced||state.day>=target||foundEvent){
    stop();
-   if(['simulate','finish-run'].includes(action)&&advanced&&!state.blocked){view='finances';analyticsTab='overview';selectResultsMonth(null);}
-   render();
-   if(state.blocked)cashModal();
-   else if(['simulate','finish-run'].includes(action))focusViewHeading();
+   if(full&&state.day===end&&!state.blocked){showRunResults();return;}
+   if(state.blocked)cashModal();else render();
    return;
   }
-  render();timer=setTimeout(batch,0);
+  render();timer=setTimeout(batch,travel?Math.max(0,78-(performance.now()-started)):0);
  };
- render();timer=setTimeout(batch,0);
+ render();if(entering)focusViewHeading();
+ timer=setTimeout(batch,entering&&travel?650:0);
 }
-function cashModal(){const b=state.blocked;if(!b)return;modal(`<div class="eyebrow">DAY ${state.day+1} PAUSED</div><h2 id="dialog-title">A payment needs funding</h2><p>${esc(b.note)}</p><div class="kvs"><div><label>Payment needed</label><strong>${dollars(b.amount)}</strong></div><div><label>Cash at that point</label><strong>${dollars(b.cash)}</strong></div></div><div class="banner warn">This payment needs <b>${dollars(b.gap)}</b> more. The simulator is paused at the end of day ${state.day}.</div><label class="input-field">Owner funding ($)<input id="funding"${QQI18n.moneyField('$')} type="number" min="0.01" max="100000000" step="0.01" value="${b.gap}"></label><p class="helper">Funding adds cash to the business. Resume the run to retry this day.</p><div class="actions">${btn('Keep paused','close')}${btn('Add funding','confirm-fund','primary')}</div>`);}
+function cashModal(){const b=state.blocked;if(!b)return;const continuing=Boolean(runPassage&&view==='map');modal(`<div class="eyebrow">DAY ${state.day+1} PAUSED</div><h2 id="dialog-title">A payment needs funding</h2><p>${esc(b.note)}</p><div class="kvs"><div><label>Payment needed</label><strong>${dollars(b.amount)}</strong></div><div><label>Cash at that point</label><strong>${dollars(b.cash)}</strong></div></div><div class="banner warn">This payment needs <b>${dollars(b.gap)}</b> more. The simulator is paused at the end of day ${state.day}.</div><label class="input-field">Owner funding ($)<input id="funding"${QQI18n.moneyField('$')} type="number" min="0.01" max="100000000" step="0.01" value="${b.gap}"></label><p class="helper">${continuing?'Funding adds cash and retries this day.':'Funding adds cash to the business. Resume the run to retry this day.'}</p><div class="actions">${btn('Keep paused','close')}${btn(continuing?'Add funding and continue':'Add funding','confirm-fund','primary',continuing?'data-resume="finish-run"':'')}</div>`);}
 function download(name,data,type='application/json'){const blob=new Blob([typeof data==='string'?data:JSON.stringify(data)],{type}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 function backupPayload(){return MEIQQWorkspace.pack(currentWorkspace(),archives);}
 function parseBackup(data){return MEIQQWorkspace.parse(data);}
 function importFile(){stop();const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{try{const f=input.files?.[0];if(!f)return;MEIQQWorkspace.checkSize(f.size);const parsed=MEIQQWorkspace.parseText(await f.text());modal(`<h2 id="dialog-title">Open this ${parsed.full?'saved workspace':'setup'}?</h2><p><b>${scenarioName(parsed.state.config.name)}</b> · day ${parsed.state.day} · ${parsed.state.projects.length} projects.</p><p>Your current workspace will be kept under Runs & backups.</p><div class="actions">${btn('Cancel','close')}${btn('Open backup','confirm-import','primary')}</div>`);pendingImport=parsed;}catch(e){toast(e.message||'The backup could not be read.');}};input.click();}
 let pendingImport=null,pendingDraft=null;
+function recordClientDemand(profile,share){
+ if(view!=='setup'||stepIndex!==1||loading||!profile)return;
+ if(draft.clientDemand?.profileId===profile.id&&draft.clientDemand.share===share)return;
+ stop();presetUndoDraft=null;serviceUndoDraft=null;
+ draft.clientDemand={profileId:profile.id,share};
+ if(draft.assumptionRecords){
+  delete draft.assumptionRecords['clientDemand.share'];
+  if(!Object.keys(draft.assumptionRecords).length)delete draft.assumptionRecords;
+ }
+ updatePreview();render();
+}
+function announceClientDemand(){
+ const summary=document.querySelector('#client-demand-panel .demand-split');
+ const status=document.querySelector('#decision-announcement');
+ if(status&&summary?.children)status.textContent=[...summary.children].map(pair=>[pair.querySelector('dt').textContent,pair.querySelector('dd').textContent].join(' ')).join('. ');
+}
+function changeClientDemand(el,commit){
+ if(view!=='setup'||stepIndex!==1||loading)return;
+ const {profile}=demandAudience();
+ if(!profile)return;
+ const value=Number(el.value),error=document.querySelector('#client-demand-error');
+ if(!el.value.trim()||!Number.isInteger(value)||value<0||value>100){
+  if(commit){el.value=String(draft.clientDemand?.share??0);el.removeAttribute?.('aria-invalid');}
+  else el.setAttribute?.('aria-invalid','true');
+  if(error)error.textContent=QQI18n.text(commit?'Restored the last valid share.':'Enter a whole percentage from 0 to 100.');
+  return;
+ }
+ el.removeAttribute?.('aria-invalid');
+ if(error)error.textContent='';
+ const calc=demandCalculation(profile.id);
+ if(value!==(draft.clientDemand?.share??0)){calc.applied='';recordClientDemand(profile,value);}
+ if(commit)announceClientDemand();
+}
+function updateClientDemandCount(el){
+ const {profile}=demandAudience();
+ if(view!=='setup'||stepIndex!==1||loading||!profile)return;
+ const calc=demandCalculation(profile.id);
+ const key=el.id==='client-demand-count-total'?'total':'target';
+ calc[key]=el.value;calc.error='';calc.applied='';
+ const feedback=document.querySelector('#client-demand-count-feedback');
+ if(feedback)feedback.textContent='';
+}
+function applyClientDemandCounts(){
+ const {profile}=demandAudience();
+ if(view!=='setup'||stepIndex!==1||loading||!profile)return;
+ const calc=demandCalculation(profile.id);
+ const target=Number(calc.target),total=Number(calc.total);
+ const targetInvalid=calc.target.trim()===''||!Number.isSafeInteger(target)||target<0;
+ const totalInvalid=calc.total.trim()===''||!Number.isSafeInteger(total)||total<1;
+ if(targetInvalid||totalInvalid||target>total){
+  calc.error=targetInvalid?'Enter a whole number of client inquiries, including zero.':totalInvalid?'Enter a total of at least one inquiry.':'Client inquiries cannot exceed total inquiries.';
+  calc.applied='';render();document.querySelector('#client-demand-count-'+(totalInvalid&&!targetInvalid?'total':'target'))?.focus();return;
+ }
+ const share=Math.round(target/total*100);
+ calc.error='';calc.applied='Applied '+share+'% of new inquiries (rounded to a whole percent).';
+ if(draft.clientDemand?.profileId===profile.id&&draft.clientDemand.share===share)render();else recordClientDemand(profile,share);
+ announceClientDemand();
+}
 function handleInput(el){
  const path=el.dataset?.input;if(!path||loading)return;stop();const parts=path.split('.');let target=draft;for(const p of parts.slice(0,-1))target=target[p];const key=parts.at(-1);
  const value=el.type==='checkbox'?el.checked:key==='recurring'?el.value==='true':(key==='profileStrength'||key==='cadenceDays'||key==='months')?Number(el.value):el.type==='number'?(el.value.trim()===''?null:Number(QQI18n.inputValue(el))/(el.dataset.percent?100:1)):el.value;
@@ -2272,10 +3641,17 @@ function handleInput(el){
  if(view==='setup')render();
 }
 document.addEventListener('input',e=>{
+ if(savingKeptSetup)return;
+ if(e.target.id==='client-demand-share'||e.target.id==='client-demand-range'){changeClientDemand(e.target,false);return;}
+ if(e.target.id==='client-demand-count-total'||e.target.id==='client-demand-count-target'){updateClientDemandCount(e.target);return;}
+ if(e.target.id==='offer-package-search'&&offerPicker){offerPicker.query=e.target.value;refreshOfferPicker();return;}
  if(e.target.id==='studio-find'){studioUI.query=e.target.value;render();return;}
  if(plannerController.input(e.target)||jobsController.input(e.target))return;if(e.target.dataset?.studioField){handleStudioInput(e.target);return;}if(e.target.id==='catalog-price'){catalogPrices.set(pendingCatalogId,QQI18n.inputValue(e.target));const s=catalogCandidate(pendingCatalogId);$('#catalog-economics').innerHTML=QQI18n.html(catalogEconomics(s));return;}if(e.target.id==='contract-search'){contractSearch=e.target.value;contractPage=0;render();return;}if(e.target.id==='project-search'){search=e.target.value;$('#project-table').innerHTML=QQI18n.html(projectTable());return;}if(e.target.dataset?.input&&e.target.type!=='checkbox'&&e.target.tagName!=='SELECT')handleInput(e.target);});
 document.addEventListener('change',e=>{
+ if(savingKeptSetup)return;
  const el=e.target;
+ if(el.id==='client-demand-share'||el.id==='client-demand-range'){changeClientDemand(el,true);return;}
+ if(el.id==='client-demand-count-total'||el.id==='client-demand-count-target'){updateClientDemandCount(el);return;}
  if(el.id==='language'){if(QQI18n.choose(el.value)){render();$('#toast').textContent='';$('#toast').className='';}return;}
  if(plannerController.input(el)||jobsController.input(el))return;if(el.dataset?.studioField){handleStudioInput(el);return;}if(loading)return;
  if(el.id==='record-field'&&recordEditor){editInputRecord(recordEditor.group,recordEditor.id,el.value);return;}
@@ -2288,13 +3664,33 @@ document.addEventListener('change',e=>{
   const current=comparedRuns(),i=Number(el.value);comparisonSelection={base:current.base,alternative:saved[i]||state,record:null};render();return;
  }
  if(el.id==='result-month'){selectResultsMonth(Number(el.value));render();return;}
- if(el.id==='catalog-goal'||el.id==='catalog-audience'){if(el.id==='catalog-goal')catalogGoal=el.value;else catalogAudience=el.value;$('#catalog-results').innerHTML=QQI18n.html(serviceLibraryCards());return;}
+ if(clientMenuBuilder?.draft===draft&&el.id==='client-menu-retain'){
+  clientMenuBuilder.retain=el.checked;clientMenuBuilder.retainByProfile.set(clientMenuBuilder.profile.id,el.checked);
+  clientMenuBuilder.lastSwap=null;renderClientMenu('client-menu-retain',true);return;
+ }
+ if(offerPicker&&el.dataset?.pickerKey){stagePickerItem(el);return;}
+ if(offerPicker&&['catalog-goal','catalog-audience','offer-selection-only'].includes(el.id)){
+  if(el.id==='catalog-goal')offerPicker.goal=el.value;
+  else if(el.id==='catalog-audience')offerPicker.audience=el.value;
+  else offerPicker.selectionOnly=el.checked;
+  refreshOfferPicker();return;
+ }
  if(['preset-market','preset-operation','preset-mix','preset-condition'].includes(el.id)){presetSelection[el.id.replace('preset-','')]=el.value;try{localStorage.setItem(PRESET_KEY,JSON.stringify(presetSelection));}catch(err){}render();return;}
  if(el.id==='contract-search'){contractSearch=el.value;contractPage=0;render();return;}
  if(el.id==='contract-filter'){contractFilter=el.value;contractPage=0;render();return;}
  if(el.id==='ledger-month'){cashView={run:state,month:Number(el.value),page:0};render();return;}
  if(el.id==='contract-sort'){contractSort=el.value;contractPage=0;render();return;}
- if(el.dataset?.input){handleInput(el);if(el.dataset.input==='acquisition'||el.dataset.input.endsWith('.audience')||el.type==='checkbox')render();return;}
+ if(el.dataset?.input){
+  handleInput(el);
+  if(view==='setup'&&stepIndex>0){
+   // Announce the nearby figures once on commit. Sighted users see the same
+   // readout change while typing, without interrupting screen-reader input.
+   const list=el.closest?.('.assumption-section')?.querySelector?.('.decision-readout dl');
+   const status=document.querySelector('#decision-announcement');
+   if(list&&status)status.textContent=[...list.children].map(pair=>pair.querySelector('dt').textContent+' '+pair.querySelector('dd').textContent).join('. ');
+  }else if(view!=='setup'&&(el.dataset.input==='acquisition'||el.dataset.input.endsWith('.audience')||el.type==='checkbox'))render();
+  return;
+ }
  if(el.id==='shard-motion'){
   if(!Object.hasOwn(MOTION,el.value))return;
   shardMotion=el.value;applyShardMotion();
@@ -2307,13 +3703,17 @@ document.addEventListener('change',e=>{
  if(el.id==='project-filter'){filter=el.value;$('#project-table').innerHTML=QQI18n.html(projectTable());}
 });
 document.addEventListener('click',e=>{
- const settings=document.querySelector('#root .sky-preferences[open]');
- if(settings?.open&&!settings.contains(e.target))settings.open=false;
- const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;if(a.startsWith('planner-')){actionFocus=focusKey(el);try{plannerController.action(a,el.dataset);}catch(err){if($('#modal').firstChild)showError(err.message||'The plan could not be updated.');else plannerController.reportError(err.message||'The plan could not be updated.');}finally{actionFocus=null;}return;}if(a.startsWith('jobs-')){actionFocus=focusKey(el);try{jobsController.action(a,el.dataset);}catch(err){if($('#modal').firstChild)showError(err.message||'The job could not be updated.');else jobsController.reportError(err.message||'The job could not be updated.');}finally{actionFocus=null;}return;}if(a.startsWith('studio-')){actionFocus=focusKey(el);try{handleStudioAction(a,el);}catch(err){showError(err.message||'The idea could not be updated.');}finally{actionFocus=null;}return;}if(loading)return;
+ if(savingKeptSetup){e.preventDefault?.();return;}
+ const el=e.target.closest('[data-action]');
+ for(const menu of document.querySelectorAll(openWorkspaceMenus)){
+  if(!menu.contains(e.target))menu.open=false;
+  else if(el&&menu.dataset.disclosure==='offer-setup-options'){menu.open=false;menu.querySelector('summary').focus();}
+ }
+ if(!el)return;const a=el.dataset.action;if(a.startsWith('planner-')){actionFocus=focusKey(el);try{plannerController.action(a,el.dataset);}catch(err){if($('#modal').firstChild)showError(err.message||'The plan could not be updated.');else plannerController.reportError(err.message||'The plan could not be updated.');}finally{actionFocus=null;}return;}if(a.startsWith('jobs-')){actionFocus=focusKey(el);try{jobsController.action(a,el.dataset);}catch(err){if($('#modal').firstChild)showError(err.message||'The job could not be updated.');else jobsController.reportError(err.message||'The job could not be updated.');}finally{actionFocus=null;}return;}if(a.startsWith('studio-')){actionFocus=focusKey(el);try{handleStudioAction(a,el);}catch(err){showError(err.message||'The idea could not be updated.');}finally{actionFocus=null;}return;}if(loading)return;
  actionFocus=focusKey(el);
  try{
-  if(presetUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','remove-service','balance'].includes(a))presetUndoDraft=null;
-  if(serviceUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','remove-service','balance','confirm-preset','undo-preset','load','confirm-restart','confirm-example','confirm-import','open-archive','confirm-restore-draft','confirm-branch'].includes(a))serviceUndoDraft=null;
+  if(presetUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','balance'].includes(a))presetUndoDraft=null;
+  if(serviceUndoDraft&&['apply','discard','enable-profiles','add-service','duplicate','balance','confirm-preset','undo-preset','load','confirm-restart','confirm-example','confirm-import','open-archive','confirm-restore-draft','confirm-branch'].includes(a))serviceUndoDraft=null;
   if(a==='show-navigator')openWorkspaceNavigator();
   else if(a==='hide-navigator')navigatorDialog.close();
   else if(a==='view-waterfront'&&inStudio()){
@@ -2328,6 +3728,13 @@ document.addEventListener('click',e=>{
    const playing=skyPlayback?skyPlayback==='animate':document.documentElement.dataset.uiMotion==='on';
    skyPlayback=playing?'still':'animate';shardBackground?.setAttribute?.('motion',skyPlayback);render();
   }
+  else if(a==='test-assumption')editResultAssumption(el.dataset.path,el.dataset.serviceId,el.dataset.variantInput!==undefined,Number(el.dataset.resultsMonth));
+  else if(a==='return-rerun-results'&&editingRerun){parkRerunEditor();save();showRunResults(rerunDraft.returnTab,rerunDraft.resultsMonth);focusResultAssumption();}
+  else if(a==='simulate-again')simulateRevisedRun();
+  else if(a==='keep-run-setup')keepRunSetup(el.dataset.version).catch(error=>{
+   toast(error.message||'The comparison could not be saved. Your results are still open.');
+   if(view==='finances')document.querySelector(`[data-action="keep-run-setup"][data-version="${el.dataset.version}"]`)?.focus();
+  });
   else if(a==='focus-estimate'){
    const estimate=document.querySelector('#draft-summary');
    estimate?.focus({preventScroll:true});estimate?.scrollIntoView?.({block:'nearest'});
@@ -2340,27 +3747,30 @@ document.addEventListener('click',e=>{
    view=el.dataset.view;render();focusViewHeading();
   }
   else if(a==='start-business'||a==='start-restaurant'){
-   if(!setupNeedsChoice()||setupEntryPath)return;
-   setupEntryPath=a==='start-business'?'business':'restaurant';render();focusViewHeading();
-  }
-  else if(a==='setup-path-back'){
-   if(!setupNeedsChoice()||!setupEntryPath)return;
-   const origin=setupEntryPath==='style'?setupOrigin:setupEntryPath;
-   beginSetupEntrance(newScenarioRequested);
-   if(origin==='business'||origin==='restaurant')document.querySelector('[data-action="start-'+origin+'"]')?.focus();
+   if(!setupNeedsChoice()||setupEntryPath==='style')return;
+   setupEntryPath=a==='start-business'?'business':'restaurant';
+   // Choosing a template edits this screen. Back returns to the page that opened it.
+   if(routeReady)window.history.replaceState(null,'','#'+workspaceRoute());
+   render();
   }
   else if(a==='enter-setup')openSetupEditor(el.dataset.mode);
   else if(a==='new-scenario')beginSetupEntrance(true);
   else if(a==='cancel-new-setup'&&setupReturnView){
-   view=setupReturnView;setupReturnView=null;setupEntryPath=null;newScenarioRequested=false;render();focusViewHeading();
+   const back=setupReturnView;setupReturnView=null;setupEntryPath=null;newScenarioRequested=false;
+   if(back.startsWith('setup/rerun/')&&rerunDraft?.run===state){
+    activateRerunEditor(editorSteps.indexOf(back.slice('setup/rerun/'.length)));render();
+    if(!focusRevisedAssumption())focusSetupStep();
+   }else{view=back;render();focusViewHeading();}
   }
   else if(a==='input-evidence')editInputRecord(el.dataset.group,el.dataset.id);
   else if(a==='save-input-evidence'||a==='remove-input-evidence')saveInputRecord(a==='remove-input-evidence');
-  else if(a==='toggle-recipe'){recipeOpen=!recipeOpen;render();}
+  else if(a==='toggle-recipe'){recipeOpen=!recipeOpen;render();if(recipeOpen)document.querySelector('#preset-market')?.focus();}
+  else if(a==='open-saved-comparison')openSavedComparisonFromArchive(el.dataset);
   else if(a==='analytics-tab'){analyticsTab=el.dataset.tab;if(analyticsTab==='cash')cashView={run:state,month:0,page:0};render();}
   else if(a==='review-latest-results'||a==='month-overview'){
-   stop();inspectorTrail=[];selection=null;view='finances';analyticsTab='overview';
-   selectResultsMonth(a==='month-overview'?Number(el.dataset.month):null);render();focusViewHeading();
+   stop();inspectorTrail=[];selection=null;
+   if(a==='review-latest-results')showRunResults();
+   else{view='finances';analyticsTab='overview';selectResultsMonth(Number(el.dataset.month));render();focusViewHeading();}
   }
   else if(a==='month-cash'){
    cashView={run:state,month:Number(el.dataset.month),page:0};analyticsTab='cash';render();focusViewHeading();
@@ -2392,15 +3802,102 @@ document.addEventListener('click',e=>{
   else if(a==='compare-runs'){stop();view='finances';analyticsTab='compare';render();focusViewHeading();}
   else if(a==='contract-page'){contractPage=Math.max(0,contractPage+Number(el.dataset.delta));render();}
   else if(a==='setup-step')selectSetupStep(Number(el.dataset.step));
-  else if(a==='fix-setup-issue')fixSetupIssue();
+  else if(a==='fix-setup-issue')fixSetupIssue(el.dataset.path);
   else if(a==='edit-inquiry-weight')revealSetupField({path:'services.'+Number(el.dataset.index)+'.weight'});
   else if(a==='inspect-mix'){
    const mix=document.querySelector('.inquiry-mix');
    if(mix){mix.open=true;mix.querySelector('summary')?.focus();}
   }
+  else if(a==='build-client-menu')openClientMenuBuilder();
+  else if(a==='apply-client-demand-counts')applyClientDemandCounts();
+  else if(a==='switch-client-demand'&&view==='setup'&&stepIndex===1){
+   const {menu,saved}=demandAudience();
+   if(menu&&saved&&saved.id!==menu.profile.id){
+    recordClientDemand(menu.profile,Number.isInteger(draft.clientDemand.share)?draft.clientDemand.share:0);
+    document.querySelector('#client-demand-share')?.focus();announceClientDemand();
+   }
+  }
+  else if(a==='clear-client-demand'&&view==='setup'&&stepIndex===1&&draft.clientDemand){
+   stop();presetUndoDraft=null;serviceUndoDraft=null;delete draft.clientDemand;
+   if(draft.assumptionRecords){
+    delete draft.assumptionRecords['clientDemand.share'];
+    if(!Object.keys(draft.assumptionRecords).length)delete draft.assumptionRecords;
+   }
+   clientDemandCalculations.delete(draft);
+   updatePreview();render();(document.querySelector('#client-demand-share')||document.querySelector('#demand-menu-entry'))?.focus();
+  }
+  else if(a==='choose-menu-client'&&clientMenuBuilder?.draft===draft){
+   const profile=QQServiceCatalog.CLIENT_MENUS.find(v=>v.id===el.dataset.profile);if(profile)clientMenuChoice(profile);
+  }
+  else if(a==='menu-client-list'&&clientMenuBuilder){
+   clientMenuBuilder.picking=true;renderClientMenu('cm-client-'+clientMenuBuilder.profile.id);
+  }
+  else if(a==='show-menu-swaps'&&clientMenuBuilder?.profile){
+   const index=Number(el.dataset.slot);
+   if(!clientMenuBuilder.profile.slots[index])return;
+   clientMenuBuilder.swap=clientMenuBuilder.swap===index?null:index;renderClientMenu('cm-swap-'+index,true);
+  }
+  else if(a==='swap-menu-offer'&&clientMenuBuilder?.draft===draft){
+   const b=clientMenuBuilder,profile=b.profile,index=Number(el.dataset.slot),id=el.dataset.id;
+   if(!profile?.slots[index]?.options.some(option=>option.id===id))return;
+   const ids=b.selections.get(profile.id);
+   if(ids[index]!==id){
+    const before=clientMenuCandidate(profile,ids,b.retain);
+    const previous=before.error?null:clientMenuProjection(before.config);
+    b.lastSwap={profile:profile.id,from:previous?.valid?previous.profit:null};ids[index]=id;
+   }
+   b.swap=null;renderClientMenu('cm-swap-'+index,true);
+  }
+  else if(a==='menu-compare-with'&&clientMenuBuilder&&['current','recommended'].includes(el.dataset.reference)){
+   clientMenuBuilder.compare=el.dataset.reference;renderClientMenu('cm-reference-'+el.dataset.reference,true);
+  }
+  else if(a==='menu-review-existing'&&clientMenuBuilder){
+   const heading=document.querySelector('#cm-existing-title');heading?.focus({preventScroll:true});heading?.scrollIntoView?.({block:'start',inline:'nearest'});
+  }
+  else if(a==='menu-view-estimate'&&clientMenuBuilder){
+   const node=$('#client-menu-estimate');node?.focus({preventScroll:true});node?.scrollIntoView?.({block:'start',inline:'nearest'});
+  }
+  else if(a==='apply-client-menu'&&clientMenuBuilder?.draft===draft){
+   const b=clientMenuBuilder;if(!b.profile||b.picking)return;
+   const result=applyClientMenu(b.profile,b.selections.get(b.profile.id),b.retain);
+   if(result.changed){closeModal();save();render();toast('Client menu applied.');}
+  }
+  else if(a==='browse-offers')openOfferPicker();
   else if(a==='service-library')serviceLibrary();
+  else if(a==='reset-offer-filters'&&offerPicker){
+   Object.assign(offerPicker,{goal:'all',audience:'all',query:'',selectionOnly:false});serviceLibrary();
+  }
+  else if(a==='picker-evidence'&&offerPicker){
+   const row=offerPicker.rows.find(item=>item.key===el.dataset.key);
+   if(row){offerPicker.evidenceKey=row.key;serviceEvidence(row.service,row.saved?null:row.entry.id,row.key);}
+  }
+  else if(a==='picker-details-back'&&offerPicker)restorePickerDetails(el.dataset.key);
+  else if(a==='apply-offer-selection'&&offerPicker?.draft===draft&&offerPickerSummary().canApply){
+   applyCatalogSelection([...offerPicker.added],[...offerPicker.removed]);closeModal();save();render();toast('Service menu updated.');
+  }
   else if(a==='catalog-package')catalogPackage(el.dataset.id);
   else if(a==='confirm-catalog-service'){const value=QQI18n.inputValue($('#catalog-price'));if(value.trim()==='')throw Error('Enter a customer price.');const amount=Number(value),s=QQServiceCatalog.createService(pendingCatalogId);if(s.fulfillment&&amount<s.fulfillment.designOnlyPrice)throw Error('The managed-print price must cover at least the design-only price.');addCatalogService(pendingCatalogId,amount);catalogPrices.delete(pendingCatalogId);pendingCatalogId=null;}
+  else if(a==='write-first-offer')revealSetupField({path:'services.0.name'});
+  else if(a==='add-featured-offer'){
+   const {added}=applyCatalogSelection([el.dataset.id]);
+   if(added.length){save();render();document.querySelector('#offer-edit-'+added[0])?.focus();toast('Service menu updated.');}
+  }
+  else if(a==='park-offer'){
+   const id=el.dataset.id;
+   if(canFinishOfferLater(draft.services.findIndex(s=>s.id===id))){
+    updateOfferMenu([],[],new Set(),id);save();render();
+    document.querySelector('[data-action="include-offer"][data-id="'+id+'"]')?.focus();
+   }
+  }
+  else if(a==='include-offer'){
+   if(includeDraftOffer(el.dataset.id)){
+    save();render();
+    const index=draft.services.findIndex(s=>s.id===el.dataset.id);
+    const issue=draftValidationIssues().find(v=>v.path.startsWith('services.'+index+'.'));
+    if(issue)fixSetupIssue(issue.path);
+    else document.querySelector('#offer-edit-'+el.dataset.id)?.focus();
+   }
+  }
   else if(a==='add-blank-service')addCatalogService(null);
   else if(a==='service-starters')starterDialog();
   else if(a==='add-starter'){const additions=QQServiceCatalog.starterServices(el.dataset.id);if(draft.services.length+additions.length>20)throw Error('This starter would exceed the 20-service limit.');serviceUndoDraft=QQ.clone(draft);presetUndoDraft=null;for(const s of additions){s.id=newServiceId();s.weight=0;draft.services.push(s);}expandedService=draft.services.length-additions.length;closeModal();render();toast('Starter services added at 0% share. Set their inquiry shares when ready.');}
@@ -2416,7 +3913,7 @@ document.addEventListener('click',e=>{
   else if(a==='price-experiment')priceExperiment(Number(el.dataset.index));
   else if(a==='use-service-price'){const index=Number(el.dataset.index),price=Number(el.dataset.price),s=draft.services[index];if(!s||!Number.isFinite(price)||price<0||price>1e6||s.fulfillment&&price<s.fulfillment.designOnlyPrice)throw Error('Choose a valid price for this scope.');s.price=price;serviceUndoDraft=null;presetUndoDraft=null;closeModal();render();}
   else if(a==='service-evidence'){const service=evidenceService(el.dataset.id,el.dataset.catalog);serviceEvidence(service,el.dataset.catalog);}
-  else if(a==='download-service-evidence'){const service=evidenceService(el.dataset.id,el.dataset.catalog);download('MEIQQ-Service-Evidence.json',{service,audit:QQServiceCatalog.auditService(service)});}
+  else if(a==='download-service-evidence'){const service=el.dataset.pickerEvidence?offerPicker?.rows.find(row=>row.key===el.dataset.pickerEvidence)?.service:evidenceService(el.dataset.id,el.dataset.catalog);if(!service)throw Error('Service not found.');download('MEIQQ-Service-Evidence.json',{service,audit:QQServiceCatalog.auditService(service)});}
   else if(a==='recipe-evidence')recipeEvidenceDialog();
   else if(a==='current-evidence')recipeEvidenceDialog('draft');
   else if(a==='download-evidence'){if(!pendingEvidence)throw Error('Open an evidence record first.');download('MEIQQ-Recipe-Evidence.json',pendingEvidence);}
@@ -2427,7 +3924,10 @@ document.addEventListener('click',e=>{
   else if(a==='team'){stop();view='setup';stepIndex=2;render();}
   else if(a==='review')review();
   else if(a==='apply')applyDraft(el.dataset.mode,el.dataset.resume);
-  else if(a==='discard'){draft=QQ.clone(state.config);render();}
+  else if(a==='ask-discard'){
+   modal(`<h2 id="dialog-title">Discard setup changes?</h2><p>Restore the applied inputs for <b>${scenarioName(state.config.name)}</b>?</p><div class="actions">${btn('Keep editing','close')}${btn('Discard changes','discard','danger')}</div>`);
+  }
+  else if(a==='discard'){if($('#modal').firstChild)closeModal();draft=draftWithClientMenu(editingRerun?rerunStartingConfig(state):state.config,editingRerun?ordinaryDraft:draft);render();}
   else if(a==='enable-profiles'){draft.customerMix=QQ.clone(QQ.DEFAULT.customerMix);draft.profileStrength=QQ.DEFAULT.profileStrength;draft.focusType='none';render();}
   else if(a==='add-service'){const id=$('#service-template').value;addCatalogService(QQServiceCatalog.SERVICES.some(s=>s.id===id)?id:id==='menu'?'menu-refresh':null);}
   else if(a==='duplicate'){if(draft.services.length>=20)throw Error('The prototype supports up to 20 services.');const s=QQ.clone(draft.services[Number(el.dataset.index)]);s.id=newServiceId();s.name+=' copy';s.weight=0;draft.services.push(s);expandedService=draft.services.length-1;render();}
@@ -2438,7 +3938,18 @@ document.addEventListener('click',e=>{
    if(!service||weight<0||weight>100)throw Error('Choose an offer that can take the remaining weight.');
    service.weight=weight;serviceUndoDraft=null;presetUndoDraft=null;render();
   }
-  else if(a==='balance'){const offers=draftRunConfig().services,n=offers.length,part=Math.floor(100/n);offers.forEach((s,i)=>s.weight=i===n-1?100-part*(n-1):part);render();}
+  else if(a==='balance'){
+   const included=draft.services.filter(s=>s.weight!==0);
+   const shares=allocatedOfferWeights(included,new Set(included.map(s=>s.id)));
+   for(const offer of included)offer.weight=shares.get(offer.id);
+   render();
+  }
+  else if(a==='toggle-passage'&&runPassage){
+   if(state.blocked)cashModal();
+   else if(running){stop();render();}
+   else advanceRun('finish-run');
+  }
+  else if(a==='inspect-run'&&runPassage){stop();runPassage=null;render();focusViewHeading();}
   else if(a==='play')play();
   else if(a==='step'){if(beginRun('step'))tick();}
   else if(['simulate','finish','finish-run','next-event'].includes(a))advanceRun(a);
@@ -2465,17 +3976,21 @@ document.addEventListener('click',e=>{
   else if(a==='confirm-example'){archiveCurrent();state=QQ.fresh();saved=[];checkpointInfo=[];recoveryFiles=[];recoveryRaw=null;for(let i=0;i<12;i++)QQ.step(state);draft=QQ.clone(state.config);view='map';selection=null;closeModal();render();}
   else if(a==='cash')cashModal();
   else if(a==='fund'){modal(`<h2 id="dialog-title">Add owner funding</h2><p>Cash increases. Revenue and profit do not change.</p><label class="input-field">Amount ($)<input id="funding"${QQI18n.moneyField('$')} type="number" min="0.01" max="100000000" step="0.01" value="1000"></label><div class="actions">${btn('Cancel','close')}${btn('Add funding','confirm-fund','primary')}</div>`);render();}
-  else if(a==='confirm-fund'){const f=$('#funding');if(!f.checkValidity())return f.reportValidity();QQ.fund(state,Number(QQI18n.inputValue(f)));closeModal();render();}
+  else if(a==='confirm-fund'){const f=$('#funding');if(!f.checkValidity())return f.reportValidity();QQ.fund(state,Number(QQI18n.inputValue(f)));closeModal();if(el.dataset.resume==='finish-run'&&runPassage){advanceRun('finish-run');}else render();}
   else if(a==='backup'){download('MEIQQ-Backup-Day-'+state.day+'.json',MEIQQWorkspace.serialize(currentWorkspace(),archives));toast('Backup download requested. Unfinished inputs and preserved workspaces are included.');}
   else if(a==='recover')download('MEIQQ-original-save.json',recoveryRaw);
   else if(a==='import')importFile();
   else if(a==='confirm-import'){if(!pendingImport)throw Error('Choose a backup first.');openImportedWorkspace(pendingImport);pendingImport=null;view=state.day?'map':'setup';closeModal();render();}
 else if(a==='open-archive'){
    const index=Number(el.dataset.index),item=archives[index];if(!item)throw Error('Workspace not found.');
-   const next=QQ.clone(item.workspace),rest=archives.filter((_,i)=>i!==index);
+   const next=QQ.clone(item.workspace),rest=item.workspace.rerunLink?.comparisonId?[...archives]:archives.filter((_,i)=>i!==index);
    MEIQQWorkspace.archive(rest,currentWorkspace());installWorkspace({...next,archives:rest});recoveryRaw=null;selection=null;render();
   }
-  else if(a==='export-archive'){const item=archives[Number(el.dataset.index)];if(!item)throw Error('Workspace not found.');download('MEIQQ-Preserved-Workspace.json',MEIQQWorkspace.serialize(item.workspace));}
+  else if(a==='export-archive'){
+   const item=archives[Number(el.dataset.index)];if(!item)throw Error('Workspace not found.');
+   const comparison=savedComparisonArchive(item.workspace.keptComparisonId);
+   download('MEIQQ-Preserved-Workspace.json',MEIQQWorkspace.serialize(item.workspace,comparison&&comparison!==item?[comparison]:[]));
+  }
   else if(a==='recovery-file'){const file=recoveryFiles[Number(el.dataset.index)];if(!file)throw Error('Recovery file not found.');download('MEIQQ-Recovered-Original.json',file.text);}
   else if(a==='restore-original-draft'){
    const file=recoveryFiles[Number(el.dataset.index)];pendingDraft=file&&recoverableDraft(file);
@@ -2496,10 +4011,11 @@ else if(a==='open-archive'){
  }catch(err){showError(err.message||'The action could not be completed.');}finally{actionFocus=null;}
 });
 document.addEventListener('keydown',e=>{
+ if(savingKeptSetup)return;
  if(navigatorDialog?.open||waterfrontView?.open||document.querySelector('#sky-editor')?.open)return;
  if(e.key==='Escape'&&!$('#modal').firstChild){
-  const settings=document.querySelector('#root .sky-preferences[open]');
-  if(settings?.open){settings.open=false;settings.querySelector('summary').focus();e.preventDefault();return;}
+  const menu=document.querySelector(openWorkspaceMenus);
+  if(menu?.open){menu.open=false;menu.querySelector('summary').focus();e.preventDefault();return;}
  }
  const tab=e.target?.closest?.('[role="tab"][data-action="setup-step"]');
  if(tab&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
@@ -2507,10 +4023,14 @@ document.addEventListener('keydown',e=>{
   selectSetupStep(next);return;
  }
  if(!$('#modal').firstChild){if(e.key==='Escape'&&view==='map'&&selection){e.preventDefault();leaveInspector();}return;}
+ if(e.key==='Escape'&&clientMenuBuilder&&!clientMenuBuilder.picking&&clientMenuBuilder.swap!==null){
+  e.preventDefault();const index=clientMenuBuilder.swap;clientMenuBuilder.swap=null;renderClientMenu('cm-swap-'+index,true);return;
+ }
+ if(e.key==='Escape'&&offerPicker?.evidenceKey){e.preventDefault();restorePickerDetails(offerPicker.evidenceKey);return;}
  if(e.key==='Escape'){closeModal();render();}
  if(e.key==='Tab'){const els=modalTabStops();if(!els.length)return;e.preventDefault();const current=els.indexOf(document.activeElement),next=current<0?(e.shiftKey?els.length-1:0):(current+(e.shiftKey?-1:1)+els.length)%els.length;els[next].focus();}
 });
-window.addEventListener('beforeunload',e=>{save();studioSession.save();jobsSession.save();plannerSession.save();if(plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{save();studioSession.save();jobsSession.save();plannerSession.save();if(savingKeptSetup||plannerSession.unsaved||jobsSession.unsaved||studioSession.unsaved||storeError||saveStatus==='saving'||saveStatus==='pending'||recoveryRaw!==null||primaryReadFailed){e.preventDefault?.();e.returnValue='';}});
 if(window.location)view='sky';
 render();
 const appReady=initializeStorage().then(()=>{
@@ -2597,16 +4117,19 @@ function openMonthJobs(month){
  }
  history.timer=setTimeout(advance,0);
 }
-function monthDrivers(r,costs){
+function monthDrivers(r,costs,links){
  const rows=[];
- const add=(label,amount,note='')=>{
+ const add=(label,amount,note='',link='')=>{
   const signed=(amount>0?'+':'')+dollars(amount);
-  rows.push(`<li class="month-driver"><div><b>${label}</b>${note?`<small>${note}</small>`:''}</div><strong>${signed}</strong></li>`);
+  rows.push(`<li class="month-driver"><div><b>${label}</b>${note?`<small>${note}</small>`:''}${link}</div><strong>${signed}</strong></li>`);
  };
  const leading=r.services.reduce((best,s)=>s.revenue>(best?.revenue||0)?s:best,null);
  const revenueNote=leading?`${esc(leading.name)} earned ${dollars(leading.revenue)} from ${leading.delivered} ${leading.delivered===1?'delivery':'deliveries'}. ${monthProjectLink(leading.deliveredProjectId,'month-delivery',r.endDay)}`:'';
  add('Delivered revenue',r.revenue,revenueNote);
- for(const [label,amount] of costs)add(label,-amount);
+ for(const [label,amount] of costs){
+  const link=label==='Design labor'?links?.designerRate:label==='Shared overhead'?links?.overhead:'';
+  add(label,-amount,'',link);
+ }
  let workInProgress='';
  if(r.awaitingDelivery){
   const scope=r.awaitingDelivery===1?'1 accepted job was':r.awaitingDelivery+' accepted jobs were';
@@ -2616,17 +4139,18 @@ function monthDrivers(r,costs){
  }
  return `<section class="panel padded month-driver-panel"><h2>What drove the result</h2><ul class="month-drivers">${rows.join('')}</ul>${workInProgress}</section>`;
 }
-function monthCash(r){
+function monthCash(r,links){
  const atEnd=[];
  if(r.receivable)atEnd.push(dollars(r.receivable)+' remained due on delivered work');
  if(r.depositsHeld)atEnd.push(dollars(r.depositsHeld)+' had been collected on unfinished work');
  const balances=atEnd.length?`<p>At day ${r.endDay}, ${atEnd.join(' and ')}.</p>`:'';
+ const cashLinks=[r.receivable>0&&links?.paymentDays,r.depositsHeld>0&&links?.deposit].filter(Boolean).join('');
  const movement=r.cashChange===0?'Unchanged from':r.cashChange>0?`Up ${dollars(r.cashChange)} from`:`Down ${dollars(-r.cashChange)} from`;
  return `<section class="panel padded month-cash-summary"><h2>Closing cash</h2><strong class="month-cash-balance">${dollars(r.closingCash)}</strong><p>${movement} ${dollars(r.openingCash)} at the start of the month.</p>
- <p>Customers paid <b>${dollars(r.receipts)}</b>. The studio paid <b>${dollars(r.cost)}</b> in costs.${r.funding?' Owner funding added <b>'+dollars(r.funding)+'</b>.':''}</p>${balances}
+ <p>Customers paid <b>${dollars(r.receipts)}</b>. The studio paid <b>${dollars(r.cost)}</b> in costs.${r.funding?' Owner funding added <b>'+dollars(r.funding)+'</b>.':''}</p>${balances}${cashLinks?'<div class="run-assumption-list">'+cashLinks+'</div>':''}
  ${btn('See cash movements','month-cash','small',`data-month="${r.month}"`)}</section>`;
 }
-function monthlyOverview(){
+function monthlyOverview(links){
  if(!state.day){
   return `<section class="panel padded month-summary"><h2>Month 1 has not started</h2><p>Cash at day 0 is <b>${dollars(state.cash)}</b>. Advance the run to see which jobs earn revenue and which costs the studio pays.</p>${btn('Open run','view','soft','data-view="map"')}</section>`;
  }
@@ -2642,12 +4166,328 @@ function monthlyOverview(){
  return `<section class="panel padded month-summary"><div class="month-result-head"><div><p class="month-range">Operating result · ${scope}</p><h2>${title}</h2></div>${resultsPeriodPicker(r.month)}</div>
  <p class="month-verdict">${deliveries} ${spending}</p>
  <p class="month-owner">After valuing owner time at ${dollars(r.ownerTime)} (${r.rateHistoryAvailable?'day '+r.endDay+' target':'rate history unavailable, current target'} ${dollars(r.ownerRate)}/h), the result was <strong class="${r.afterOwner<0?'negative':''}">${dollars(r.afterOwner)}</strong>.</p></section>
- <div class="two-col month-explanation">${monthDrivers(r,costs)}${monthCash(r)}</div>`;
+ <div class="two-col month-explanation">${monthDrivers(r,costs,links)}${monthCash(r,links)}</div>`;
+}
+function resultAssumptionLinks(comparison,targets=new Map()){
+ const config=rerunStartingConfig(state),{actual,days}=comparison;
+ const revision=rerunDraft?.run===state?rerunDraft.draft:config;
+ const jump=(path,label,value,service=null,month=null)=>{
+  // Input controls use the current offer order; setup comparisons use its stable ID.
+  const key=service?path.replace(/^services\.\d+\./,'services.'+service.id+'.'):path;
+  targets.set(key,{path,label,service});
+  const target=service?` data-service-id="${esc(service.id)}"`:'';
+  const period=month?' data-results-month="'+month+'"':'';
+  const name=service?' <span class="assumption-offer">· '+serviceName(service)+'</span>':'';
+  return btn(`<span><span>${label}</span>${name}</span><b>${value}</b><i aria-hidden="true">→</i>`,'test-assumption','assumption-jump',`data-path="${path}"${target}${period} data-render-key="test-${month?month+'-':''}${path}"`);
+ };
+ const month=resultsMonths.get(state)??Math.ceil(state.day/30);
+ const monthly={
+  paymentDays:jump('paymentDays','Test final payment terms',countDays(config.paymentDays),null,month),
+  deposit:jump('deposit','Test client deposit',inquiryShare(config.deposit),null,month),
+  designerRate:jump('designerRate','Test designer hourly cost',offerAmount(config.designerRate),null,month),
+  overhead:jump('overhead','Test monthly overhead',offerAmount(config.overhead),null,month)
+ };
+ let volume;
+ if(config.acquisition!==revision.acquisition||config.acquisition==='sales'&&!config.ownerHours&&!config.outreachHours){
+  volume=jump('acquisition','Test inquiry source',config.acquisition==='sales'?'Estimate from outreach':'Enter monthly inquiries');
+ }else if(config.acquisition==='preset')volume=jump('inquiries','Test monthly inquiries',config.inquiries);
+ else if(!config.ownerHours)volume=jump('ownerHours','Test weekly owner hours',effortHours(config.ownerHours)+' h');
+ else if(!config.outreachHours)volume=jump('outreachHours','Test outreach time',effortHours(config.outreachHours)+' h');
+ else volume=jump('leadsPerHour','Test inquiries per outreach hour',config.leadsPerHour);
+ const priorTarget=rerunLink?.run===state?rerunLink.original.launchEstimate?.clientDemand:null;
+ const targetShare=config.clientDemand||priorTarget?jump('clientDemand.share','Test client inquiry share',(config.clientDemand?.share??0)+'%'):'';
+ if(!comparison.estimate)return {volume,monthly,targetShare};
+
+ // A service may have been removed or reordered mid-run. Only link to
+ // offers and fulfillment routes that can receive work in the next setup.
+ const projection=QQ.estimate({...config,months:days/30});
+ const revisedOffers=new Map(revision.services.map(service=>[service.id,service]));
+ const offers=config.services.map((service,index)=>({service,index,revised:revisedOffers.get(service.id),plan:projection.services[index],managed:0,files:0,supplier:0}))
+  .filter(offer=>offer.plan.effectiveShare>0&&offer.revised?.weight>0);
+ const byId=new Map(offers.map(offer=>[offer.service.id,offer]));
+ const projectOffers=new Map();
+ const returns=new Set(),waits=new Map();
+ for(const project of state.projects){
+  if(project.accepted===undefined||project.accepted>days)continue;
+  const offer=byId.get(project.serviceId);
+  if(offer)projectOffers.set(project.id,offer);
+  if(project.deliveredDay!==undefined&&project.deliveredDay<=days){
+   if(!offer)continue;
+   const files=project.terms?.fulfillment?.mode==='design-only';
+   offer[files?'files':'managed']+=project.price;
+   if(project.orderKind!=='new-business'&&project.price>0){
+    const recurring=project.orderKind==='campaign-reoffer'||project.orderKind==='paid-cycle-renewal';
+    if(recurring===Boolean(offer.service.recurring||offer.service.campaign))returns.add(recurring?'retention':'repeat');
+   }
+  }else if(project.orderKind==='new-business'&&days===state.day){
+   // A stage seen after a horizon extension cannot explain an earlier wait.
+   const path={design:config.designers?'designerHours':'designers',review:'ownerHours',delivery:'ownerHours',approval:'approvalDays',production:'printDays'}[project.stage];
+   if(path)waits.set(path,(waits.get(path)||0)+1);
+  }
+ }
+ for(const entry of state.ledger){
+  if(entry.day>days)break;
+  const offer=projectOffers.get(entry.project);
+  if(offer&&entry.type==='expense'&&QQ.directExpenseKind(entry)==='supplierCost')offer.supplier-=entry.amount;
+ }
+ const strongest=(list,score)=>list.reduce((best,item)=>!best||score(item)>score(best)?item:best,null);
+ // Select the offer contributing most in the direction of the displayed gap.
+ // A high-volume offer that was right on estimate shouldn't take the user
+ // away from the smaller offer where the difference actually occurred.
+ const prices=[],suppliers=[];
+ const prints=s=>s.fulfillment?s.fulfillment.managedShare>0:s.supplierMode==='print'||s.print>0;
+ for(const {service,index,revised,plan,managed,files,supplier} of offers){
+  const split=service.fulfillment,share=split?.managedShare??1,revisedShare=revised.fulfillment?.managedShare??1;
+  const expectedUnit=share*service.price+(1-share)*(split?.designOnlyPrice??0);
+  const managedPlan=expectedUnit?plan.revenue*share*service.price/expectedUnit:0;
+  const prefix='services.'+index+'.';
+  if(share>0&&revisedShare>0)prices.push({planned:managedPlan,recorded:managed,path:prefix+'price',label:split?'Test managed-print price':'Test client price',value:service.price,service});
+  if(share<1&&revisedShare<1)prices.push({planned:plan.revenue-managedPlan,recorded:files,path:prefix+'fulfillment.designOnlyPrice',label:'Test files-only price',value:split.designOnlyPrice,service});
+  if(prints(service)&&prints(revised))suppliers.push({planned:plan.printCost,recorded:supplier,path:prefix+'print',label:'Test supplier cost',value:service.print,service});
+ }
+ const contributingLink=(candidates,metric)=>{
+  const direction=Math.sign(actual[metric]-comparison.estimate[metric]);
+  const score=item=>direction?direction*(item.recorded-item.planned):Math.max(item.recorded,item.planned);
+  const choice=strongest(candidates,score);
+  return choice&&score(choice)>.001?jump(choice.path,choice.label,offerAmount(choice.value),choice.service):'';
+ };
+ const wait=strongest([...waits],entry=>entry[1])?.[0];
+ const waitLabels={designerHours:'Test weekly designer hours',designers:'Test designer count',ownerHours:'Test weekly owner hours',approvalDays:'Test approval time',printDays:'Test printer turnaround'};
+ let waiting='';
+ if(wait){
+  const value=wait==='designers'?config.designers:wait==='approvalDays'||wait==='printDays'?countDays(config[wait]):effortHours(config[wait])+' h';
+  waiting=jump(wait,waitLabels[wait],value);
+ }
+ return {volume,monthly,targetShare,conversion:jump('conversion','Test quote acceptance',inquiryShare(config.conversion)),revenue:contributingLink(prices,'revenue'),
+  designLabor:jump('designerRate','Test designer hourly cost',offerAmount(config.designerRate)),
+  supplierCost:contributingLink(suppliers,'supplierCost'),
+  overhead:jump('overhead','Test monthly overhead',offerAmount(config.overhead)),
+  waiting,
+  returning:[...returns].map(path=>jump(path,path==='retention'?'Test campaign acceptance':'Test repeat orders',inquiryShare(config[path]))).join(''),
+  owner:actual.ownerHours||comparison.estimate.ownerHours?jump('ownerTarget','Test value of owner time',offerAmount(config.ownerTarget)):''};
+}
+function estimateDriverList(comparison,links){
+ const labels={revenue:'Delivered revenue',designLabor:'Design labor cost',supplierCost:'Printing and shipping',overhead:'Shared overhead',otherCost:'Other project costs'};
+ const differences=comparison.drivers.filter(row=>row.impact!==0&&row.key!=='rounding').sort((left,right)=>Math.abs(right.impact)-Math.abs(left.impact));
+ const rounding=comparison.drivers.find(row=>row.key==='rounding');
+ const largest=Math.abs(differences[0]?.impact||0);
+ const rows=differences.map(row=>{
+  const amount=(row.impact>0?'+':'')+dollars(row.impact);
+  const figures='Estimated '+dollars(row.estimate)+' · Actual '+dollars(row.actual);
+  const hours=row.key==='designLabor'&&Number.isFinite(comparison.actual.designHours)?`<small>Design hours estimated ${effortHours(comparison.estimate.designHours)} · recorded ${effortHours(comparison.actual.designHours)}</small>`:'';
+  return `<li class="run-driver ${row.impact>0?'run-gain':'run-loss'}"><div><b>${labels[row.key]}</b><strong>${amount}</strong></div>
+   <small>${figures}</small>${hours}<div class="run-driver-track" aria-hidden="true"><i style="width:${50*Math.abs(row.impact)/largest}%"></i></div>${links[row.key]||''}</li>`;
+ }).join('');
+ const roundingNote=rounding?`<p class="run-rounding">Rounding adjustment ${(rounding.impact>0?'+':'')+dollars(rounding.impact)}</p>`:'';
+ if(!rows)return (roundingNote||'<p class="run-exact">Delivered revenue and costs matched the estimate.</p>')+links.volume;
+ return '<ol class="run-driver-list">'+rows+'</ol>'+roundingNote;
+}
+function clientOutreachResults(comparison,link){
+ const plan=comparison.estimate?.clientDemand;
+ if(!plan)return '';
+ const profile=QQServiceCatalog.CLIENT_MENUS.find(menu=>menu.id===plan.profileId);
+ if(!profile)return '';
+ const observed=QQ.clientDemandActuals(state,plan.profileId,comparison.days);
+ const format=value=>Number.isFinite(value)?value.toLocaleString(QQI18n.language,{maximumFractionDigits:2}):'—';
+ const all=comparison.actual.leads;
+ const recorded=Number.isFinite(observed.targeted)&&all>0?new Intl.NumberFormat(QQI18n.language,{style:'percent',maximumFractionDigits:1}).format(observed.targeted/all):null;
+ const rows=[['New inquiries','targeted'],['Matched an offer','matched'],['Accepted first orders','orders']];
+ return `<section class="run-client-demand" aria-labelledby="run-client-title"><div class="run-client-heading"><div>
+  <p>Client outreach</p><h3 id="run-client-title">${esc(profile.name)}</h3></div>${link||''}</div>
+  <p class="run-client-split"><span><span>Planned share of new inquiries</span> <b>${plan.share}%</b></span>${recorded?`<span><span>Recorded share</span> <b>${recorded}</b> (${format(observed.targeted)} / ${format(all)})</span>`:''}</p>
+  <table aria-labelledby="run-client-title"><thead><tr><th scope="col">Measure</th><th scope="col">${comparison.basis==='reconstructed'?'Reconstructed estimate':'Setup estimate'}</th><th scope="col">Actual</th></tr></thead>
+  <tbody>${rows.map(([name,key])=>`<tr data-client-outcome="${key}"><th scope="row">${name}</th><td>${format(plan[key])}</td><td>${format(observed[key])}</td></tr>`).join('')}</tbody></table>
+  ${observed.targeted===null?'<p class="run-comparison-note">The saved history is missing the client breakdown for this period.</p>':''}</section>`;
+}
+function completedRunOverview(comparison,links=resultAssumptionLinks(comparison)){
+ const {estimate,actual,days,basis}=comparison;
+ const period=daySpan(1,days);
+ const range=`<p class="run-comparison-period" id="run-comparison-period"><span>Operating result</span> <span>${period}</span></p>`;
+ if(!estimate){
+  const note=basis==='shortened'?'The setup estimate covered '+comparison.launchDays+' days. This run ended on day '+state.day+'.':'The opening assumptions are unavailable for this saved run.';
+  return `<section class="run-comparison" aria-labelledby="run-comparison-title"><header class="run-comparison-head run-comparison-unavailable">${range}
+   <h2 id="run-comparison-title" tabindex="-1" aria-describedby="run-comparison-period">${dollars(actual.profit)}</h2><p class="run-comparison-note">${note}</p>
+   <p class="run-test-note">Choose an assumption to change and compare the two runs.</p>${links.volume}${links.targetShare||''}</header></section>`;
+ }
+ const gap=QQ.round(actual.profit-estimate.profit);
+ const verdict=gap===0?'On estimate':dollars(Math.abs(gap))+(gap>0?' above estimate':' below estimate');
+ const label=basis==='reconstructed'?'Reconstructed estimate':'Setup estimate';
+ const notes=[];
+ if(basis==='reconstructed')notes.push('The estimate uses the recorded starting assumptions for this period.');
+ if(days<state.day)notes.push('The run continued to day '+state.day+'. This comparison ends at the original horizon.');
+ if(comparison.changes)notes.push('Setup changed during the run. The estimate uses the starting assumptions.');
+ const n=v=>QQ.round(v).toLocaleString(QQI18n.language);
+ const hasDrivers=comparison.drivers.some(row=>row.impact!==0&&row.key!=='rounding');
+ const demandLinks=(hasDrivers&&(!actual.leads||actual.leads!==estimate.leads)?links.volume:'')+(estimate.leads||actual.leads?links.conversion:'');
+ const pipeline=`<dl class="run-order-flow"><div><dt>Expected first orders</dt><dd>${n(estimate.orders)}</dd></div><div><dt>Accepted first orders</dt><dd>${n(actual.orders)}</dd></div><div><dt>Delivered first orders</dt><dd>${n(actual.newDelivered)}</dd></div></dl>`;
+ const workNotes=[];
+ if(actual.newBooked!==estimate.revenue)workNotes.push(`<p>First orders booked for ${dollars(actual.newBooked)} against ${dollars(estimate.revenue)} expected.</p>`);
+ if(actual.newBacklog>0)workNotes.push(`<p>Accepted first orders worth ${dollars(actual.newBacklog)} were still awaiting delivery.</p>${links.waiting}`);
+ if(actual.returnRevenue>0)workNotes.push(`<p>Returning work added ${dollars(actual.returnRevenue)} in delivered revenue.</p>${links.returning}`);
+ if(!workNotes.length)workNotes.push('<p>The estimate assumes each expected first order earns its price by the end of the period.</p>');
+ const row=(metric,projected,recorded)=>`<tr><th scope="row">${metric}</th><td>${projected}</td><td>${recorded}</td></tr>`;
+ const amountPair=(metric,key)=>row(metric,dollars(estimate[key]),dollars(actual[key]));
+ const hours=value=>Number.isFinite(value)?n(value)+' h':'—';
+ const table=`<table><thead><tr><th scope="col">Measure</th><th scope="col">${label}</th><th scope="col">Actual</th></tr></thead><tbody>
+  ${row('New inquiries',n(estimate.leads),actual.leads===null?'—':n(actual.leads))}
+  ${row('Design hours',hours(estimate.designHours),hours(actual.designHours))}${row('Owner hours',hours(estimate.ownerHours),hours(actual.ownerHours))}
+  ${amountPair('Delivered revenue','revenue')}${amountPair('Incurred costs','cost')}${amountPair('Operating result','profit')}${amountPair('After owner time','afterOwner')}</tbody></table>`;
+ return `<section class="run-comparison" aria-labelledby="run-comparison-title"><header class="run-comparison-head"><div>${range}
+  <h2 id="run-comparison-title" tabindex="-1" aria-describedby="run-comparison-period">${verdict}</h2></div>
+  <dl class="run-comparison-totals"><div><dt>${label}</dt><dd data-run-estimate="profit">${setupResultAmount(estimate.profit)}</dd></div><div><dt>Actual result</dt><dd>${setupResultAmount(actual.profit)}</dd></div></dl></header>
+  ${notes.length?`<div class="run-basis">${notes.map(line=>`<p>${line}</p>`).join('')}</div>`:''}
+  <p class="run-test-note">Choose an assumption to change and compare the two runs.</p>
+  <div class="run-comparison-body"><section><h3>What moved the operating result?</h3>${estimateDriverList(comparison,links)}</section>
+  <section><h3>From quote to delivery</h3>${pipeline}<div class="run-assumption-list">${demandLinks}</div><div class="run-work-notes">${workNotes.join('')}</div>
+  <div class="run-owner-line"><h4>After owner time</h4><p>${dollars(actual.afterOwner)} actual against ${dollars(estimate.afterOwner)} estimated.</p>
+  <small>Owner hours estimated ${n(estimate.ownerHours)} · recorded ${n(actual.ownerHours)}</small>
+  ${actual.rateHistoryAvailable===false?'<small>The actual figure values recorded hours at the current owner rate.</small>':''}${links.owner}</div></section></div>
+  ${clientOutreachResults(comparison,links.targetShare)}
+  <details class="run-comparison-detail" data-disclosure="run-estimate-details"><summary>Compare all figures</summary>
+  <div class="tablewrap" tabindex="0" role="region" aria-label="Estimate and actual figures">${table}</div></details></section>`;
+}
+function keepSetupDecision(changes,metric,firstValue,secondValue){
+ // A single changed input usually identifies a version more clearly than its profit.
+ // For a broader revision, reuse the outcome and time window from the verdict.
+ const single=changes.length===1?changes[0]:null;
+ const setting=single&&Math.max(single.before.length,single.after.length)<=40?single:null;
+ const label=setting?.label||metric;
+ const choice=(version,action,value)=>btn(
+  `<span>${action}</span><small><span>${esc(label)}</span> · <strong>${esc(value)}</strong></small><i aria-hidden="true">→</i>`,
+  'keep-run-setup','variant-keep',`data-version="${version}"`);
+ return `<section class="variant-decision" aria-labelledby="variant-decision-title"><div>
+  <h3 id="variant-decision-title">Which setup do you want to keep?</h3>
+  <p>Your choice opens in setup for the next run. Both results stay in Saved comparisons.</p></div>
+  <div class="variant-choices">${choice('original','Keep original setup',setting?.before||dollars(firstValue))}
+  ${choice('revised','Keep revised setup',setting?.after||dollars(secondValue))}</div></section>`;
+}
+// The pair is bound to the experiment that produced this run. A manually
+// pinned checkpoint can be an entirely different business or period.
+function variantResultsOverview(pair,{comparison,targets,readOnly=false,kept=pair.keptVersion}={}){
+ const {original,revised}=pair,days=Math.min(original.day,revised.day);
+ const first={...QQ.runActualsThrough(original,days)};
+ const second={...(!readOnly&&comparison?.days===days?comparison.actual:QQ.runActualsThrough(revised,days))};
+ const before=rerunStartingConfig(original),after=rerunStartingConfig(revised);
+ const changes=configDiff(before,after).filter(item=>modeledAssumption(item.path));
+ const cashTerms=['deposit','paymentDays','startingCash'];
+ const cashTest=changes.length>0&&changes.every(item=>cashTerms.includes(item.path));
+ const ownerTest=changes.length===1&&changes[0].path==='ownerTarget';
+ const focus=cashTest?'closingCash':ownerTest?'afterOwner':'profit';
+ const metricName={closingCash:'Closing cash',afterOwner:'Result after owner time',profit:'Operating result'}[focus];
+ const difference=QQ.round(second[focus]-first[focus]);
+ const verdict=difference===0?metricName+' was unchanged':metricName+(difference>0?' rose by ':' fell by ')+dollars(Math.abs(difference));
+ const prefix=readOnly?'saved-variant':'variant';
+ const disclosure=readOnly&&pair.comparisonId?prefix+'-'+esc(pair.comparisonId):prefix;
+ if(!readOnly&&!targets){
+  targets=new Map();
+  resultAssumptionLinks(comparison||QQ.runEstimateComparison(revised),targets);
+ }
+ const editRow=item=>{
+  const target=readOnly?null:targets.get(item.path);
+  let label='<span>'+esc(item.label)+'</span>';
+  if(target){
+   const {path,service}=target,offer=service?' · '+serviceName(service):'';
+   const identity=service?' data-service-id="'+esc(service.id)+'"':'';
+   label=btn(`${target.label}${offer} <i aria-hidden="true">↗</i>`,'test-assumption','variant-edit-link',
+    `data-variant-input data-path="${esc(path)}"${identity} data-render-key="variant-input-${esc(item.path)}"`);
+  }
+  return `<li>${label}<b>${esc(item.before)} <i aria-hidden="true">→</i> <span class="variant-sr">Revised run</span> ${esc(item.after)}</b></li>`;
+ };
+ const list=items=>`<ul class="variant-edits">${items.map(editRow).join('')}</ul>`;
+ const opening=changes.length?list(changes.slice(0,2)):'<p>The starting assumptions matched.</p>';
+ const more=changes.length>2?`<details class="variant-extra-edits" data-disclosure="${disclosure}-input-changes"><summary>More setup changes (${changes.length-2})</summary>${list(changes.slice(2))}</details>`:'';
+ const conditions=QQ.workloadComparison(revised,original,days);
+ const notes=[];
+ if(original.day!==revised.day)notes.push('The original ran for '+original.day+' days and the revised run for '+revised.day+'. Both columns stop at day '+days+'.');
+ if(conditions.sameWorkloadIdentity&&conditions.sameRealizedInquiries===true)notes.push(original.day===revised.day?'Both runs used the same seed and received the same new inquiries.':'Both runs used the same seed and received the same new inquiries through day '+days+'.');
+ else{
+  if(conditions.sameWorkloadIdentity)notes.push('Both runs used the same workload seed.');
+  else if(before.seed!==after.seed)notes.push('The runs used different workload seeds.');
+  else notes.push('The saved workload identities could not be matched.');
+  if(conditions.sameRealizedInquiries===false)notes.push('The recorded new inquiries differed between runs.');
+  else if(conditions.sameRealizedInquiries===null)notes.push('The saved history could not verify the incoming inquiries.');
+ }
+ const hasEdits=run=>run.replayJournal?.changes.some(row=>row.day>0&&row.day<days);
+ if(hasEdits(original)||hasEdits(revised))notes.push('Settings also changed during the comparison period.');
+ if(first.projectDecisions||second.projectDecisions)notes.push('The totals include manual project decisions made during each run.');
+ if(!original.replayJournal)notes.push('The original input values come from its saved settings.');
+ if(!first.rateHistoryAvailable||!second.rateHistoryAvailable)notes.push('For runs without a rate history, owner time uses the saved hourly rate.');
+ const count=value=>value.toLocaleString(QQI18n.language,{maximumFractionDigits:2});
+ const hours=value=>count(value)+' h';
+ const rows=[
+  ['Operating result','profit',dollars],['After owner time','afterOwner',dollars],
+  ['Delivered projects','delivered',count],['Closing cash','closingCash',dollars]
+ ];
+ const detail=[
+  ['New inquiries','leads',count],['Accepted first orders','orders',count],['Delivered revenue','revenue',dollars],
+  ['Incurred costs','cost',dollars],['Design labor cost','designLabor',dollars],['Printing and shipping','supplierCost',dollars],
+  ['Shared overhead','overhead',dollars],['Owner hours','ownerHours',hours],['Design hours','designHours',hours],
+  ['Client payments collected','receipts',dollars],['Delivered receivables','receivable',dollars],
+  ['Accepted jobs awaiting delivery','awaitingDelivery',count]
+ ];
+ // Put a directly related operational measure alongside the headline totals.
+ const changed=changes.map(item=>item.path);
+ const clientIds=[...new Set([after.clientDemand?.profileId,before.clientDemand?.profileId].filter(Boolean))];
+ for(const id of clientIds){
+  const name=QQServiceCatalog.CLIENT_MENUS.find(profile=>profile.id===id)?.name;
+  if(!name)continue;
+  const a=QQ.clientDemandActuals(original,id,days),b=QQ.clientDemandActuals(revised,id,days);
+  for(const [metric,key] of [['New inquiries','targeted'],['Accepted first orders','orders']]){
+   const measure=id+'.'+key;
+   first[measure]=a[key];second[measure]=b[key];
+   detail.push([esc(QQI18n.text(name))+' · '+QQI18n.text(metric),measure,count]);
+  }
+ }
+ const evidenceKeys=[
+  [/^clientDemand\./,clientIds[0]+'.targeted'],
+  [/^(deposit|paymentDays)$/,'receivable'],[/^overhead$/,'overhead'],[/^designerRate$/,'designLabor'],
+  [/^conversion$/,'orders'],[/^(inquiries|acquisition|outreachHours|leadsPerHour|customerMix\.|focusType)/,'leads'],
+  [/^services\..+\.(price|fulfillment\.designOnlyPrice)$/,'revenue'],[/^services\..+\.print$/,'supplierCost'],
+  [/^(designers|designerHours)$|\.hours$/,'designHours'],[/^(ownerHours|quoteHours|deliveryHours|ownerTarget)$|\.review$/,'ownerHours'],
+  [/^(approvalDays|printDays|leadDays|priority)$/,'awaitingDelivery']
+ ];
+ for(const [pattern,key] of evidenceKeys){
+  if(!changed.some(path=>pattern.test(path)))continue;
+  const index=detail.findIndex(row=>row[1]===key);
+  if(index<0)continue;
+  rows.push(detail.splice(index,1)[0]);
+  break;
+ }
+ if(first.funding||second.funding)detail.push(['Owner funding','funding',dollars]);
+ if(first.projectDecisions||second.projectDecisions)detail.push(['Manual project decisions','projectDecisions',count]);
+ const table=(specs,name)=>{
+  const body=specs.map(([label,key,format])=>{
+   const a=first[key],b=second[key],delta=a===null||b===null?null:QQ.round(b-a);
+   const deltaText=delta===null?'—':delta===0?'No change':(delta>0?'+':'')+format(delta);
+   return `<tr><th scope="row">${label}</th><td>${a===null?'—':format(a)}</td><td>${b===null?'—':format(b)}</td><td class="variant-delta">${delta===null||delta===0?'':'<span class="variant-delta-label" aria-hidden="true">Change </span>'}${deltaText}</td></tr>`;
+  }).join('');
+  return `<table class="variant-figures" aria-label="${name}"><thead><tr><th scope="col">Measure</th><th scope="col">Original run</th><th scope="col">Revised run</th><th scope="col">Change</th></tr></thead><tbody>${body}</tbody></table>`;
+ };
+ const movement=(label,key)=>{
+  const delta=QQ.round(second[key]-first[key]);
+  return delta===0?label+' was unchanged.':label+(delta>0?' rose by ':' fell by ')+dollars(Math.abs(delta))+'.';
+ };
+ const keptLabel=kept==='original'?'Original setup kept':kept==='revised'?'Revised setup kept':'';
+ const keptNote=readOnly&&keptLabel?` <span class="variant-kept">${keptLabel}</span>`:'';
+ const decision=readOnly?'':keepSetupDecision(changes,metricName,first[focus],second[focus]);
+ return `<section class="variant-result" aria-labelledby="${prefix}-result-title"><header class="variant-result-head">
+  <p id="${prefix}-period"><span>Run comparison</span> <span>${daySpan(1,days)}</span>${keptNote}</p>
+  <h2 id="${prefix}-result-title" tabindex="-1" aria-describedby="${prefix}-period">${verdict}</h2></header>
+  <div class="variant-content"><section class="variant-setup"><h3>${original.replayJournal?'Changes to the starting setup':'Compared assumptions'}</h3>${opening}${more}</section>
+  <section class="variant-outcomes"><h3>Recorded outcomes</h3>${table(rows,'Recorded outcomes')}
+  <p class="variant-bridge"><span>${movement('Delivered revenue','revenue')}</span> <span>${movement('Total cost','cost')}</span></p>
+  </section></div><details class="variant-breakdown" data-disclosure="${disclosure}-outcome-detail"><summary>Compare work, costs and payments</summary>${table(detail,'Work, costs and payments')}</details>
+  <div class="variant-basis">${notes.map(note=>`<p>${note}</p>`).join('')}</div>${decision}</section>`;
 }
 function marginAnalyticsView(a,m){
  const rate=analyticsRate;
- const wholeRun=state.day>30?`<section class="run-total" aria-label="Whole run totals"><b>Whole run · days 1–${state.day}</b><span>${m.delivered} delivered</span><span>${dollars(a.profit)} operating result</span><span>${dollars(a.periodAfterOwner)} after owner time · ${state.replayJournal?'period-end targets':'current target, rate history unavailable'}</span></section>`:'';
- return `${wholeRun}${monthlyOverview()}<details class="result-details" data-disclosure="results-cumulative"><summary>Run-to-date financial details · day ${state.day}</summary><div class="two-col"><section class="panel padded"><h2>Revenue → operating result</h2>${analyticsRows([['Delivered revenue',dollars(state.revenue)],['− Direct costs on delivered work',dollars(a.deliveredCost)],['= Delivered contribution',dollars(a.contribution)],['− Costs on unfinished work',dollars(a.unfinishedCost)],['− Shared overhead',dollars(a.overhead)],['= Operating result',dollars(a.profit)],["All hours at today's target of "+dollars(state.config.ownerTarget)+'/h',dollars(a.ownerTime)],['= Result after owner time',dollars(a.afterOwner)]])}<p class="helper">Direct costs include design labor and print/shipping. Margin = result ÷ delivered revenue; shown as — when revenue is zero. Owner time is valued at the current ${dollars(state.config.ownerTarget)}/h across the entire run.</p></section>
+ const comparison=state.day>=state.config.months*30?QQ.runEstimateComparison(state):null;
+ const pair=comparison?completedVariantPair():null;
+ const targets=new Map(),links=comparison?resultAssumptionLinks(comparison,targets):null;
+ const experiment=pair?variantResultsOverview(pair,{comparison,targets}):'';
+ const wholeRunTotals=state.day>30&&(!comparison?.estimate||comparison.days<state.day)?`<section class="run-total" aria-label="Whole run totals"><b>Whole run · days 1–${state.day}</b><span>${m.delivered} delivered</span><span>${dollars(a.profit)} operating result</span><span>${dollars(a.periodAfterOwner)} after owner time · ${state.replayJournal?'period-end targets':'current target, rate history unavailable'}</span></section>`:'';
+ const wholeRun=(comparison?completedRunOverview(comparison,links):'')+wholeRunTotals;
+ return `${experiment}${wholeRun}${monthlyOverview(links?.monthly)}<details class="result-details" data-disclosure="results-cumulative"><summary>Run-to-date financial details · day ${state.day}</summary><div class="two-col"><section class="panel padded"><h2>Revenue → operating result</h2>${analyticsRows([['Delivered revenue',dollars(state.revenue)],['− Direct costs on delivered work',dollars(a.deliveredCost)],['= Delivered contribution',dollars(a.contribution)],['− Costs on unfinished work',dollars(a.unfinishedCost)],['− Shared overhead',dollars(a.overhead)],['= Operating result',dollars(a.profit)],["All hours at today's target of "+dollars(state.config.ownerTarget)+'/h',dollars(a.ownerTime)],['= Result after owner time',dollars(a.afterOwner)]])}<p class="helper">Direct costs include design labor and print/shipping. Margin = result ÷ delivered revenue; shown as — when revenue is zero. Owner time is valued at the current ${dollars(state.config.ownerTarget)}/h across the entire run.</p></section>
  <section class="panel padded"><h2>Cash, pipeline & efficiency</h2>${analyticsRows([['Cash available',dollars(state.cash)],['Accepted work still to deliver',dollars(a.backlog)],['Delivered balances to collect',dollars(m.receivable)],['Contribution margin',rate(a.contributionMargin)],['Operating margin',rate(a.operatingMargin)],['After owner-time margin',rate(a.afterOwnerMargin)],['Average accepted cycle value',analyticsMoney(a.averageOrder)],['Operating result / owner hour',analyticsMoney(a.profitPerOwnerHour)],['On-time delivery',rate(m.onTimeRate)],['Delivered in last 30 days',m.throughput30]])}<p class="helper">Booked work is not earned revenue. Cash includes deposits and owner funding. These results describe this simulation, not a forecast independent of your assumptions.</p>${btn('Inspect contracts','analytics-tab','soft','data-tab="contracts"')}</section></div>
  <section class="panel analytics-section"><div class="panelhead"><div><h2>Which services contribute most?</h2><p class="helper">Ranked by contribution dollars · excludes shared overhead and owner time</p></div></div>${analyticsTable(['Service','New inquiries','Delivered','Revenue','Direct cost¹','Contribution','Margin','Unfinished cost'],a.services.map(s=>`<tr><td>${serviceName(s)}</td><td>${s.inquiries}</td><td>${s.delivered}</td><td>${dollars(s.revenue)}</td><td>${dollars(s.deliveredCost)}</td>${resultCell(s.contribution)}<td>${rate(s.margin)}</td><td>${dollars(s.unfinishedCost)}</td></tr>`))}<p class="helper analytics-note">¹ Direct cost for delivered work only. Service changes remain grouped under their original service identity.</p></section></details>`;
 }

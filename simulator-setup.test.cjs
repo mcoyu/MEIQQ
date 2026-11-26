@@ -17,7 +17,7 @@ test('day-zero opening, autosave and reload keep the first choice until a path i
   const first=setup();
   read(first,'save()');
   const unopened=setup([...first.storage]);
-  assert.match(unopened.elements['#root'].innerHTML,/Try the restaurant example/);
+  assert.match(unopened.elements['#root'].innerHTML,/Restaurant example/);
   unopened.click('start-restaurant');unopened.click('enter-setup',{mode:'guided'});
   assert.doesNotMatch(unopened.elements['#root'].innerHTML,/data-action="start-business"/);
   const reopened=setup([...unopened.storage]);
@@ -35,13 +35,13 @@ test('each business path waits for an explicit detail level before creating the 
     assert.match(ui.elements['#root'].innerHTML,/>All assumptions</);
     assert.doesNotMatch(ui.elements['#root'].innerHTML,/id="setup-panel"/);
     assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),initial);
-    ui.click('setup-path-back');
-    assert.match(ui.elements['#root'].innerHTML,/data-action="start-business"/);
+    ui.click(path==='business'?'start-restaurant':'start-business');
+    assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),initial);
     ui.click('start-'+path);ui.click('enter-setup',{mode});
     assert.match(ui.elements['#root'].innerHTML,new RegExp('setup-mode-'+mode));
     const editor=ui.elements['#root'].innerHTML;
     assert.match(editor,/<header class="sky-header">/);
-    assert.match(editor,/<main class="workspace setup-editing"[^>]*>[\s\S]*?id="setup-panel"[\s\S]*?Build your service menu/);
+    assert.match(editor,/<main class="workspace setup-editing"[^>]*>[\s\S]*?id="setup-panel"[\s\S]*?What do you sell\?/);
     assert.doesNotMatch(editor,/<aside class="sidebar">/);
     assert.equal(read(ui,'draft.services.length'),path==='business'?1:3);
     assert.equal(read(ui,'draft.services[0].name')==='',path==='business');
@@ -65,7 +65,7 @@ test('all four setup steps keep the sky header, step tabs and setup options in b
    assert.deepEqual([...html.matchAll(/data-setup-page="(\d+)"/g)].map(match=>Number(match[1])),[step]);
    read(ui,'render()');
   }
-  assert.deepEqual(stages,['surface','night','offers','demand','people','cash','people','demand','offers']);
+  assert.deepEqual(stages,['night','offers','demand','people','cash','people','demand','offers']);
  }
 });
 
@@ -222,7 +222,7 @@ test('the app home and setup chapters have restorable addresses, and browser Bac
  for(const page of ['#sky','#jobs','#planner','#studio','#setup/style'])visit(page);
  ui.click('enter-setup',{mode:'analyst'});
  assert.equal(url.hash,'#setup/edit/people');assert.equal(read(ui,'JSON.stringify(currentWorkspace())'),saved);
- visit('#setup');ui.click('start-business');ui.click('enter-setup',{mode:'guided'});
+ visit('#setup');assert.equal(url.hash,'#setup/edit/people');
  assert.equal(read(ui,'archives.length'),0);assert.equal(read(ui,'draft.services[0].name'),'Local design');
  visit('#setup/new/business');ui.click('enter-setup',{mode:'guided'});
  assert.equal(read(ui,'archives.length'),1);assert.equal(read(ui,'archives[0].workspace.draft.services[0].name'),'Local design');
@@ -252,4 +252,112 @@ test('every workspace uses the shared navigator, identifies its location and off
       assert.ok(nav.includes('data-action="'+action+'"'),route+' '+action);
     }
   }
+});
+
+test('starting with the default business exposes the first offer and links missing groups to their fields',()=>{
+  const ui=setup();
+  ui.click('enter-setup',{mode:'guided'});
+  const page=()=>ui.elements['#root'].innerHTML;
+  assert.equal(read(ui,'setupOrigin'),'business');
+  assert.match(page(),/class="first-offer"/);
+  assert.doesNotMatch(page(),/class="service-editor"|data-action="simulate"|class="estimate-ready"/);
+  for(const name of ['name','hours','supplierMode']){
+    assert.ok(page().includes('data-path="services.0.'+name+'"'));
+  }
+  let focused=false;
+  ui.elements['[data-input="services.0.hours"]']={focus:()=>{focused=true;}};
+  ui.click('fix-setup-issue',{path:'services.0.hours'});
+  assert.ok(focused);
+  assert.equal(read(ui,'setupRepairPath'),'services.0.hours');
+  read(ui,"Object.assign(draft.services[0],{name:'Design',price:250,deliverable:'One layout',hours:2,review:0,supplierMode:'print',print:null});render()");
+  assert.equal((page().match(/<li class="ready">/g)||[]).length,2);
+  assert.match(page(),/data-path="services.0.print"/);
+  edit(ui,'services.0.print',30);
+  assert.match(page(),/class="panel summary-card estimate-ready"/);
+  assert.match(page(),/data-action="simulate"/);
+  assert.doesNotMatch(page(),/class="offer-readiness"/);
+});
+
+function compareOnStep(ui){
+  return [...ui.elements['#root'].innerHTML.matchAll(/<span class="estimate-delta(?: gain| loss)?">([^<]+)<\/span>/g)].map(match=>match[1]);
+}
+function enterRestaurantStep(step){
+  const ui=setup();
+  ui.click('start-restaurant');
+  ui.click('enter-setup',{mode:'guided'});
+  ui.click('setup-step',{step:String(step)});
+  return ui;
+}
+
+test('a step compares against its first complete estimate for this visit and the selected run length',()=>{
+  const ui=enterRestaurantStep(3),overhead=read(ui,'draft.overhead');
+  assert.deepEqual(compareOnStep(ui),[]);
+  edit(ui,'overhead',overhead+10);
+  assert.deepEqual(compareOnStep(ui),['-$30','-$30']);
+  edit(ui,'overhead','');
+  assert.match(ui.elements['#root'].innerHTML,/summary-card estimate-pending/);
+  assert.deepEqual(compareOnStep(ui),[]);
+  edit(ui,'overhead',overhead+15);
+  assert.deepEqual(compareOnStep(ui),['-$45','-$45']);
+
+  ui.handlers.change({target:{id:'input-months',dataset:{input:'months'},tagName:'SELECT',type:'select-one',value:'2'}});
+  assert.match(ui.elements['#root'].innerHTML,/60-day estimate/);
+  assert.deepEqual(compareOnStep(ui),[]);
+  edit(ui,'overhead',overhead+20);
+  assert.deepEqual(compareOnStep(ui),['-$10','-$10']);
+
+  ui.click('setup-step',{step:'2'});
+  assert.deepEqual(compareOnStep(ui),[]);
+  const ownerValueChange=read(ui,'offerAmount(QQ.round(-getDraftEstimate().owner))');
+  edit(ui,'ownerTarget',read(ui,'draft.ownerTarget')+1);
+  assert.deepEqual(compareOnStep(ui),['$0',ownerValueChange]);
+  ui.click('setup-step',{step:'3'});
+  assert.deepEqual(compareOnStep(ui),[]);
+  edit(ui,'overhead',overhead+10);
+  assert.deepEqual(compareOnStep(ui),['+$20','+$20']);
+
+  ui.click('view',{view:'map'});ui.click('view',{view:'setup'});
+  assert.deepEqual(compareOnStep(ui),[]);
+  assert.equal(read(ui,'draft.months'),2);
+  assert.equal(read(ui,'state.config.overhead'),overhead);
+});
+
+test('cash timing edits change the quote collection schedule while both estimated results stay level',()=>{
+  const ui=enterRestaurantStep(3);
+  const results=()=>read(ui,'JSON.stringify([getDraftEstimate().profit,getDraftEstimate().surplus])');
+  const before=results();
+  edit(ui,'deposit',0,{percent:'true'});
+  edit(ui,'paymentDays',0);
+  assert.match(ui.elements['#root'].innerHTML,/<dt>At acceptance<\/dt><dd>\$0</);
+  assert.match(ui.elements['#root'].innerHTML,/<dt>Due on delivery<\/dt><dd>\$[1-9]/);
+  edit(ui,'paymentDays',17);
+  edit(ui,'leadDays',12);
+  assert.match(ui.elements['#root'].innerHTML,/due 29 days after acceptance/);
+  assert.deepEqual(compareOnStep(ui),[]);
+  assert.equal(results(),before);
+});
+
+test('an incomplete draft prioritizes repairs for this step and starts comparison only when the draft becomes valid',()=>{
+  const ui=enterRestaurantStep(1);
+  edit(ui,'startingCash','');edit(ui,'conversion','');
+  assert.equal(read(ui,'draftValidationIssues()[0].path'),'startingCash');
+  const summary=()=>ui.elements['#root'].innerHTML.split('id="draft-summary"')[1];
+  function repair(path,step){
+    const current=summary().match(/data-action="fix-setup-issue"[^>]*data-path="([^"]+)"/);
+    assert.ok(current,'rendered issue action');assert.equal(current[1],path);
+    let focused=false;
+    ui.elements['[data-input="'+path+'"]']={focus:()=>{focused=true;}};
+    ui.click('fix-setup-issue',{path:current[1]});
+    assert.ok(focused);assert.equal(read(ui,'stepIndex'),step);
+  }
+  repair('conversion',1);
+  edit(ui,'conversion',45,{percent:'true'});
+  assert.match(summary(),/<strong>Cash &(?:amp;)? timing<\/strong>/);
+  assert.deepEqual(compareOnStep(ui),[]);
+  repair('startingCash',3);
+  edit(ui,'startingCash',6000);
+  assert.match(summary(),/summary-card estimate-ready/);
+  assert.deepEqual(compareOnStep(ui),[]);
+  edit(ui,'overhead',read(ui,'draft.overhead')+2);
+  assert.deepEqual(compareOnStep(ui),['-$6','-$6']);
 });

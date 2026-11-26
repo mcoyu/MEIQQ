@@ -12,6 +12,19 @@ test('comparison report includes recipe origin, services, projects and source li
 });
 test('comparison report rejects missing run selection',()=>{assert.throws(()=>report.create(q.fresh()),/current run and a baseline/);});
 
+test('the report names client-demand targets, prints whole percentage shares, and links a source or project to its own client',()=>{
+ const setup=profileId=>({...q.clone(q.DEFAULT),inquiries:30,conversion:1,clientDemand:{profileId,share:100}});
+ const baseline=run(setup('restaurant'),5),config=setup('maker');
+ config.assumptionRecords={'clientDemand.share':{profileId:'maker',source:'My inbound log',date:'2026-11-10',sample:'4 of 4 inquiries',value:100}};
+ const current=run(config,5),html=report.create(current,baseline).html;
+ assert.match(html,/<th>Target client inquiry share<\/th><td>Independent restaurant · 100%<\/td><td>Maker sourcing packaging · 100%<\/td>/);
+ assert.match(html,/<th>Current · Target client inquiry share · Maker sourcing packaging<\/th><td>100%<\/td><td>100%<\/td>/);
+ assert.match(html,/My inbound log/);assert.match(html,/No verified match/);
+ const added=report.create(current,q.fresh()).html;
+ assert.match(added,/<td>No target assigned<\/td><td>Maker sourcing packaging · 100%<\/td>/);
+ assert.doesNotMatch(html,/\[object Object\]/);
+});
+
 test('job cost attribution escapes the supplied service name and uses each verified comparison interval',()=>{
  const config=presets.newWorkspaceConfig({...q.DEFAULT,services:catalog.starterServices()});
  const name='Custom <b>scope</b> & artwork';

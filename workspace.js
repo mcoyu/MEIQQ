@@ -17,6 +17,7 @@
     if (!object(value)) throw Error('Draft is not an object.');
     const d = {...q.clone(config),...q.clone(value)};
     if(!Object.hasOwn(value,'assumptionRecords'))delete d.assumptionRecords;
+    if(!Object.hasOwn(value,'clientDemand'))delete d.clientDemand;
     for (const [key, fallback] of Object.entries(q.DEFAULT)) {
       // New customer profiles are opt-in for older workspaces. Their absence
       // must not quarantine an otherwise valid unfinished draft.
@@ -26,7 +27,13 @@
       if (typeof fallback === 'boolean' && typeof d[key] !== 'boolean') throw Error('Draft switch is malformed.');
     }
     if(d.fixedInquiriesEntered!==undefined&&typeof d.fixedInquiriesEntered!=='boolean')throw Error('Draft fixed inquiry preference is malformed.');
+    if(d.clientDemand!==undefined&&(!exact(d.clientDemand,['profileId','share'])||!q.clientDemandType(d.clientDemand.profileId)||!numeric(d.clientDemand.share)))throw Error('Draft target client or inquiry share is malformed.');
     if(d.assumptionRecords!==undefined&&!q.validAssumptionRecords(d.assumptionRecords))throw Error('Draft assumption records are malformed.');
+    const targetSource=d.assumptionRecords?.['clientDemand.share'];
+    if(targetSource&&(targetSource.profileId!==d.clientDemand?.profileId||targetSource.value!==d.clientDemand.share)){
+      delete d.assumptionRecords['clientDemand.share'];
+      if(!Object.keys(d.assumptionRecords).length)delete d.assumptionRecords;
+    }
     if (d.customerMix !== undefined) {
       if (!object(d.customerMix) || Object.keys(d.customerMix).sort().join(',') !== 'food,retail,services' ||
           !Object.values(d.customerMix).every(numeric) || !numeric(d.profileStrength) ||
@@ -54,6 +61,13 @@
           (s.fulfillment !== undefined && !editableFulfillment(s.fulfillment)) ||
           (s.campaign !== undefined && !editableCampaign(s.campaign))) throw Error('Draft service fields are malformed.');
     }
+    // A removed role can still leave a useful link from the other offers
+    // to their chosen client. Ignore a wholly detached menu.
+    const menu=d.clientMenu;
+    if(Object.hasOwn(d,'clientMenu')&&(!exact(menu,['profileId','serviceIds'])||typeof menu.profileId!=='string'||
+        !/^[a-z0-9_-]{1,60}$/.test(menu.profileId)||!Array.isArray(menu.serviceIds)||menu.serviceIds.length!==3||
+        new Set(menu.serviceIds).size!==3||menu.serviceIds.some(id=>typeof id!=='string'||!/^[a-zA-Z0-9_-]{1,60}$/.test(id))||
+        !menu.serviceIds.some(id=>d.services.some(s=>s.id===id))))delete d.clientMenu;
     return d;
   }
   function replayFields(record) {
@@ -63,6 +77,27 @@
       if(Object.hasOwn(record,key))fields[key]=record[key];
     }
     return fields;
+  }
+  function assumptionTarget(value){
+    if(!object(value)||typeof value.path!=='string'||value.path.length>150||!/^\w+(?:\.\w+)*$/.test(value.path)||
+      value.serviceId!==undefined&&(typeof value.serviceId!=='string'||value.serviceId.length>100))throw Error('Revised setup assumption is invalid.');
+    return {path:value.path,...(value.serviceId!==undefined?{serviceId:value.serviceId}:{})};
+  }
+  function revisionTarget(value){
+    const target=assumptionTarget(value);
+    if(value.returnTab==='overview'||value.returnTab==='compare')target.returnTab=value.returnTab;
+    if(Number.isInteger(value.resultsMonth)&&value.resultsMonth>=1&&value.resultsMonth<=12)target.resultsMonth=value.resultsMonth;
+    return target;
+  }
+  function comparisonId(value){
+    if(typeof value!=='string'||!/^[a-z0-9][a-z0-9-]{0,79}$/.test(value))throw Error('Saved comparison reference is invalid.');
+    return value;
+  }
+  function comparisonTarget(link){
+    const target=assumptionTarget(link);
+    if(link.comparisonId===undefined&&link.keptVersion===undefined)return target;
+    if(link.keptVersion!=='original'&&link.keptVersion!=='revised')throw Error('Saved comparison choice is invalid.');
+    return {...target,comparisonId:comparisonId(link.comparisonId),keptVersion:link.keptVersion};
   }
   function workspace(raw, resolve = q.restore) {
     if (!object(raw) || !Array.isArray(raw.saved) || raw.saved.length>MAX_ITEMS) throw Error('Workspace checkpoints are invalid.');
@@ -124,7 +159,18 @@
       }
     }
     const origin=['business','restaurant'].includes(raw.setupOrigin)?{setupOrigin:raw.setupOrigin}:{};
-    return {state,saved,draft,checkpointInfo,recoveryFiles,...origin};
+    const result={state,saved,draft,checkpointInfo,recoveryFiles,...origin};
+    if(raw.rerunDraft!==undefined){
+      const target=revisionTarget(raw.rerunDraft);
+      result.rerunDraft={...target,draft:editableDraft(raw.rerunDraft.draft,state.config)};
+    }
+    if(raw.rerunLink!==undefined){
+      const target=comparisonTarget(raw.rerunLink),original=resolve(raw.rerunLink.original);
+      if(!original.day||original.day!==original.config.months*30)throw Error('The original run for this comparison is incomplete.');
+      result.rerunLink={...target,original};
+    }
+    if(raw.keptComparisonId!==undefined)result.keptComparisonId=comparisonId(raw.keptComparisonId);
+    return result;
   }
   function validReplayPair(base,alternative,replay){
     if(!object(replay)||!['designerHours','designers','ownerHours'].includes(replay.key))return false;
@@ -234,6 +280,9 @@
       });
       if(replaySources.length>MAX_ITEMS)throw Error('Too many replay source links. Export workspaces separately or remove unneeded checkpoints.');
       const packed={state,saved,draft:q.clone(w.draft),checkpointInfo,recoveryFiles:q.clone(w.recoveryFiles||[])};
+      if(w.rerunDraft)packed.rerunDraft={...revisionTarget(w.rerunDraft),draft:q.clone(w.rerunDraft.draft)};
+      if(w.rerunLink)packed.rerunLink={...comparisonTarget(w.rerunLink),original:add(w.rerunLink.original)};
+      if(w.keptComparisonId!==undefined)packed.keptComparisonId=comparisonId(w.keptComparisonId);
       if(['business','restaurant'].includes(w.setupOrigin))packed.setupOrigin=w.setupOrigin;
       if(replaySources.length)packed.replaySources=replaySources;
       return packed;

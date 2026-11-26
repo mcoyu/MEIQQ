@@ -31,6 +31,19 @@ const CUSTOMER_TYPES=[
 ];
 const CUSTOMER_PREFIXES=['Maple','Eastside','Garden','Corner','Northline','Bluebird','Cedar','Sunrise','Lakeside','Jade','Hearthside','Oak & Willow','Riverside','Little Lotus','Elm Street','Market Street'];
 const CUSTOMER_LOCATIONS=['',' on Main',' on River Road',' at the Plaza',' on Park Avenue',' near the Square'];
+// These identities belong to explicitly targeted inquiries. Keeping them out of
+// CUSTOMER_TYPES preserves the original subtype probabilities for general demand.
+const CLIENT_DEMAND_TYPES=[
+ ['restaurant','food','Independent restaurant','Kitchen','Independent restaurant planning its next menu'],
+ ['counter-service','food','Bilingual café','Café','Counter ordering in two languages'],
+ ['wholesale','retail','Wholesale product brand','Wholesale','Preparing a product line for retail buyers'],
+ ['retailer','retail','Neighborhood retailer','Shop','Merchandising a neighborhood storefront'],
+ ['maker','retail','Maker sourcing packaging','Goods','Sourcing packaging for a product run'],
+ ['appointments','services','Appointment-based studio','Studio','Helping clients choose and book an appointment'],
+ ['home-services','services','Home service business','Home Services','Reaching homeowners in a local service area']
+].map(([profileId,group,label,suffix,context])=>Object.freeze({
+ profileId,id:'target-'+profileId,group,label,suffix,context,effort:1,approval:0,repeat:1,revision:.3
+}));
 const MODEL_VERSION=2;
 const DISRUPTION_RULES={rushDeadlines:{defaultRate:.10,leadFactor:.5,minLeadDays:2},supplierReprints:{defaultRate:.03,extraDaysMin:2,extraDaysMax:5,costFactor:1},repeatedRevisions:{defaultRate:.15,minRounds:2,maxRounds:3,designFactor:.35,reviewFactor:.5},extendedLatePayments:{defaultRate:.15,minDays:30,maxDays:60}};
 const DEFAULT_DISRUPTION_RATES=Object.fromEntries(Object.entries(DISRUPTION_RULES).map(([key,rule])=>[key,rule.defaultRate]));
@@ -44,12 +57,13 @@ function random(seed,key){let h=seed|0;for(const c of String(key))h=Math.imul(h^
 function demandDraw(c,demandId,stream){return random(c.seed,'model2:'+demandId+':'+stream);}
 function recipeFingerprint(value){let hash=2166136261;for(const ch of JSON.stringify(value)){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619);}return(hash>>>0).toString(16).padStart(8,'0');}
 const ASSUMPTION_FIELDS={
- demand:{inquiries:'New inquiries per month',leadsPerHour:'Qualified inquiries per outreach hour',conversion:'Quote acceptance',retention:'Campaign quote acceptance',repeat:'One-off repeat orders'},
+ demand:{inquiries:'New inquiries per month',leadsPerHour:'Qualified inquiries per outreach hour','clientDemand.share':'Target client inquiry share',conversion:'Quote acceptance',retention:'Campaign quote acceptance',repeat:'One-off repeat orders'},
  people:{ownerHours:'Weekly owner hours',designerHours:'Weekly hours per designer',designerRate:'Designer hourly cost',quoteHours:'Owner hours per quote',deliveryHours:'Owner hours per delivery'},
  cash:{overhead:'Monthly overhead',deposit:'Deposit',paymentDays:'Final payment terms',approvalDays:'Client approval time',printDays:'Supplier turnaround'},
  service:{price:'Customer price',hours:'Designer hours per project',review:'Owner review hours',print:'Supplier batch cost','fulfillment.managedShare':'Managed-print share','fulfillment.designOnlyPrice':'Files-only price'}
 };
 function assumptionRecordValue(c,path){
+ if(path==='clientDemand.share')return c.clientDemand?.share;
  const parts=path.split('.');
  if(parts[0]==='services'&&parts.length>=3){
   const service=Array.isArray(c.services)?c.services.find(s=>s?.id===parts[1]):undefined;
@@ -62,7 +76,9 @@ function validAssumptionRecords(records){
  for(const [path,r] of Object.entries(records)){
   const parts=path.split('.');
   const allowed=parts[0]==='services'?parts.length>=3&&/^[a-zA-Z0-9_-]{1,60}$/.test(parts[1])&&Object.hasOwn(ASSUMPTION_FIELDS.service,parts.slice(2).join('.')):['demand','people','cash'].some(group=>Object.hasOwn(ASSUMPTION_FIELDS[group],path));
-  if(!allowed||!r||typeof r!=='object'||Array.isArray(r)||Object.keys(r).sort().join(',')!=='date,sample,source,value'||!Number.isFinite(r.value))return false;
+  const targeted=path==='clientDemand.share',keys=targeted?'date,profileId,sample,source,value':'date,sample,source,value';
+  if(!allowed||!r||typeof r!=='object'||Array.isArray(r)||Object.keys(r).sort().join(',')!==keys||!Number.isFinite(r.value))return false;
+  if(targeted&&(!clientDemandType(r.profileId)||!Number.isInteger(r.value)||r.value<0||r.value>100))return false;
   if(typeof r.source!=='string'||!r.source.trim()||r.source.length>160||typeof r.sample!=='string'||!r.sample.trim()||r.sample.length>120||typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return false;
   const date=new Date(r.date+'T00:00:00Z');
   if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==r.date)return false;
@@ -72,7 +88,8 @@ function validAssumptionRecords(records){
 function withCurrentAssumptionRecords(c){
  const records=c.assumptionRecords;
  if(!records||!validAssumptionRecords(records))return c;
- const entries=Object.entries(records),matching=entries.filter(([path,r])=>r.value===assumptionRecordValue(c,path));
+ const entries=Object.entries(records),matching=entries.filter(([path,r])=>r.value===assumptionRecordValue(c,path)&&
+  (path!=='clientDemand.share'||r.profileId===c.clientDemand?.profileId));
  if(matching.length===entries.length)return c;
  const next={...c};
  if(matching.length)next.assumptionRecords=Object.fromEntries(matching);else delete next.assumptionRecords;
@@ -114,9 +131,11 @@ function normalize(config){const c=clone(config);for(const key of ['quoteHours',
 function variable(c,key){return c.realism&&c.uncertainty?.[key]!==false;}
 function disruption(c,key){return c.realism&&c.disruptions?.[key]===true;}
 function disruptionDraw(c,p,key){return demandDraw(c,p.demandId,'disruption:'+key);}
-function profileFor(id){return CUSTOMER_TYPES.find(t=>t.id===id);}
+function clientDemandType(profileId){return CLIENT_DEMAND_TYPES.find(t=>t.profileId===profileId);}
+function profileFor(id){return CUSTOMER_TYPES.find(t=>t.id===id)||CLIENT_DEMAND_TYPES.find(t=>t.id===id);}
 function profileFactor(c,p,key){const profile=profileFor(p.clientType);return profile?1+(profile[key]-1)*(c.profileStrength??0):1;}
 function selectProfile(c,key){
+ if(c.clientDemand?.share>0&&demandDraw(c,key,'client-menu-target')<c.clientDemand.share/100)return clientDemandType(c.clientDemand.profileId);
  if(!c.customerMix)return null;
  let pick=random(c.seed,key+'group')*100,group='services';
  for(const name of ['food','retail','services']){pick-=c.customerMix[name];if(pick<0){group=name;break;}}
@@ -205,23 +224,114 @@ function accept(s,p){
  entry(s,p.price*c.deposit,'receipt',p,'Client deposit');p.paymentStatus=round(p.price-p.paid)===0?'paid':p.paid>0?'partial':'unpaid';
  event(s,p,'Quote accepted at $'+p.price+(fulfillmentMode?' for '+(fulfillmentMode==='agency-managed'?'agency-managed printing':'design only / client self-print'):'')+'; deposit received; delivery due day '+p.due+(rush?' under a modeled rush-event promise':''));move(s,p,'design');
 }
+function inquiryVolume(c){
+ const days=c.months*30,workdays=workingDays(days),weeks=workdays/5;
+ const outreach=c.acquisition==='sales'?Math.min(c.outreachHours,c.ownerHours)*weeks:0;
+ const leads=c.acquisition==='preset'?c.inquiries*c.months:outreach*c.leadsPerHour;
+ return {days,workdays,weeks,outreach,leads};
+}
+function inquirySegments(c){
+ const targetShare=(c.clientDemand?.share||0)/100;
+ const segments=(c.customerMix?['food','retail','services']:[null]).map(group=>({
+  group,groupShare:(group?c.customerMix[group]/100:1)*(1-targetShare)
+ }));
+ if(targetShare>0)segments.push({group:clientDemandType(c.clientDemand.profileId).group,groupShare:targetShare,target:true});
+ return segments;
+}
+function effectiveCustomerMix(c){
+ if(!c||typeof c!=='object'||Array.isArray(c)||configIssues(c).some(i=>i.path==='customerMix'||i.path.startsWith('clientDemand')))return null;
+ // A legacy general inquiry has no sector. Don't assign it an invented mix.
+ const mix={food:0,retail:0,services:0,unsegmented:0};
+ for(const segment of inquirySegments(c)){
+  const key=segment.group||'unsegmented';
+  mix[key]=round(mix[key]+segment.groupShare*100);
+ }
+ return mix;
+}
+function inquiryGroups(c,leads){
+ return inquirySegments(c).map(segment=>{
+  const {group,groupShare}=segment,groupLeads=leads*groupShare;
+  const eligible=suitableServices(c,group);
+  return {...segment,groupLeads,eligible,groupOrders:eligible.length?groupLeads*c.conversion:0};
+ });
+}
+function invalidServiceRouting(issue){
+ return issue.path==='services'||/^services\.\d+(?:\.(?:weight|audience))?$/.test(issue.path);
+}
+// Drafts can have valid inquiry and acceptance assumptions before services
+// have prices. Each count depends only on the inputs used to produce it.
+function estimateDemand(c,issues=configIssues(c)){
+ const counts={leads:null,matched:null,orders:null,unserved:null};
+ if(!c||typeof c!=='object'||Array.isArray(c))return counts;
+ const source=c.acquisition==='sales'?['outreachHours','ownerHours','leadsPerHour']:['inquiries'];
+ if(issues.some(i=>i.path==='months'||i.path==='acquisition'||source.includes(i.path)))return counts;
+ const {leads}=inquiryVolume(c);
+ counts.leads=leads;
+ if(issues.some(i=>i.path.startsWith('clientDemand')||i.path==='customerMix'||invalidServiceRouting(i)))return counts;
+ const groups=inquiryGroups(c,leads);
+ counts.matched=groups.reduce((sum,row)=>sum+(row.eligible.length?row.groupLeads:0),0);
+ counts.unserved=groups.reduce((sum,row)=>sum+(row.eligible.length?0:row.groupLeads),0);
+ if(!issues.some(i=>i.path==='conversion'))counts.orders=groups.reduce((sum,row)=>sum+row.groupOrders,0);
+ return counts;
+}
+function clientDemandForecast(c,issues=configIssues(c)){
+ const setting=c?.clientDemand,valid=c&&typeof c==='object'&&!Array.isArray(c)&&!issues.some(i=>i.path.startsWith('clientDemand'));
+ const share=valid?(setting?.share??0):null,profileId=valid?(setting?.profileId??null):null;
+ const row={profileId,share,active:share>0,targeted:null,other:null,matched:null,orders:null};
+ if(!valid)return row;
+ const demand=estimateDemand(c,issues);
+ if(share===0)Object.assign(row,{targeted:0,matched:0,orders:0});
+ if(demand.leads===null)return row;
+ row.targeted=demand.leads*(share/100);row.other=demand.leads-row.targeted;
+ if(!row.targeted){row.matched=0;row.orders=0;return row;}
+ if(issues.some(invalidServiceRouting))return row;
+ row.matched=suitableServices(c,clientDemandType(profileId).group).length?row.targeted:0;
+ if(!row.matched)row.orders=0;
+ else if(!issues.some(i=>i.path==='conversion'))row.orders=row.matched*c.conversion;
+ return row;
+}
+function groupWorkload(c,{group,groupLeads,groupOrders,eligible,target},designKnown=true,ownerKnown=true){
+ const total=eligible.reduce((sum,v)=>sum+v.weight,0);
+ const weighted=amount=>eligible.reduce((sum,v)=>sum+amount(v)*v.weight/total,0);
+ const effort=group&&!target?averageProfileFactor({...c,customerMix:{food:group==='food'?100:0,retail:group==='retail'?100:0,services:group==='services'?100:0}},'effort'):1;
+ const hours=designKnown?groupOrders*weighted(v=>v.hours)*effort:null;
+ const clientHours=ownerKnown?groupLeads*c.quoteHours*effort+groupOrders*(weighted(v=>v.review)*effort+c.deliveryHours):null;
+ return {total,weighted,effort,hours,clientHours};
+}
+// Time can be projected before the draft has prices, cash or pay rates.
+function estimateWorkload(input){
+ const issues=configIssues(input),paths=new Set(issues.map(issue=>issue.path));
+ const {leads,orders}=estimateDemand(input,issues);
+ if(orders===null||paths.has('profileStrength')||paths.has('focusType'))return {workdays:null,outreach:null,hours:null,owner:null};
+ const c=normalize(input),{workdays,outreach}=inquiryVolume(c);
+ const groups=inquiryGroups(c,leads).filter(group=>group.groupShare>0&&group.eligible.length);
+ const used=new Set(groups.flatMap(group=>group.eligible));
+ const validServiceHours=field=>c.services.every((service,index)=>!used.has(service)||!paths.has('services.'+index+'.'+field));
+ const designKnown=validServiceHours('hours');
+ const ownerKnown=validServiceHours('review')&&!paths.has('quoteHours')&&!paths.has('deliveryHours');
+ let hours=designKnown?0:null,owner=ownerKnown?outreach:null;
+ for(const group of groups){
+  const work=groupWorkload(c,group,designKnown,ownerKnown);
+  if(designKnown)hours+=work.hours;
+  if(ownerKnown)owner+=work.clientHours;
+ }
+ return {workdays,outreach,hours,owner};
+}
 function estimate(input){
  const c=normalize(input);
  if(!Number.isInteger(c.months)||c.months<1||c.months>12)throw Error('Choose a run length from 1 to 12 whole months.');
- const days=c.months*30,workdays=workingDays(days),weeks=workdays/5;
+ const {days,workdays,weeks,outreach,leads}=inquiryVolume(c);
  const expectedPrice=service=>service.fulfillment?service.price*service.fulfillment.managedShare+service.fulfillment.designOnlyPrice*(1-service.fulfillment.managedShare):service.price;
  const expectedPrint=service=>service.fulfillment?service.print*service.fulfillment.managedShare:service.print;
- const outreach=c.acquisition==='sales'?Math.min(c.outreachHours,c.ownerHours)*weeks:0,leads=c.acquisition==='preset'?c.inquiries*c.months:outreach*c.leadsPerHour;
  let orders=0,revenue=0,hours=0,owner=outreach,print=0,unserved=0,unservedShare=0;
  const serviceRows=new Map(c.services.map(v=>[v.id,{id:v.id,name:v.name,effectiveShare:0,inquiries:0,orders:0,revenue:0,designerHours:0,ownerHours:0,designerCost:0,printCost:0,directCost:0,contribution:0,ownerTimeValue:0,afterOwnerTime:0}]));
- for(const group of c.customerMix?['food','retail','services']:[null]){
-  const groupShare=group?c.customerMix[group]/100:1,groupLeads=leads*groupShare,eligible=suitableServices(c,group);
+ for(const demand of inquiryGroups(c,leads)){
+  const {groupShare,groupLeads,eligible,groupOrders}=demand;
   if(!eligible.length){unserved+=groupLeads;unservedShare+=groupShare;continue;}
-  const total=eligible.reduce((n,v)=>n+v.weight,0),weighted=f=>eligible.reduce((n,v)=>n+f(v)*v.weight/total,0);
-  const effort=group?averageProfileFactor({...c,customerMix:{food:group==='food'?100:0,retail:group==='retail'?100:0,services:group==='services'?100:0}},'effort'):1;
-  const groupOrders=groupLeads*c.conversion;orders+=groupOrders;
-  hours+=groupOrders*weighted(v=>v.hours)*effort;
-  owner+=groupLeads*c.quoteHours*effort+groupOrders*(weighted(v=>v.review)*effort+c.deliveryHours);
+  const work=groupWorkload(c,demand),{total,weighted,effort}=work;
+  orders+=groupOrders;
+  hours+=work.hours;
+  owner+=work.clientHours;
   revenue+=groupOrders*weighted(expectedPrice);print+=groupOrders*weighted(expectedPrint);
   for(const v of eligible){
    const share=v.weight/total,row=serviceRows.get(v.id),serviceLeads=groupLeads*share,serviceOrders=groupOrders*share;
@@ -261,6 +371,32 @@ function periodOwnerValue(s,endDay,profit,hours){
  const closing=s.replayJournal?.changes.find(change=>change.day>=endDay)?.config||s.config;
  const ownerRate=closing.ownerTarget,afterOwner=round(profit-hours*ownerRate);
  return {ownerRate,rateHistoryAvailable:Boolean(s.replayJournal),afterOwner,ownerTime:round(profit-afterOwner)};
+}
+// Save the numbers displayed at launch. Later input edits and changes to the
+// estimator itself must not rewrite the forecast a person actually ran.
+function captureForecast(config){
+ const e=estimate(config),labor=e.hours*config.designerRate,overhead=config.months*config.overhead;
+ const amount=value=>round(value)||0;
+ const forecast={version:1,days:e.days,leads:amount(e.leads),orders:amount(e.orders),ownerHours:amount(e.owner),designHours:amount(e.hours),
+  revenue:amount(e.revenue),designLabor:amount(labor),supplierCost:amount(e.expense-labor-overhead),overhead:amount(overhead),
+  cost:amount(e.expense),profit:amount(e.profit),afterOwner:amount(e.surplus)};
+ if(config.clientDemand){
+  const target=clientDemandForecast(config);
+  forecast.clientDemand={...target,targeted:amount(target.targeted),other:amount(target.other),matched:amount(target.matched),orders:amount(target.orders)};
+ }
+ return forecast;
+}
+function runLaunchEstimate(s){
+ if(s.launchEstimate)return {...clone(s.launchEstimate),basis:'launch'};
+ if(!s.day)return {...captureForecast(s.config),basis:'launch'};
+ // Older versions recorded setup changes but not changes made directly to
+ // the horizon. Reconstruct for this duration and identify the basis.
+ if(!s.replayJournal&&!legacyReplaySetupKnown(s))return null;
+ return {...captureForecast(replayConfigAt(s,0)),basis:'reconstructed'};
+}
+function captureRunLaunch(s){
+ if(!s.day)s.launchEstimate=captureForecast(s.config);
+ return runLaunchEstimate(s);
 }
 function monthResult(s,month=Math.max(1,Math.ceil(s.day/30))){
  const latest=Math.max(1,Math.ceil(s.day/30));
@@ -329,6 +465,55 @@ function monthResult(s,month=Math.max(1,Math.ceil(s.day/30))){
   supplierCost:supplierCost/100,otherProjectCost:otherProjectCost/100,deliveredCost:deliveredCost/100,unfinishedCost:unfinishedCost/100,
   receivable:receivable/100,depositsHeld:depositsHeld/100,awaitingDelivery:unfinishedJobs.length,openProjectId:unfinishedJobs[0]?.id??null,unfinishedJobs,services};
 }
+// Day-one through a completed month, with money and deliveries as recorded at that close.
+function runActualsThrough(s,days){
+ if(!Number.isInteger(days)||days<30||days%30||days>s.day)throw Error('Choose a completed reporting month.');
+ const periods=Array.from({length:days/30},(_,i)=>monthResult(s,i+1)),closing=periods.at(-1);
+ const sum=key=>round(periods.reduce((total,row)=>total+row[key],0));
+ const history=s.history.slice(0,days);
+ const leads=history.every(day=>Number.isInteger(day.externalArrivals))?history.reduce((count,day)=>count+day.externalArrivals,0):null;
+ const booked=s.projects.filter(p=>p.accepted!==undefined&&p.accepted<=days);
+ const firstOrders=booked.filter(p=>p.orderKind==='new-business');
+ const isDelivered=p=>p.deliveredDay!==undefined&&p.deliveredDay<=days;
+ const open=booked.filter(p=>!isDelivered(p)),returning=booked.filter(p=>p.orderKind!=='new-business'&&isDelivered(p));
+ const value=projects=>round(projects.reduce((n,p)=>n+p.price,0));
+ let projectDecisions=0;
+ for(const actions of replayActions(s,days).values()){
+  projectDecisions+=actions.filter(action=>action.kind!=='settings'&&action.kind!=='funding').length;
+ }
+ let designHours=s.designHours;
+ if(days<s.day){
+  const postings=s.ledger.filter(e=>e.day<=days&&e.type==='expense'&&e.project&&directExpenseKind(e)==='designLabor');
+  designHours=postings.every(e=>e.designHours!==undefined)?postings.reduce((n,e)=>n+e.designHours,0):null;
+ }
+ return {profit:sum('profit'),afterOwner:sum('afterOwner'),rateHistoryAvailable:Boolean(s.replayJournal),revenue:sum('revenue'),cost:sum('cost'),
+  ownerHours:sum('ownerHours'),designHours:designHours===null?null:round(designHours),leads,orders:firstOrders.length,
+  designLabor:sum('designLabor'),supplierCost:sum('supplierCost'),overhead:sum('overhead'),otherCost:sum('otherProjectCost'),
+  delivered:sum('delivered'),newDelivered:firstOrders.filter(isDelivered).length,newBooked:value(firstOrders),
+  newBacklog:value(open.filter(p=>p.orderKind==='new-business')),returnDelivered:returning.length,returnRevenue:value(returning),
+  awaitingDelivery:open.length,backlog:value(open),receivable:closing.receivable,depositsHeld:closing.depositsHeld,closingCash:closing.closingCash,
+  receipts:sum('receipts'),funding:sum('funding'),projectDecisions};
+}
+function runEstimateComparison(s){
+ if(!s.day||s.day<s.config.months*30)return null;
+ const forecast=runLaunchEstimate(s),launchDays=forecast?.basis==='launch'?forecast.days:null;
+ const shortened=launchDays!==null&&s.day<launchDays;
+ const days=Math.min(s.day,launchDays??s.day),estimate=shortened?null:forecast;
+ const actual=runActualsThrough(s,days);
+ const drivers=[];
+ if(estimate){
+  for(const key of ['revenue','designLabor','supplierCost','overhead','otherCost']){
+   const planned=key==='otherCost'?0:estimate[key],incurred=actual[key];
+   const impact=round(key==='revenue'?incurred-planned:planned-incurred);
+   if(key!=='otherCost'||incurred)drivers.push({key,estimate:planned,actual:incurred,impact});
+  }
+  // The headline forecast and its cost components round independently.
+  const residual=round(actual.profit-estimate.profit-drivers.reduce((n,row)=>n+row.impact,0));
+  if(residual)drivers.push({key:'rounding',estimate:-residual,actual:0,impact:residual});
+ }
+ return {basis:shortened?'shortened':forecast?.basis||'unavailable',launchDays,days,estimate,actual,drivers,
+  changes:s.replayJournal?.changes.filter(row=>row.day<days).length??0};
+}
 function analytics(s){
  const ratio=(n,d)=>d>0?n/d:null, sum=(rows,key)=>rows.reduce((n,p)=>n+(p[key]||0),0);
  const delivered=s.projects.filter(p=>p.delivered), accepted=s.projects.filter(p=>p.accepted!==undefined);
@@ -372,6 +557,7 @@ function externalDemandSettings(c){
   settings.outreachHours=Math.min(c.ownerHours,c.outreachHours);
   settings.leadsPerHour=c.leadsPerHour;
  }else settings.inquiries=c.inquiries;
+ if(c.clientDemand?.share>0)settings.clientDemand={profileId:c.clientDemand.profileId,share:c.clientDemand.share};
  if(c.customerMix){
   const {food,retail,services}=c.customerMix;
   settings.customerMix={food,retail,services};
@@ -382,15 +568,23 @@ function externalDemandSettings(c){
  }));
  return settings;
 }
-function completeDemandHistory(s){
- return s.day===0 || (s.demandHistory?.[0]?.day===1 && s.history.length===s.day && s.history.every(h=>Number.isInteger(h.externalArrivals)));
+function completeDemandHistory(s,days=s.day){
+ return days===0 || (s.demandHistory?.[0]?.day===1 && s.history.length>=days && s.history.slice(0,days).every(h=>Number.isInteger(h.externalArrivals)));
 }
-function sameInquiries(current,baseline){
+function clientDemandActuals(s,profileId,days=s.day){
+ const type=clientDemandType(profileId);
+ if(!type||!Number.isInteger(days)||days<0||days>s.day||!completeDemandHistory(s,days))return {targeted:null,matched:null,orders:null};
+ const matched=s.projects.filter(p=>p.orderKind==='new-business'&&p.created<=days&&p.clientType===type.id);
+ const unserved=s.history.slice(0,days).reduce((count,row)=>count+(row.unservedInquiries||[]).filter(([,id])=>id===type.id).length,0);
+ return {targeted:matched.length+unserved,matched:matched.length,orders:matched.filter(p=>p.accepted!==undefined&&p.accepted<=days).length};
+}
+function sameInquiries(current,baseline,days=current.day){
  // An arrival's ID is its calendar day and index, even when no service fits.
  // Returning cycles are an outcome of the business and deliberately excluded.
- const external=s=>s.projects.filter(p=>p.orderKind==='new-business');
+ const external=s=>s.projects.filter(p=>p.orderKind==='new-business'&&p.created<=days);
  const currentProjects=external(current),baseProjects=external(baseline);
- if(currentProjects.length!==baseProjects.length || (current.unserved??0)!==(baseline.unserved??0))return false;
+ if(currentProjects.length!==baseProjects.length)return false;
+ if(days===current.day&&days===baseline.day&&(current.unserved??0)!==(baseline.unserved??0))return false;
  const prior=new Map(baseProjects.map(p=>[p.demandId,p]));
  if(prior.size!==baseProjects.length)return false;
  for(const p of currentProjects){
@@ -398,21 +592,27 @@ function sameInquiries(current,baseline){
   if(!other || other.created!==p.created || other.serviceId!==p.serviceId || other.clientId!==p.clientId || other.clientType!==p.clientType)return false;
   prior.delete(p.demandId);
  }
- return current.history.every((h,i)=>h.externalArrivals===baseline.history[i].externalArrivals &&
+ return current.history.slice(0,days).every((h,i)=>h.externalArrivals===baseline.history[i].externalArrivals &&
   JSON.stringify(h.unservedInquiries||[])===JSON.stringify(baseline.history[i].unservedInquiries||[]));
 }
-function compareRuns(current,baseline){
- const a=analytics(current),b=analytics(baseline),am=metrics(current),bm=metrics(baseline),delta=(x,y)=>round((x||0)-(y||0));
+function workloadComparison(current,baseline,throughDay){
  const flags={sameElapsedDay:current.day===baseline.day,sameWorkloadIdentity:current.config.seed===baseline.config.seed && Boolean(current.workloadId) && current.workloadId===baseline.workloadId,
   sameExternalDemandAssumptions:JSON.stringify(externalDemandSettings(current.config))===JSON.stringify(externalDemandSettings(baseline.config)),
   sameDemandHistory:null,sameRealizedInquiries:null};
- if(flags.sameElapsedDay && completeDemandHistory(current) && completeDemandHistory(baseline)){
-  const currentPeriods=current.demandHistory||[],baselinePeriods=baseline.demandHistory||[];
+ const days=throughDay??(flags.sameElapsedDay?current.day:null);
+ if(Number.isInteger(days)&&days>=0&&days<=Math.min(current.day,baseline.day)&&completeDemandHistory(current,days)&&completeDemandHistory(baseline,days)){
+  const periods=s=>(s.demandHistory||[]).filter(row=>row.day<=days);
+  const currentPeriods=periods(current),baselinePeriods=periods(baseline);
   flags.sameDemandHistory=currentPeriods.length===baselinePeriods.length && currentPeriods.every((period,i)=>
    period.day===baselinePeriods[i].day && sameReplayValue(period.settings,baselinePeriods[i].settings));
-  flags.sameRealizedInquiries=sameInquiries(current,baseline);
+  flags.sameRealizedInquiries=sameInquiries(current,baseline,days);
  }
  flags.likeForLike=flags.sameElapsedDay && flags.sameWorkloadIdentity && flags.sameExternalDemandAssumptions && flags.sameDemandHistory===true && flags.sameRealizedInquiries===true;
+ return flags;
+}
+function compareRuns(current,baseline){
+ const a=analytics(current),b=analytics(baseline),am=metrics(current),bm=metrics(baseline),delta=(x,y)=>round((x||0)-(y||0));
+ const flags=workloadComparison(current,baseline);
  const warnings=[];
  if(!flags.sameElapsedDay)warnings.push({code:'different-day',message:'Runs are at different elapsed days; result deltas are descriptive, not causal.'});
  if(!flags.sameWorkloadIdentity)warnings.push({code:'different-workload',message:'Runs do not share a workload identity; customer-level outcomes are not directly comparable.'});
@@ -468,6 +668,7 @@ function orderedProjects(s){const c=s.config;return [...s.projects].sort((a,b)=>
 // work, preserve the diagnostic, then retry after an explicit funding decision.
 function nextDayDraft(s,closedIntake=false){
  const draft=clone(s);
+ if(!s.day&&!s.launchEstimate&&!closedIntake)draft.launchEstimate=captureForecast(s.config);
  if(!draft.replayJournal&&legacyReplaySetupKnown(draft))draft.replayJournal={version:1,changes:[]};
  draft.day++;if(!advance(draft,closedIntake)){
  // A newly created project disappears with the rolled-back day. Its ID stays
@@ -615,6 +816,12 @@ function configIssues(c){
   if(!['preset','sales'].includes(c.acquisition))add('acquisition','Choose how inquiries arrive.');
   if(!['deadline','fifo'].includes(c.priority))add('priority','Choose a valid queue order.');
   if(typeof c.realism!=='boolean')add('realism','Choose valid uncertainty settings.');
+  if(c.clientDemand!==undefined){
+    const target=c.clientDemand;
+    if(!target||typeof target!=='object'||Array.isArray(target)||Object.keys(target).sort().join(',')!=='profileId,share'||!clientDemandType(target.profileId))
+      add('clientDemand.profileId','Choose a client from the starter menus.');
+    if(!Number.isInteger(target?.share)||target.share<0||target.share>100)add('clientDemand.share','Enter a whole target share between 0 and 100%.');
+  }
   if(c.fixedInquiriesEntered!==undefined&&typeof c.fixedInquiriesEntered!=='boolean')add('inquiries','Fixed inquiry preference is invalid.');
   if(c.assumptionRecords!==undefined&&(!validAssumptionRecords(c.assumptionRecords)||withCurrentAssumptionRecords(c)!==c))add('assumptionRecords','An assumption record has an invalid source, sample, date or matching value.');
   if(c.recipe!==undefined){
@@ -815,10 +1022,15 @@ function verifyObservedReplay(source,control,end=control.day){
   throw Error('The unchanged replay did not reproduce the recorded month. Its saved history cannot support a one-change comparison.');
  }
 }
+function replayOpening(source){
+ const opening=fresh(replayConfigAt(source,0));
+ if(source.launchEstimate)opening.launchEstimate={...source.launchEstimate};
+ return opening;
+}
 // Yield after each simulated day so the history dialog can be closed while verifying a long run.
 function* recordedMonthClose(source,month){
  const period=capacityReplaySetup(source,month),end=Math.min(period.endDay,source.day);
- const close=fresh(replayConfigAt(source,0)),session={actions:replayActions(source,end)};
+ const close=replayOpening(source),session={actions:replayActions(source,end)};
  applyReplayActions(session,close,false);
  while(close.day<end){
   if(!step(close))throw Error('The recorded work could not be reconstructed through day '+end+'.');
@@ -831,6 +1043,12 @@ function* recordedMonthClose(source,month){
 function forkCapacityReplay(session){
  const alternative=clone(session.baseline);
  applyConfig(alternative,changedCapacity(alternative.config,session.key,session.value));
+ // A first-month alternative changes the business from the beginning. A
+ // later fork inherits its original forecast just as a live setup edit does.
+ if(!alternative.day){
+  const months=alternative.launchEstimate?alternative.launchEstimate.days/30:alternative.config.months;
+  alternative.launchEstimate=captureForecast({...alternative.config,months});
+ }
  session.alternative=alternative;
  session.phase='running';
 }
@@ -841,7 +1059,7 @@ function startCapacityReplay(source,{month,key,value,demandId=null}={}){
  if(value===period.config[key])throw Error('Enter a value different from the opening setup.');
  changedCapacity(period.config,key,value);
  if(demandId!==null&&!source.projects.some(p=>p.demandId===demandId&&p.created<=period.endDay))throw Error('The selected job had not arrived in this month.');
- const observed=clone(source),baseline=fresh(replayConfigAt(observed,0));
+ const observed=clone(source),baseline=replayOpening(observed);
  const session={phase:'opening',month:period.month,firstDay:period.firstDay,endDay:period.endDay,sourceDay:source.day,
   key,before:period.config[key],value,demandId,source:observed,actions:replayActions(observed,period.endDay),baseline,alternative:null};
  applyReplayActions(session,baseline,false);
@@ -1269,9 +1487,9 @@ function acceptedProjectionResult(session){
   profitDelta:settled?round(alternative.profit-baseline.profit):null};
 }
 function restore(input){return (root.MEIQQValidation||(typeof require==='function'?require('./validation.js'):null)).restore(input,api);}
-const api={ASSUMPTION_FIELDS,assumptionRecordValue,validAssumptionRecords,withCurrentAssumptionRecords,MODEL_VERSION,DEFAULT,DISRUPTION_RULES,RECIPE_V2,CUSTOMER_TYPES,STAGES,LABELS,clone,round,random,demandDraw,recipeFingerprint,validServiceSpec,validServiceFulfillment,validServiceCampaign,fresh,step,metrics,analytics,monthResult,estimate,compareRuns,workCapacity,projectDiagnostic,bottleneck,orderedProjects,fund,intervene,configIssues,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};
-Object.assign(api,{recordedMonthClose,externalDemandSettings,visitExternalInquiries,validateReplayJournal,capacityReplaySetup,startCapacityReplay,stepCapacityReplay,capacityReplayResult,capacityPairResult,
- startCapacityCarry,stepCapacityCarry:stepCapacityReplay,capacityCarryResult,capacityCarryPairResult,
+const api={ASSUMPTION_FIELDS,assumptionRecordValue,validAssumptionRecords,withCurrentAssumptionRecords,MODEL_VERSION,DEFAULT,DISRUPTION_RULES,RECIPE_V2,CUSTOMER_TYPES,STAGES,LABELS,clone,round,random,demandDraw,recipeFingerprint,validServiceSpec,validServiceFulfillment,validServiceCampaign,fresh,step,metrics,analytics,monthResult,estimate,estimateDemand,estimateWorkload,compareRuns,workCapacity,projectDiagnostic,bottleneck,orderedProjects,fund,intervene,configIssues,validateConfig,normalize,workingDays,applyConfig,restore,completePaid,cashSeries};
+Object.assign(api,{clientDemandType,profileFor,clientDemandForecast,clientDemandActuals,effectiveCustomerMix,directExpenseKind,captureRunLaunch,runLaunchEstimate,runActualsThrough,runEstimateComparison,workloadComparison,recordedMonthClose,externalDemandSettings,visitExternalInquiries,validateReplayJournal,capacityReplaySetup,startCapacityReplay,stepCapacityReplay,capacityReplayResult,capacityPairResult,
+ replayConfigAt,startCapacityCarry,stepCapacityCarry:stepCapacityReplay,capacityCarryResult,capacityCarryPairResult,
  startAcceptedProjection,stepAcceptedProjection,acceptedProjectionResult});
 root.QQ=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

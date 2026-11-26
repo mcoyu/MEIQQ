@@ -1,4 +1,64 @@
 const test=require('node:test'),assert=require('node:assert/strict'),q=require('./engine.js'),catalog=require('./service-catalog.js'),presets=require('./presets.js');
+const opportunities=catalog.SERVICES.filter(service=>service.spec.catalogId===catalog.OPPORTUNITY_CATALOG.id);
+
+test('new offerings preserve the frozen legacy scopes, economics and starter mixes',()=>{
+ const legacy=catalog.SERVICES.filter(service=>service.spec.catalogId===catalog.CATALOG.id);
+ const derivations=Object.fromEntries(legacy.map(service=>[service.id,catalog.DERIVATIONS[service.id]]));
+ const frozen=JSON.stringify({services:legacy,derivations,bundles:catalog.BUNDLES});
+ assert.equal(require('node:crypto').createHash('sha256').update(frozen).digest('hex'),'ed120aba96b52d5f1701e99cd307a93b0bada558475d2276c81d2b0d563c919b');
+ assert.ok(opportunities.length>=26);
+ assert.equal(new Set(catalog.SERVICES.map(item=>item.id)).size,catalog.SERVICES.length);
+ assert.ok(opportunities.every(service=>service.weight===0));
+ assert.equal(catalog.recommendation('no-such-package'),null);
+ for(const id of catalog.FEATURED_IDS)assert.ok(catalog.recommendation(id));
+});
+
+test('planning records, workflow references and print-price observations retain their own provenance',()=>{
+ for(const service of opportunities){
+  const audit=catalog.auditService(service);
+  assert.equal(audit.compatible,true);assert.deepEqual(audit.edited,[]);
+  assert.equal(audit.records.length,service.spec.evidenceIds.length);
+  assert.ok(audit.records.some(record=>record.kind==='planning-assumptions'));
+  for(const record of audit.records)assert.equal(q.recipeFingerprint(record.observations),record.observationHash);
+  if(service.print)assert.ok(audit.records.some(record=>record.kind==='printer-price-list'));
+  const wrong=catalog.createService(service.id);wrong.spec.catalogId=catalog.CATALOG.id;
+  assert.equal(catalog.auditService(wrong).compatible,false);
+ }
+});
+
+test('each new package can be priced, sold and restored with its accepted terms and an independent editable draft',()=>{
+ const workspace=require('./workspace.js');
+ for(const item of opportunities){
+  const offer=catalog.createService(item.id);offer.weight=100;offer.price+=25;
+  const audience=offer.audience==='all'?'services':offer.audience;
+  const customerMix={food:0,retail:0,services:0,[audience]:100};
+  const config={...q.clone(q.DEFAULT),months:1,startingCash:10000,realism:false,acquisition:'preset',
+   inquiries:10,conversion:1,profileStrength:0,focusType:'none',customerMix,services:[offer]};
+  assert.deepEqual(q.configIssues(config),[],item.id);
+  const state=q.fresh(config);for(let day=0;day<30;day++)assert.ok(q.step(state));
+  const won=state.projects.find(project=>project.accepted!==undefined);
+  assert.equal(won?.service.spec.packageId,item.id);assert.equal(won.service.price,item.price+25);
+  const draft=q.clone(config);draft.services[0].price=null;
+  const saved=workspace.parseText(workspace.serialize({state,draft,saved:[],checkpointInfo:[],recoveryFiles:[]}));
+  assert.deepEqual(saved.state,q.restore(state));assert.deepEqual(saved.draft,draft);
+  assert.deepEqual(saved.recoveryFiles,[]);assert.deepEqual(catalog.auditService(offer).edited,['price']);
+ }
+});
+
+test('all packages have localized decision guidance and new scopes translate with the standalone script order',()=>{
+ const vm=require('node:vm'),fs=require('node:fs'),ctx=vm.createContext({document:{documentElement:{}}});
+ for(const name of ['zh-CN.js','i18n.js','service-catalog.js'])vm.runInContext(fs.readFileSync(name,'utf8'),ctx);
+ ctx.QQI18n.choose('zh-CN');
+ for(const item of catalog.SERVICES){
+  const guide=catalog.recommendation(item.id);assert.ok(Object.isFrozen(guide));
+  const copy=[guide.buyer,guide.benefit,guide.inputs,guide.boundary];
+  if(item.spec.catalogId===catalog.OPPORTUNITY_CATALOG.id){
+   copy.push(item.name,item.spec.scope,...item.spec.deliverables,catalog.DERIVATIONS[item.id].explanation);
+   if(item.filesOnlyScope)copy.push(item.filesOnlyScope);
+  }
+  for(const value of copy)assert.match(ctx.QQI18n.text(value),/[\u3400-\u9fff]/,item.id+' · '+value);
+ }
+});
 
 test('starter bundles are focused valid mixes with immutable catalog provenance',()=>{
  for(const bundle of catalog.BUNDLES){
